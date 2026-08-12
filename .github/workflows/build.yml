@@ -18,8 +18,11 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Build APK with Gradle
-      run: gradle assembleDebug --no-daemon || (echo "BUILD FAILED WITH ERROR"; exit 1)
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build APK with Gradle Wrapper
+      run: ./gradlew assembleDebug --no-daemon
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
