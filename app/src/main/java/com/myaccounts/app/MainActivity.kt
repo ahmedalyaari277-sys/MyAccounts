@@ -6,6 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
@@ -19,62 +24,72 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
+            val navController = rememberNavController()
+
             val personsList by viewModel.personsWithAccounts.collectAsState()
 
-            HomeScreen(
-                personsList = personsList,
+            NavHost(
+                navController = navController,
+                startDestination = "home"
+            ) {
 
-                onAddPerson = { name, phone, address ->
+                composable(
+                    route = "home"
+                ) {
 
-                    viewModel.addPerson(
-                        name = name,
-                        phone = phone,
-                        address = address
+                    HomeScreen(
+                        personsList = personsList,
+
+                        onAddPerson = { name, phone, address ->
+
+                            viewModel.addPerson(
+                                name = name,
+                                phone = phone,
+                                address = address
+                            )
+                        },
+
+                        onPersonClick = { person ->
+
+                            navController.navigate(
+                                "person/${person.person.id}"
+                            )
+                        }
                     )
-                },
+                }
 
-                onPersonClick = { person ->
+                composable(
+                    route = "person/{personId}",
+                    arguments = listOf(
+                        navArgument("personId") {
+                            type = NavType.LongType
+                        }
+                    )
+                ) { backStackEntry ->
 
-                    setContent {
+                    val personId =
+                        backStackEntry.arguments
+                            ?.getLong("personId")
+
+                    val selectedPerson =
+                        personsList.firstOrNull {
+                            it.person.id == personId
+                        }
+
+                    if (selectedPerson != null) {
 
                         PersonAccountScreen(
-                            personWithAccounts = person,
+
+                            personWithAccounts =
+                                selectedPerson,
 
                             onBack = {
-
-                                setContent {
-
-                                    HomeScreen(
-                                        personsList = viewModel.personsWithAccounts.value,
-
-                                        onAddPerson = { name, phone, address ->
-
-                                            viewModel.addPerson(
-                                                name = name,
-                                                phone = phone,
-                                                address = address
-                                            )
-                                        },
-
-                                        onPersonClick = { selectedPerson ->
-
-                                            setContent {
-
-                                                PersonAccountScreen(
-                                                    personWithAccounts = selectedPerson,
-                                                    onBack = {
-                                                        recreate()
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    )
-                                }
+                                navController.popBackStack()
                             }
                         )
                     }
                 }
-            )
+            }
         }
     }
 }
