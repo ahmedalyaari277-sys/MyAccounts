@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import com.myaccounts.app.data.local.converter.DatabaseConverters
 import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.entity.CurrencyAccountEntity
 import com.myaccounts.app.data.local.entity.PersonEntity
@@ -18,32 +20,27 @@ import com.myaccounts.app.data.local.entity.TransactionEntity
     version = 1,
     exportSchema = false
 )
+@TypeConverters(DatabaseConverters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun ledgerDao(): LedgerDao
 
     companion object {
 
+        private const val DATABASE_NAME = "ledger_local_database.db"
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(
-            context: Context
-        ): AppDatabase {
-
+        fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-
-                val instance = Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "ledger_local_database.db"
+                    DATABASE_NAME
                 )
-                    .fallbackToDestructiveMigration()
                     .build()
-
-                INSTANCE = instance
-
-                instance
+                    .also { INSTANCE = it }
             }
         }
     }
