@@ -10,7 +10,11 @@ import com.myaccounts.app.data.local.entity.PersonEntity
 import com.myaccounts.app.data.local.entity.TransactionEntity
 
 @Database(
-    entities = [PersonEntity::class, CurrencyAccountEntity::class, TransactionEntity::class],
+    entities = [
+        PersonEntity::class,
+        CurrencyAccountEntity::class,
+        TransactionEntity::class
+    ],
     version = 1,
     exportSchema = false
 )
@@ -19,17 +23,26 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
 
     companion object {
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(context: Context): AppDatabase {
+        fun getInstance(
+            context: Context
+        ): AppDatabase {
+
             return INSTANCE ?: synchronized(this) {
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "ledger_local_database.db"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
+
                 INSTANCE = instance
+
                 instance
             }
         }
