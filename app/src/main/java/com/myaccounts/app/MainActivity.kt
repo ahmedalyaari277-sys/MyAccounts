@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.theme.MyAccountsTheme
+import com.myaccounts.app.ui.viewmodel.LedgerViewModel
 
 class MainActivity : ComponentActivity() {
 
