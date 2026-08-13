@@ -73,9 +73,13 @@ fun HomeScreen(
     }
 
     Scaffold(
+
         topBar = {
+
             TopAppBar(
+
                 title = {
+
                     Text(
                         text = "دفتر الحسابات",
                         fontWeight = FontWeight.Bold
@@ -87,9 +91,11 @@ fun HomeScreen(
         floatingActionButton = {
 
             FloatingActionButton(
+
                 onClick = {
                     showAddDialog = true
                 }
+
             ) {
 
                 Icon(
@@ -102,27 +108,36 @@ fun HomeScreen(
     ) { paddingValues ->
 
         Column(
+
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
+
         ) {
 
             OutlinedTextField(
+
                 value = searchQuery,
+
                 onValueChange = {
                     searchQuery = it
                 },
+
                 modifier = Modifier.fillMaxWidth(),
+
                 placeholder = {
                     Text("بحث عن الاسم أو رقم الهاتف")
                 },
+
                 leadingIcon = {
+
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null
                     )
                 },
+
                 singleLine = true
             )
 
@@ -133,17 +148,26 @@ fun HomeScreen(
             if (filteredList.isEmpty()) {
 
                 Box(
+
                     modifier = Modifier.fillMaxSize(),
+
                     contentAlignment = Alignment.Center
+
                 ) {
 
                     Text(
+
                         text = if (searchQuery.isBlank()) {
+
                             "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
+
                         } else {
+
                             "لا توجد نتائج للبحث"
                         },
+
                         color = Color.Gray,
+
                         fontSize = 15.sp
                     )
                 }
@@ -151,14 +175,19 @@ fun HomeScreen(
             } else {
 
                 LazyColumn(
+
                     modifier = Modifier.fillMaxSize()
+
                 ) {
 
                     items(
+
                         items = filteredList,
+
                         key = {
                             it.person.id
                         }
+
                     ) { item ->
 
                         PersonCard(
@@ -199,6 +228,7 @@ private fun PersonCard(
 ) {
 
     Card(
+
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 5.dp)
@@ -210,6 +240,7 @@ private fun PersonCard(
             containerColor =
                 MaterialTheme.colorScheme.surfaceVariant
         )
+
     ) {
 
         Column(
@@ -221,8 +252,11 @@ private fun PersonCard(
             ) {
 
                 Icon(
+
                     imageVector = Icons.Default.Person,
+
                     contentDescription = null,
+
                     tint = MaterialTheme.colorScheme.primary
                 )
 
@@ -233,8 +267,11 @@ private fun PersonCard(
                 Column {
 
                     Text(
+
                         text = personWithAccounts.person.name,
+
                         fontWeight = FontWeight.Bold,
+
                         fontSize = 17.sp
                     )
 
@@ -243,8 +280,11 @@ private fun PersonCard(
                     ) {
 
                         Text(
+
                             text = personWithAccounts.person.phone,
+
                             fontSize = 13.sp,
+
                             color = Color.Gray
                         )
                     }
@@ -260,8 +300,12 @@ private fun PersonCard(
                 )
 
                 Text(
-                    text = "العنوان: ${personWithAccounts.person.address}",
+
+                    text =
+                        "العنوان: ${personWithAccounts.person.address}",
+
                     fontSize = 13.sp,
+
                     color = Color.Gray
                 )
             }
@@ -271,8 +315,12 @@ private fun PersonCard(
             )
 
             Row(
+
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween
+
             ) {
 
                 CurrencyLabel(
@@ -298,8 +346,11 @@ private fun CurrencyLabel(
 ) {
 
     Text(
+
         text = "$currency\n0",
+
         fontSize = 12.sp,
+
         fontWeight = FontWeight.Bold
     )
 }
@@ -307,8 +358,11 @@ private fun CurrencyLabel(
 
 @Composable
 private fun AddPersonDialog(
+
     onDismiss: () -> Unit,
+
     onSave: (String, String, String) -> Unit
+
 ) {
 
     var name by remember {
@@ -332,8 +386,11 @@ private fun AddPersonDialog(
         onDismissRequest = onDismiss,
 
         title = {
+
             Text(
+
                 text = "إضافة شخص جديد",
+
                 fontWeight = FontWeight.Bold
             )
         },
@@ -343,24 +400,35 @@ private fun AddPersonDialog(
             Column {
 
                 OutlinedTextField(
+
                     value = name,
+
                     onValueChange = {
+
                         name = it
                         nameError = false
                     },
+
                     modifier = Modifier.fillMaxWidth(),
+
                     label = {
                         Text("اسم الشخص")
                     },
+
                     singleLine = true,
+
                     isError = nameError
                 )
 
                 if (nameError) {
 
                     Text(
+
                         text = "اسم الشخص مطلوب",
-                        color = MaterialTheme.colorScheme.error,
+
+                        color =
+                            MaterialTheme.colorScheme.error,
+
                         fontSize = 12.sp
                     )
                 }
@@ -370,14 +438,19 @@ private fun AddPersonDialog(
                 )
 
                 OutlinedTextField(
+
                     value = phone,
+
                     onValueChange = {
                         phone = it
                     },
+
                     modifier = Modifier.fillMaxWidth(),
+
                     label = {
                         Text("رقم الهاتف")
                     },
+
                     singleLine = true
                 )
 
@@ -386,14 +459,19 @@ private fun AddPersonDialog(
                 )
 
                 OutlinedTextField(
+
                     value = address,
+
                     onValueChange = {
                         address = it
                     },
+
                     modifier = Modifier.fillMaxWidth(),
+
                     label = {
                         Text("العنوان")
                     },
+
                     minLines = 2
                 )
             }
@@ -402,6 +480,7 @@ private fun AddPersonDialog(
         confirmButton = {
 
             Button(
+
                 onClick = {
 
                     if (name.isBlank()) {
@@ -411,12 +490,16 @@ private fun AddPersonDialog(
                     } else {
 
                         onSave(
+
                             name.trim(),
+
                             phone.trim(),
+
                             address.trim()
                         )
                     }
                 }
+
             ) {
 
                 Text("حفظ")
@@ -426,7 +509,9 @@ private fun AddPersonDialog(
         dismissButton = {
 
             TextButton(
+
                 onClick = onDismiss
+
             ) {
 
                 Text("إلغاء")
