@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.repository.LedgerRepository
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -19,6 +18,9 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
             AppDatabase.getInstance(application).ledgerDao()
         )
 
+    /**
+     * جميع الأشخاص مع حساباتهم
+     */
     val personsWithAccounts: StateFlow<List<PersonWithAccounts>> =
         repository.allPersonsFlow
             .stateIn(
@@ -27,6 +29,9 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
                 initialValue = emptyList()
             )
 
+    /**
+     * إضافة شخص جديد
+     */
     fun addPerson(
         name: String,
         phone: String,
@@ -45,12 +50,23 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun getPersonWithAccounts(
+    /**
+     * حذف شخص
+     */
+    fun deletePerson(
         personId: Long
-    ): Flow<PersonWithAccounts?> {
+    ) {
+        viewModelScope.launch {
+            repository.deletePerson(personId)
+        }
+    }
 
-        return repository.getPersonWithAccounts(
-            personId
-        )
+    /**
+     * الحصول على شخص محدد مع حساباته
+     */
+    suspend fun getPersonWithAccounts(
+        personId: Long
+    ): PersonWithAccounts? {
+        return repository.getPersonWithAccounts(personId)
     }
 }
