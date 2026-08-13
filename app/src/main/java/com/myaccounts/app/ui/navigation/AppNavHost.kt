@@ -32,7 +32,6 @@ fun AppNavHost(
         ) {
 
             HomeScreen(
-
                 personsList = persons,
 
                 onAddPerson = {
@@ -61,15 +60,11 @@ fun AppNavHost(
         }
 
         composable(
-            route =
-                Routes.PERSON_ACCOUNT,
+            route = Routes.PERSON_ACCOUNT,
 
             arguments = listOf(
-                navArgument(
-                    "personId"
-                ) {
-                    type =
-                        NavType.LongType
+                navArgument("personId") {
+                    type = NavType.LongType
                 }
             )
         ) { backStackEntry ->
@@ -77,9 +72,7 @@ fun AppNavHost(
             val personId =
                 backStackEntry
                     .arguments
-                    ?.getLong(
-                        "personId"
-                    )
+                    ?.getLong("personId")
 
             val person =
                 persons.firstOrNull {
@@ -90,12 +83,10 @@ fun AppNavHost(
 
                 PersonAccountScreen(
 
-                    personWithAccounts =
-                        person,
+                    personWithAccounts = person,
 
                     onBack = {
-                        navController
-                            .popBackStack()
+                        navController.popBackStack()
                     },
 
                     onUpdatePerson = {
@@ -105,8 +96,7 @@ fun AppNavHost(
                             notes ->
 
                         viewModel.updatePerson(
-                            personId =
-                                person.person.id,
+                            personId = person.person.id,
                             name = name,
                             phone = phone,
                             address = address,
@@ -120,8 +110,7 @@ fun AppNavHost(
                             person.person.id
                         )
 
-                        navController
-                            .popBackStack()
+                        navController.popBackStack()
                     }
                 )
             }
