@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,7 +46,12 @@ import com.myaccounts.app.data.local.dao.PersonWithAccounts
 @Composable
 fun HomeScreen(
     personsList: List<PersonWithAccounts>,
-    onAddPerson: (String, String, String) -> Unit,
+    onAddPerson: (
+        String,
+        String,
+        String,
+        String
+    ) -> Unit,
     onPersonClick: (Long) -> Unit
 ) {
 
@@ -59,28 +63,32 @@ fun HomeScreen(
         mutableStateOf(false)
     }
 
-    val filteredList = personsList.filter { personWithAccounts ->
+    val filteredList =
+        personsList.filter { item ->
 
-        val nameMatches =
-            personWithAccounts.person.name.contains(
+            item.person.name.contains(
                 searchQuery,
                 ignoreCase = true
-            )
-
-        val phoneMatches =
-            personWithAccounts.person.phone.contains(searchQuery)
-
-        nameMatches || phoneMatches
-    }
+            ) ||
+                item.person.phone.contains(
+                    searchQuery
+                ) ||
+                item.person.address.contains(
+                    searchQuery,
+                    ignoreCase = true
+                ) ||
+                item.person.notes.contains(
+                    searchQuery,
+                    ignoreCase = true
+                )
+        }
 
     Scaffold(
 
         topBar = {
 
             TopAppBar(
-
                 title = {
-
                     Text(
                         text = "دفتر الحسابات",
                         fontWeight = FontWeight.Bold
@@ -92,11 +100,9 @@ fun HomeScreen(
         floatingActionButton = {
 
             FloatingActionButton(
-
                 onClick = {
                     showAddDialog = true
                 }
-
             ) {
 
                 Icon(
@@ -109,12 +115,10 @@ fun HomeScreen(
     ) { paddingValues ->
 
         Column(
-
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
-
         ) {
 
             OutlinedTextField(
@@ -125,17 +129,21 @@ fun HomeScreen(
                     searchQuery = it
                 },
 
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier.fillMaxWidth(),
 
                 placeholder = {
-                    Text("بحث عن الاسم أو رقم الهاتف")
+                    Text(
+                        "بحث بالاسم أو الهاتف أو العنوان أو الملاحظات"
+                    )
                 },
 
                 leadingIcon = {
 
                     Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null
+                        imageVector =
+                            Icons.Default.Search,
+                        contentDescription = "بحث"
                     )
                 },
 
@@ -143,31 +151,26 @@ fun HomeScreen(
             )
 
             Spacer(
-                modifier = Modifier.height(16.dp)
+                modifier =
+                    Modifier.height(16.dp)
             )
 
             if (filteredList.isEmpty()) {
 
                 Box(
-
-                    modifier = Modifier.fillMaxSize(),
-
-                    contentAlignment = Alignment.Center
-
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    contentAlignment =
+                        Alignment.Center
                 ) {
 
                     Text(
-
-                        text = if (searchQuery.isBlank()) {
-
-                            "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
-
-                        } else {
-
-                            "لا توجد نتائج للبحث"
-                        },
-
-                        color = Color.Gray,
+                        text =
+                            if (searchQuery.isBlank()) {
+                                "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
+                            } else {
+                                "لا توجد نتائج للبحث"
+                            },
                         fontSize = 15.sp
                     )
                 }
@@ -175,25 +178,19 @@ fun HomeScreen(
             } else {
 
                 LazyColumn(
-
-                    modifier = Modifier.fillMaxSize()
-
+                    modifier =
+                        Modifier.fillMaxSize()
                 ) {
 
                     items(
-
                         items = filteredList,
-
                         key = {
                             it.person.id
                         }
-
                     ) { item ->
 
                         PersonCard(
-
                             personWithAccounts = item,
-
                             onClick = {
                                 onPersonClick(
                                     item.person.id
@@ -214,12 +211,17 @@ fun HomeScreen(
                 showAddDialog = false
             },
 
-            onSave = { name, phone, address ->
+            onSave = {
+                    name,
+                    phone,
+                    address,
+                    notes ->
 
                 onAddPerson(
                     name,
                     phone,
-                    address
+                    address,
+                    notes
                 )
 
                 showAddDialog = false
@@ -228,14 +230,11 @@ fun HomeScreen(
     }
 }
 
-
 @Composable
 private fun PersonCard(
-
-    personWithAccounts: PersonWithAccounts,
-
+    personWithAccounts:
+        PersonWithAccounts,
     onClick: () -> Unit
-
 ) {
 
     Card(
@@ -247,109 +246,114 @@ private fun PersonCard(
                 onClick = onClick
             ),
 
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.surfaceVariant
-        )
-
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme
+                        .colorScheme
+                        .surfaceVariant
+            )
     ) {
 
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier =
+                Modifier.padding(16.dp)
         ) {
 
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
 
                 Icon(
-
-                    imageVector = Icons.Default.Person,
-
+                    imageVector =
+                        Icons.Default.Person,
                     contentDescription = null,
-
-                    tint = MaterialTheme.colorScheme.primary
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .primary
                 )
 
                 Spacer(
-                    modifier = Modifier.width(10.dp)
+                    modifier =
+                        Modifier.width(10.dp)
                 )
 
                 Column {
 
                     Text(
-
-                        text = personWithAccounts.person.name,
-
-                        fontWeight = FontWeight.Bold,
-
+                        text =
+                            personWithAccounts
+                                .person
+                                .name,
+                        fontWeight =
+                            FontWeight.Bold,
                         fontSize = 17.sp
                     )
 
                     if (
-                        personWithAccounts.person.phone.isNotBlank()
+                        personWithAccounts
+                            .person
+                            .phone
+                            .isNotBlank()
                     ) {
 
                         Text(
-
-                            text = personWithAccounts.person.phone,
-
-                            fontSize = 13.sp,
-
-                            color = Color.Gray
+                            text =
+                                personWithAccounts
+                                    .person
+                                    .phone,
+                            fontSize = 13.sp
                         )
                     }
                 }
             }
 
             if (
-                personWithAccounts.person.address.isNotBlank()
+                personWithAccounts
+                    .person
+                    .address
+                    .isNotBlank()
             ) {
 
                 Spacer(
-                    modifier = Modifier.height(6.dp)
+                    modifier =
+                        Modifier.height(6.dp)
                 )
 
                 Text(
-
                     text =
-                        "العنوان: ${personWithAccounts.person.address}",
-
-                    fontSize = 13.sp,
-
-                    color = Color.Gray
+                        "العنوان: ${
+                            personWithAccounts
+                                .person
+                                .address
+                        }",
+                    fontSize = 13.sp
                 )
             }
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier =
+                    Modifier.height(12.dp)
             )
 
             Row(
-
-                modifier = Modifier.fillMaxWidth(),
-
+                modifier =
+                    Modifier.fillMaxWidth(),
                 horizontalArrangement =
                     Arrangement.SpaceBetween
-
             ) {
 
-                CurrencyLabel(
-                    currency = "ريال يمني"
-                )
+                CurrencyLabel("ريال يمني")
 
-                CurrencyLabel(
-                    currency = "ريال سعودي"
-                )
+                CurrencyLabel("ريال سعودي")
 
-                CurrencyLabel(
-                    currency = "دولار"
-                )
+                CurrencyLabel("دولار")
             }
         }
     }
 }
-
 
 @Composable
 private fun CurrencyLabel(
@@ -357,23 +361,21 @@ private fun CurrencyLabel(
 ) {
 
     Text(
-
         text = "$currency\n0",
-
         fontSize = 12.sp,
-
         fontWeight = FontWeight.Bold
     )
 }
 
-
 @Composable
 private fun AddPersonDialog(
-
     onDismiss: () -> Unit,
-
-    onSave: (String, String, String) -> Unit
-
+    onSave: (
+        String,
+        String,
+        String,
+        String
+    ) -> Unit
 ) {
 
     var name by remember {
@@ -388,6 +390,10 @@ private fun AddPersonDialog(
         mutableStateOf("")
     }
 
+    var notes by remember {
+        mutableStateOf("")
+    }
+
     var nameError by remember {
         mutableStateOf(false)
     }
@@ -397,11 +403,8 @@ private fun AddPersonDialog(
         onDismissRequest = onDismiss,
 
         title = {
-
             Text(
-
                 text = "إضافة شخص جديد",
-
                 fontWeight = FontWeight.Bold
             )
         },
@@ -411,78 +414,84 @@ private fun AddPersonDialog(
             Column {
 
                 OutlinedTextField(
-
                     value = name,
-
                     onValueChange = {
-
                         name = it
                         nameError = false
                     },
-
-                    modifier = Modifier.fillMaxWidth(),
-
+                    modifier =
+                        Modifier.fillMaxWidth(),
                     label = {
                         Text("اسم الشخص")
                     },
-
                     singleLine = true,
-
                     isError = nameError
                 )
 
                 if (nameError) {
 
                     Text(
-
-                        text = "اسم الشخص مطلوب",
-
+                        text =
+                            "اسم الشخص مطلوب",
                         color =
-                            MaterialTheme.colorScheme.error,
-
+                            MaterialTheme
+                                .colorScheme
+                                .error,
                         fontSize = 12.sp
                     )
                 }
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
 
                 OutlinedTextField(
-
                     value = phone,
-
                     onValueChange = {
                         phone = it
                     },
-
-                    modifier = Modifier.fillMaxWidth(),
-
+                    modifier =
+                        Modifier.fillMaxWidth(),
                     label = {
                         Text("رقم الهاتف")
                     },
-
                     singleLine = true
                 )
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
 
                 OutlinedTextField(
-
                     value = address,
-
                     onValueChange = {
                         address = it
                     },
-
-                    modifier = Modifier.fillMaxWidth(),
-
+                    modifier =
+                        Modifier.fillMaxWidth(),
                     label = {
                         Text("العنوان")
                     },
+                    minLines = 2
+                )
 
+                Spacer(
+                    modifier =
+                        Modifier.height(10.dp)
+                )
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = {
+                        notes = it
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    label = {
+                        Text("الملاحظات")
+                    },
                     minLines = 2
                 )
             }
@@ -491,26 +500,20 @@ private fun AddPersonDialog(
         confirmButton = {
 
             Button(
-
                 onClick = {
 
                     if (name.isBlank()) {
-
                         nameError = true
-
                     } else {
 
                         onSave(
-
                             name.trim(),
-
                             phone.trim(),
-
-                            address.trim()
+                            address.trim(),
+                            notes.trim()
                         )
                     }
                 }
-
             ) {
 
                 Text("حفظ")
@@ -520,11 +523,8 @@ private fun AddPersonDialog(
         dismissButton = {
 
             TextButton(
-
                 onClick = onDismiss
-
             ) {
-
                 Text("إلغاء")
             }
         }
