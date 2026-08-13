@@ -47,7 +47,8 @@ import com.myaccounts.app.data.local.dao.PersonWithAccounts
 @Composable
 fun HomeScreen(
     personsList: List<PersonWithAccounts>,
-    onAddPerson: (String, String, String) -> Unit
+    onAddPerson: (String, String, String) -> Unit,
+    onPersonClick: (Long) -> Unit
 ) {
 
     var searchQuery by remember {
@@ -167,7 +168,6 @@ fun HomeScreen(
                         },
 
                         color = Color.Gray,
-
                         fontSize = 15.sp
                     )
                 }
@@ -191,7 +191,14 @@ fun HomeScreen(
                     ) { item ->
 
                         PersonCard(
-                            personWithAccounts = item
+
+                            personWithAccounts = item,
+
+                            onClick = {
+                                onPersonClick(
+                                    item.person.id
+                                )
+                            }
                         )
                     }
                 }
@@ -224,7 +231,11 @@ fun HomeScreen(
 
 @Composable
 private fun PersonCard(
-    personWithAccounts: PersonWithAccounts
+
+    personWithAccounts: PersonWithAccounts,
+
+    onClick: () -> Unit
+
 ) {
 
     Card(
@@ -232,9 +243,9 @@ private fun PersonCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 5.dp)
-            .clickable {
-                // سيتم ربطها بصفحة حساب الشخص في المرحلة التالية
-            },
+            .clickable(
+                onClick = onClick
+            ),
 
         colors = CardDefaults.cardColors(
             containerColor =
