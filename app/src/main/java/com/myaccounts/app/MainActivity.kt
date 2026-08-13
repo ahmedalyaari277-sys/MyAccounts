@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import com.myaccounts.app.ui.screens.HomeScreen
+import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
 
 class MainActivity : ComponentActivity() {
@@ -22,12 +23,56 @@ class MainActivity : ComponentActivity() {
 
             HomeScreen(
                 personsList = personsList,
+
                 onAddPerson = { name, phone, address ->
+
                     viewModel.addPerson(
                         name = name,
                         phone = phone,
                         address = address
                     )
+                },
+
+                onPersonClick = { person ->
+
+                    setContent {
+
+                        PersonAccountScreen(
+                            personWithAccounts = person,
+
+                            onBack = {
+
+                                setContent {
+
+                                    HomeScreen(
+                                        personsList = viewModel.personsWithAccounts.value,
+
+                                        onAddPerson = { name, phone, address ->
+
+                                            viewModel.addPerson(
+                                                name = name,
+                                                phone = phone,
+                                                address = address
+                                            )
+                                        },
+
+                                        onPersonClick = { selectedPerson ->
+
+                                            setContent {
+
+                                                PersonAccountScreen(
+                                                    personWithAccounts = selectedPerson,
+                                                    onBack = {
+                                                        recreate()
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
             )
         }
