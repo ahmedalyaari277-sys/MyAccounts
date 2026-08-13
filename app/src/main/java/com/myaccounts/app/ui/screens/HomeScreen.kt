@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,9 +71,7 @@ fun HomeScreen(
                 searchQuery,
                 ignoreCase = true
             ) ||
-                item.person.phone.contains(
-                    searchQuery
-                ) ||
+                item.person.phone.contains(searchQuery) ||
                 item.person.address.contains(
                     searchQuery,
                     ignoreCase = true
@@ -86,7 +85,6 @@ fun HomeScreen(
     Scaffold(
 
         topBar = {
-
             TopAppBar(
                 title = {
                     Text(
@@ -122,46 +120,34 @@ fun HomeScreen(
         ) {
 
             OutlinedTextField(
-
                 value = searchQuery,
-
                 onValueChange = {
                     searchQuery = it
                 },
-
-                modifier =
-                    Modifier.fillMaxWidth(),
-
+                modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
                         "بحث بالاسم أو الهاتف أو العنوان أو الملاحظات"
                     )
                 },
-
                 leadingIcon = {
-
                     Icon(
-                        imageVector =
-                            Icons.Default.Search,
+                        imageVector = Icons.Default.Search,
                         contentDescription = "بحث"
                     )
                 },
-
                 singleLine = true
             )
 
             Spacer(
-                modifier =
-                    Modifier.height(16.dp)
+                modifier = Modifier.height(16.dp)
             )
 
             if (filteredList.isEmpty()) {
 
                 Box(
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    contentAlignment =
-                        Alignment.Center
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
 
                     Text(
@@ -170,16 +156,14 @@ fun HomeScreen(
                                 "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
                             } else {
                                 "لا توجد نتائج للبحث"
-                            },
-                        fontSize = 15.sp
+                            }
                     )
                 }
 
             } else {
 
                 LazyColumn(
-                    modifier =
-                        Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize()
                 ) {
 
                     items(
@@ -232,8 +216,7 @@ fun HomeScreen(
 
 @Composable
 private fun PersonCard(
-    personWithAccounts:
-        PersonWithAccounts,
+    personWithAccounts: PersonWithAccounts,
     onClick: () -> Unit
 ) {
 
@@ -242,22 +225,16 @@ private fun PersonCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 5.dp)
-            .clickable(
-                onClick = onClick
-            ),
+            .clickable(onClick = onClick),
 
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme
-                        .colorScheme
-                        .surfaceVariant
-            )
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
 
         Column(
-            modifier =
-                Modifier.padding(16.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
 
             Row(
@@ -266,44 +243,32 @@ private fun PersonCard(
             ) {
 
                 Icon(
-                    imageVector =
-                        Icons.Default.Person,
+                    imageVector = Icons.Default.Person,
                     contentDescription = null,
-                    tint =
-                        MaterialTheme
-                            .colorScheme
-                            .primary
+                    tint = MaterialTheme.colorScheme.primary
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.width(10.dp)
+                    modifier = Modifier.width(10.dp)
                 )
 
                 Column {
 
                     Text(
                         text =
-                            personWithAccounts
-                                .person
-                                .name,
-                        fontWeight =
-                            FontWeight.Bold,
+                            personWithAccounts.person.name,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 17.sp
                     )
 
                     if (
-                        personWithAccounts
-                            .person
-                            .phone
+                        personWithAccounts.person.phone
                             .isNotBlank()
                     ) {
 
                         Text(
                             text =
-                                personWithAccounts
-                                    .person
-                                    .phone,
+                                personWithAccounts.person.phone,
                             fontSize = 13.sp
                         )
                     }
@@ -311,57 +276,72 @@ private fun PersonCard(
             }
 
             if (
-                personWithAccounts
-                    .person
-                    .address
+                personWithAccounts.person.address
                     .isNotBlank()
             ) {
 
                 Spacer(
-                    modifier =
-                        Modifier.height(6.dp)
+                    modifier = Modifier.height(6.dp)
                 )
 
                 Text(
                     text =
-                        "العنوان: ${
-                            personWithAccounts
-                                .person
-                                .address
-                        }",
+                        "العنوان: ${personWithAccounts.person.address}",
                     fontSize = 13.sp
                 )
             }
 
             Spacer(
-                modifier =
-                    Modifier.height(12.dp)
+                modifier = Modifier.height(12.dp)
             )
 
             Row(
-                modifier =
-                    Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement =
                     Arrangement.SpaceBetween
             ) {
 
-                CurrencyLabel("ريال يمني")
+                CurrencyLabel(
+                    currency = "ريال يمني",
+                    balance =
+                        personWithAccounts.balance("YER")
+                )
 
-                CurrencyLabel("ريال سعودي")
+                CurrencyLabel(
+                    currency = "ريال سعودي",
+                    balance =
+                        personWithAccounts.balance("SAR")
+                )
 
-                CurrencyLabel("دولار")
+                CurrencyLabel(
+                    currency = "دولار",
+                    balance =
+                        personWithAccounts.balance("USD")
+                )
             }
         }
     }
 }
 
+private fun PersonWithAccounts.balance(
+    currencyCode: String
+): Long {
+    return accounts
+        .firstOrNull {
+            it.currencyCode == currencyCode
+        }
+        ?.balanceMinor
+        ?: 0L
+}
+
 @Composable
 private fun CurrencyLabel(
-    currency: String
+    currency: String,
+    balance: Long
 ) {
 
     Text(
-        text = "$currency\n0",
+        text = "$currency\n$balance",
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold
     )
@@ -419,8 +399,7 @@ private fun AddPersonDialog(
                         name = it
                         nameError = false
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
                         Text("اسم الشخص")
                     },
@@ -431,19 +410,15 @@ private fun AddPersonDialog(
                 if (nameError) {
 
                     Text(
-                        text =
-                            "اسم الشخص مطلوب",
+                        text = "اسم الشخص مطلوب",
                         color =
-                            MaterialTheme
-                                .colorScheme
-                                .error,
+                            MaterialTheme.colorScheme.error,
                         fontSize = 12.sp
                     )
                 }
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(10.dp)
                 )
 
                 OutlinedTextField(
@@ -451,8 +426,7 @@ private fun AddPersonDialog(
                     onValueChange = {
                         phone = it
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
                         Text("رقم الهاتف")
                     },
@@ -460,8 +434,7 @@ private fun AddPersonDialog(
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(10.dp)
                 )
 
                 OutlinedTextField(
@@ -469,8 +442,7 @@ private fun AddPersonDialog(
                     onValueChange = {
                         address = it
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
                         Text("العنوان")
                     },
@@ -478,8 +450,7 @@ private fun AddPersonDialog(
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(10.dp)
                 )
 
                 OutlinedTextField(
@@ -487,8 +458,7 @@ private fun AddPersonDialog(
                     onValueChange = {
                         notes = it
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
                         Text("الملاحظات")
                     },
