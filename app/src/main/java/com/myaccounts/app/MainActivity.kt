@@ -6,7 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.myaccounts.app.ui.screens.HomeScreen
+import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
 
 class MainActivity : ComponentActivity() {
@@ -18,20 +22,59 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
-            val personsList by viewModel.personsWithAccounts.collectAsState()
+            val personsList by
+                viewModel.personsWithAccounts.collectAsState()
 
-            HomeScreen(
-                personsList = personsList,
+            var selectedPersonId by remember {
+                mutableStateOf<Long?>(null)
+            }
 
-                onAddPerson = { name, phone, address ->
+            if (selectedPersonId == null) {
 
-                    viewModel.addPerson(
-                        name = name,
-                        phone = phone,
-                        address = address
+                HomeScreen(
+
+                    personsList = personsList,
+
+                    onAddPerson = { name, phone, address ->
+
+                        viewModel.addPerson(
+                            name = name,
+                            phone = phone,
+                            address = address
+                        )
+                    },
+
+                    onPersonClick = { personId ->
+
+                        selectedPersonId = personId
+                    }
+                )
+
+            } else {
+
+                val selectedPerson =
+                    personsList.firstOrNull {
+                        it.person.id == selectedPersonId
+                    }
+
+                if (selectedPerson != null) {
+
+                    PersonAccountScreen(
+
+                        personWithAccounts =
+                            selectedPerson,
+
+                        onBack = {
+
+                            selectedPersonId = null
+                        }
                     )
+
+                } else {
+
+                    selectedPersonId = null
                 }
-            )
+            }
         }
     }
 }
