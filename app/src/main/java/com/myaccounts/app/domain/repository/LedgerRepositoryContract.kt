@@ -5,19 +5,29 @@ import kotlinx.coroutines.flow.Flow
 
 interface LedgerRepositoryContract {
 
-    val allPersonsFlow: Flow<List<PersonWithAccounts>>
+    val allPersonsFlow:
+        Flow<List<PersonWithAccounts>>
 
     suspend fun addPerson(
         name: String,
         phone: String,
-        address: String
+        address: String,
+        notes: String
     ): Long
 
     suspend fun getPersonWithAccounts(
         personId: Long
     ): PersonWithAccounts?
 
+    suspend fun updatePerson(
+        personId: Long,
+        name: String,
+        phone: String,
+        address: String,
+        notes: String
+    ): Result<Unit>
+
     suspend fun deletePerson(
         personId: Long
-    )
+    ): Result<Unit>
 }
