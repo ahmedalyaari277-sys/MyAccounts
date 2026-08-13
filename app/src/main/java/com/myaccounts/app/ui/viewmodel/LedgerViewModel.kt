@@ -1,37 +1,44 @@
 package com.myaccounts.app.ui.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
-import com.myaccounts.app.data.repository.LedgerRepository
+import com.myaccounts.app.domain.repository.LedgerRepositoryContract
+import com.myaccounts.app.domain.usecase.AddPersonUseCase
+import com.myaccounts.app.domain.usecase.DeletePersonUseCase
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class LedgerViewModel(application: Application) : AndroidViewModel(application) {
+data class LedgerUiState(
+    val isSaving: Boolean = false,
+    val isDeleting: Boolean = false,
+    val errorMessage: String? = null
+)
 
-    private val repository: LedgerRepository =
-        LedgerRepository(
-            AppDatabase.getInstance(application).ledgerDao()
+class LedgerViewModel(
+    repository: LedgerRepositoryContract
+) : ViewModel() {
+
+    private val addPersonUseCase = AddPersonUseCase(repository)
+
+    private val deletePersonUseCase = DeletePersonUseCase(repository)
+
+    val personsWithAccounts: StateFlow<List<PersonWithAccounts>> =
+        repository.allPersonsFlow.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
         )
 
-    /**
-     * جميع الأشخاص مع حساباتهم
-     */
-    val personsWithAccounts: StateFlow<List<PersonWithAccounts>> =
-        repository.allPersonsFlow
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = emptyList()
-            )
+    private val _uiState = MutableStateFlow(LedgerUiState())
 
-    /**
-     * إضافة شخص جديد
-     */
+    val uiState: StateFlow<LedgerUiState> =
+        _uiState.asStateFlow()
+
     fun addPerson(
         name: String,
         phone: String,
@@ -39,34 +46,76 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         viewModelScope.launch {
 
-            if (name.isNotBlank()) {
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                errorMessage = null
+            )
 
-                repository.addPerson(
-                    name = name.trim(),
-                    phone = phone.trim(),
-                    address = address.trim()
-                )
-            }
+            val result = addPersonUseCase(
+                name = name,
+                phone = phone,
+                address = address
+            )
+
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        errorMessage = error.message
+                            ?: "حدث خطأ أثناء حفظ الشخص"
+                    )
+                }
+            )
         }
     }
 
-    /**
-     * حذف شخص
-     */
     fun deletePerson(
         personId: Long
     ) {
         viewModelScope.launch {
-            repository.deletePerson(personId)
+
+            _uiState.value = _uiState.value.copy(
+                isDeleting = true,
+                errorMessage = null
+            )
+
+            val result = deletePersonUseCase(personId)
+
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        isDeleting = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isDeleting = false,
+                        errorMessage = error.message
+                            ?: "حدث خطأ أثناء حذف الشخص"
+                    )
+                }
+            )
         }
     }
 
-    /**
-     * الحصول على شخص محدد مع حساباته
-     */
     suspend fun getPersonWithAccounts(
         personId: Long
     ): PersonWithAccounts? {
-        return repository.getPersonWithAccounts(personId)
+        return personsWithAccounts.value.firstOrNull {
+            it.person.id == personId
+        }
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = null
+        )
     }
 }
