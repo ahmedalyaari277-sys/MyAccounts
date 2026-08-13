@@ -1,6 +1,7 @@
 package com.myaccounts.app.domain.usecase
 
-import com.myaccounts.app.domain.repository.LedgerRepositoryContract
+import com.myaccounts.app.data.local.PersonEntity
+import com.myaccounts.app.data.repository.LedgerRepositoryContract
 
 class AddPersonUseCase(
     private val repository: LedgerRepositoryContract
@@ -8,30 +9,21 @@ class AddPersonUseCase(
 
     suspend operator fun invoke(
         name: String,
-        phone: String,
-        address: String,
-        notes: String
-    ): Result<Long> {
-
-        val normalizedName =
-            name.trim()
-
-        if (normalizedName.isBlank()) {
-            return Result.failure(
-                IllegalArgumentException(
-                    "اسم الشخص مطلوب"
-                )
-            )
+        phone: String = "",
+        address: String = "",
+        notes: String = ""
+    ): Long {
+        require(name.isNotBlank()) {
+            "اسم الشخص مطلوب"
         }
 
-        return runCatching {
-
-            repository.addPerson(
-                name = normalizedName,
+        return repository.insertPerson(
+            PersonEntity(
+                name = name.trim(),
                 phone = phone.trim(),
                 address = address.trim(),
                 notes = notes.trim()
             )
-        }
+        )
     }
 }
