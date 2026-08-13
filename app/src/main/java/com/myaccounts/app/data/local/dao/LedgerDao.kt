@@ -32,10 +32,12 @@ interface LedgerDao {
         """
         SELECT *
         FROM persons
+        WHERE isActive = 1
         ORDER BY name COLLATE NOCASE ASC
         """
     )
-    fun getAllPersonsWithAccountsFlow(): Flow<List<PersonWithAccounts>>
+    fun getAllPersonsWithAccountsFlow():
+        Flow<List<PersonWithAccounts>>
 
     @Transaction
     @Query(
@@ -43,6 +45,7 @@ interface LedgerDao {
         SELECT *
         FROM persons
         WHERE id = :personId
+        AND isActive = 1
         LIMIT 1
         """
     )
@@ -69,28 +72,54 @@ interface LedgerDao {
         person: PersonEntity,
         accounts: List<CurrencyAccountEntity>
     ): Long {
+
         val personId = insertPerson(person)
 
-        val accountsForPerson = accounts.map { account ->
-            account.copy(
-                personId = personId
-            )
-        }
+        val accountsForPerson =
+            accounts.map { account ->
+                account.copy(
+                    personId = personId
+                )
+            }
 
-        insertCurrencyAccounts(accountsForPerson)
+        insertCurrencyAccounts(
+            accountsForPerson
+        )
 
         return personId
     }
 
     @Query(
         """
-        DELETE FROM persons
+        UPDATE persons
+        SET
+            name = :name,
+            phone = :phone,
+            address = :address,
+            notes = :notes
         WHERE id = :personId
+        AND isActive = 1
         """
     )
-    suspend fun deletePerson(
-        personId: Long
+    suspend fun updatePerson(
+        personId: Long,
+        name: String,
+        phone: String,
+        address: String,
+        notes: String
+    ): Int
+
+    @Query(
+        """
+        UPDATE persons
+        SET isActive = 0
+        WHERE id = :personId
+        AND isActive = 1
+        """
     )
+    suspend fun deactivatePerson(
+        personId: Long
+    ): Int
 
     @Insert(
         onConflict = OnConflictStrategy.ABORT
