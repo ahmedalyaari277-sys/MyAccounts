@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 
+@OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class
+)
 @Composable
 fun HomeScreen(
     personsList: List<PersonWithAccounts>,
@@ -72,8 +75,10 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
+
             TopAppBar(
                 title = {
+
                     Text(
                         text = "دفتر الحسابات",
                         fontWeight = FontWeight.Bold
@@ -108,19 +113,25 @@ fun HomeScreen(
 
             OutlinedTextField(
                 value = searchQuery,
+
                 onValueChange = {
                     searchQuery = it
                 },
+
                 modifier = Modifier.fillMaxWidth(),
+
                 placeholder = {
                     Text("بحث عن الاسم أو رقم الهاتف")
                 },
+
                 leadingIcon = {
+
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null
                     )
                 },
+
                 singleLine = true
             )
 
@@ -141,6 +152,7 @@ fun HomeScreen(
                         } else {
                             "لا توجد نتائج للبحث"
                         },
+
                         color = Color.Gray,
                         fontSize = 15.sp
                     )
@@ -330,6 +342,7 @@ private fun AddPersonDialog(
         onDismissRequest = onDismiss,
 
         title = {
+
             Text(
                 text = "إضافة شخص جديد",
                 fontWeight = FontWeight.Bold
@@ -342,15 +355,20 @@ private fun AddPersonDialog(
 
                 OutlinedTextField(
                     value = name,
+
                     onValueChange = {
                         name = it
                         nameError = false
                     },
+
                     modifier = Modifier.fillMaxWidth(),
+
                     label = {
                         Text("اسم الشخص")
                     },
+
                     singleLine = true,
+
                     isError = nameError
                 )
 
@@ -369,13 +387,17 @@ private fun AddPersonDialog(
 
                 OutlinedTextField(
                     value = phone,
+
                     onValueChange = {
                         phone = it
                     },
+
                     modifier = Modifier.fillMaxWidth(),
+
                     label = {
                         Text("رقم الهاتف")
                     },
+
                     singleLine = true
                 )
 
@@ -385,13 +407,17 @@ private fun AddPersonDialog(
 
                 OutlinedTextField(
                     value = address,
+
                     onValueChange = {
                         address = it
                     },
+
                     modifier = Modifier.fillMaxWidth(),
+
                     label = {
                         Text("العنوان")
                     },
+
                     minLines = 2
                 )
             }
