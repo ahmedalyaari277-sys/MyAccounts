@@ -8,15 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -35,11 +30,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +59,8 @@ fun PersonAccountScreen(
         mutableStateOf(false)
     }
 
+    val person = personWithAccounts.person
+
     Scaffold(
 
         topBar = {
@@ -72,12 +69,8 @@ fun PersonAccountScreen(
 
                 title = {
                     Text(
-                        text =
-                            personWithAccounts
-                                .person
-                                .name,
-                        fontWeight =
-                            FontWeight.Bold
+                        text = person.name,
+                        fontWeight = FontWeight.Bold
                     )
                 },
 
@@ -137,19 +130,43 @@ fun PersonAccountScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
-                .verticalScroll(
-                    rememberScrollState()
-                )
         ) {
 
-            PersonInformationCard(
-                personWithAccounts
-            )
+            if (person.phone.isNotBlank()) {
 
-            Spacer(
-                modifier =
-                    Modifier.height(20.dp)
-            )
+                Text(
+                    text = "الهاتف: ${person.phone}",
+                    fontSize = 14.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
+            }
+
+            if (person.address.isNotBlank()) {
+
+                Text(
+                    text = "العنوان: ${person.address}",
+                    fontSize = 14.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
+            }
+
+            if (person.notes.isNotBlank()) {
+
+                Text(
+                    text = "الملاحظات: ${person.notes}",
+                    fontSize = 14.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(16.dp)
+                )
+            }
 
             Text(
                 text = "الحسابات",
@@ -158,36 +175,31 @@ fun PersonAccountScreen(
             )
 
             Spacer(
-                modifier =
-                    Modifier.height(10.dp)
+                modifier = Modifier.height(12.dp)
             )
 
             CurrencyAccountCard(
-                title = "الريال اليمني",
-                currency = "YER",
-                balance = 0
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(10.dp)
+                account = account(
+                    personWithAccounts.accounts,
+                    "YER"
+                ),
+                currencyName = "الريال اليمني"
             )
 
             CurrencyAccountCard(
-                title = "الريال السعودي",
-                currency = "SAR",
-                balance = 0
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(10.dp)
+                account = account(
+                    personWithAccounts.accounts,
+                    "SAR"
+                ),
+                currencyName = "الريال السعودي"
             )
 
             CurrencyAccountCard(
-                title = "الدولار الأمريكي",
-                currency = "USD",
-                balance = 0
+                account = account(
+                    personWithAccounts.accounts,
+                    "USD"
+                ),
+                currencyName = "الدولار الأمريكي"
             )
         }
     }
@@ -196,8 +208,10 @@ fun PersonAccountScreen(
 
         EditPersonDialog(
 
-            personWithAccounts =
-                personWithAccounts,
+            name = person.name,
+            phone = person.phone,
+            address = person.address,
+            notes = person.notes,
 
             onDismiss = {
                 showEditDialog = false
@@ -230,32 +244,24 @@ fun PersonAccountScreen(
             },
 
             title = {
-                Text(
-                    "حذف الشخص"
-                )
+                Text("حذف الحساب")
             },
 
             text = {
                 Text(
-                    "هل أنت متأكد من حذف هذا الشخص؟ سيتم إخفاؤه من القائمة مع الاحتفاظ ببياناته المالية."
+                    "هل أنت متأكد من حذف هذا الشخص؟"
                 )
             },
 
             confirmButton = {
 
-                TextButton(
+                Button(
                     onClick = {
                         showDeleteDialog = false
                         onDeletePerson()
                     }
                 ) {
-                    Text(
-                        "حذف",
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .error
-                    )
+                    Text("حذف")
                 }
             },
 
@@ -273,219 +279,68 @@ fun PersonAccountScreen(
     }
 }
 
-@Composable
-private fun PersonInformationCard(
-    personWithAccounts:
-        PersonWithAccounts
-) {
+private fun account(
+    accounts: List<CurrencyAccountEntity>,
+    currencyCode: String
+): CurrencyAccountEntity? {
 
-    Card(
-
-        modifier =
-            Modifier.fillMaxWidth(),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme
-                        .colorScheme
-                        .surfaceVariant
-            )
-    ) {
-
-        Column(
-            modifier =
-                Modifier.padding(16.dp)
-        ) {
-
-            Text(
-                text =
-                    personWithAccounts
-                        .person
-                        .name,
-                fontSize = 22.sp,
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-            if (
-                personWithAccounts
-                    .person
-                    .phone
-                    .isNotBlank()
-            ) {
-
-                Spacer(
-                    modifier =
-                        Modifier.height(12.dp)
-                )
-
-                Row(
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Default.Call,
-                        contentDescription =
-                            null,
-                        tint =
-                            MaterialTheme
-                                .colorScheme
-                                .primary
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.width(8.dp)
-                    )
-
-                    Text(
-                        text =
-                            personWithAccounts
-                                .person
-                                .phone
-                    )
-                }
-            }
-
-            if (
-                personWithAccounts
-                    .person
-                    .address
-                    .isNotBlank()
-            ) {
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                Row(
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Default.LocationOn,
-                        contentDescription =
-                            null,
-                        tint =
-                            MaterialTheme
-                                .colorScheme
-                                .primary
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.width(8.dp)
-                    )
-
-                    Text(
-                        text =
-                            personWithAccounts
-                                .person
-                                .address
-                    )
-                }
-            }
-
-            if (
-                personWithAccounts
-                    .person
-                    .notes
-                    .isNotBlank()
-            ) {
-
-                Spacer(
-                    modifier =
-                        Modifier.height(12.dp)
-                )
-
-                Text(
-                    text = "الملاحظات",
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
-                )
-
-                Text(
-                    text =
-                        personWithAccounts
-                            .person
-                            .notes
-                )
-            }
-        }
+    return accounts.firstOrNull {
+        it.currencyCode == currencyCode
     }
 }
 
 @Composable
 private fun CurrencyAccountCard(
-    title: String,
-    currency: String,
-    balance: Long
+    account: CurrencyAccountEntity?,
+    currencyName: String
 ) {
+
+    val balance = account?.balanceMinor ?: 0L
 
     Card(
 
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
 
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme
-                        .colorScheme
-                        .surface
-            )
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
 
         Row(
 
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
 
             horizontalArrangement =
-                Arrangement.SpaceBetween,
-
-            verticalAlignment =
-                Alignment.CenterVertically
+                Arrangement.SpaceBetween
         ) {
 
             Column {
 
                 Text(
-                    text = title,
-                    fontSize = 17.sp,
-                    fontWeight =
-                        FontWeight.Bold
+                    text = currencyName,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
+                    modifier = Modifier.height(4.dp)
                 )
 
                 Text(
-                    text = currency,
+                    text = account?.currencyCode ?: "---",
                     fontSize = 12.sp
                 )
             }
 
             Text(
                 text = balance.toString(),
-                fontSize = 20.sp,
-                fontWeight =
-                    FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
             )
         }
     }
@@ -493,8 +348,10 @@ private fun CurrencyAccountCard(
 
 @Composable
 private fun EditPersonDialog(
-    personWithAccounts:
-        PersonWithAccounts,
+    name: String,
+    phone: String,
+    address: String,
+    notes: String,
     onDismiss: () -> Unit,
     onSave: (
         String,
@@ -504,36 +361,20 @@ private fun EditPersonDialog(
     ) -> Unit
 ) {
 
-    var name by remember {
-        mutableStateOf(
-            personWithAccounts
-                .person
-                .name
-        )
+    var editedName by remember {
+        mutableStateOf(name)
     }
 
-    var phone by remember {
-        mutableStateOf(
-            personWithAccounts
-                .person
-                .phone
-        )
+    var editedPhone by remember {
+        mutableStateOf(phone)
     }
 
-    var address by remember {
-        mutableStateOf(
-            personWithAccounts
-                .person
-                .address
-        )
+    var editedAddress by remember {
+        mutableStateOf(address)
     }
 
-    var notes by remember {
-        mutableStateOf(
-            personWithAccounts
-                .person
-                .notes
-        )
+    var editedNotes by remember {
+        mutableStateOf(notes)
     }
 
     var nameError by remember {
@@ -542,13 +383,10 @@ private fun EditPersonDialog(
 
     AlertDialog(
 
-        onDismissRequest =
-            onDismiss,
+        onDismissRequest = onDismiss,
 
         title = {
-            Text(
-                "تعديل بيانات الشخص"
-            )
+            Text("تعديل بيانات الشخص")
         },
 
         text = {
@@ -556,15 +394,14 @@ private fun EditPersonDialog(
             Column {
 
                 OutlinedTextField(
-                    value = name,
+                    value = editedName,
                     onValueChange = {
-                        name = it
+                        editedName = it
                         nameError = false
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
-                        Text("اسم الشخص")
+                        Text("الاسم")
                     },
                     singleLine = true,
                     isError = nameError
@@ -573,64 +410,54 @@ private fun EditPersonDialog(
                 if (nameError) {
 
                     Text(
-                        text =
-                            "اسم الشخص مطلوب",
+                        text = "الاسم مطلوب",
                         color =
-                            MaterialTheme
-                                .colorScheme
-                                .error,
+                            MaterialTheme.colorScheme.error,
                         fontSize = 12.sp
                     )
                 }
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
                 OutlinedTextField(
-                    value = phone,
+                    value = editedPhone,
                     onValueChange = {
-                        phone = it
+                        editedPhone = it
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
-                        Text("رقم الهاتف")
+                        Text("الهاتف")
                     },
                     singleLine = true
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
                 OutlinedTextField(
-                    value = address,
+                    value = editedAddress,
                     onValueChange = {
-                        address = it
+                        editedAddress = it
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
                         Text("العنوان")
-                    },
-                    minLines = 2
+                    }
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
                 OutlinedTextField(
-                    value = notes,
+                    value = editedNotes,
                     onValueChange = {
-                        notes = it
+                        editedNotes = it
                     },
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     label = {
                         Text("الملاحظات")
                     },
@@ -644,15 +471,17 @@ private fun EditPersonDialog(
             Button(
                 onClick = {
 
-                    if (name.isBlank()) {
+                    if (editedName.isBlank()) {
+
                         nameError = true
+
                     } else {
 
                         onSave(
-                            name.trim(),
-                            phone.trim(),
-                            address.trim(),
-                            notes.trim()
+                            editedName.trim(),
+                            editedPhone.trim(),
+                            editedAddress.trim(),
+                            editedNotes.trim()
                         )
                     }
                 }
@@ -665,9 +494,9 @@ private fun EditPersonDialog(
         dismissButton = {
 
             TextButton(
-                onClick =
-                    onDismiss
+                onClick = onDismiss
             ) {
+
                 Text("إلغاء")
             }
         }
