@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.repository.LedgerRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -13,12 +14,10 @@ import kotlinx.coroutines.launch
 
 class LedgerViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: LedgerRepository
-
-    init {
-        val database = AppDatabase.getInstance(application)
-        repository = LedgerRepository(database.ledgerDao())
-    }
+    private val repository: LedgerRepository =
+        LedgerRepository(
+            AppDatabase.getInstance(application).ledgerDao()
+        )
 
     val personsWithAccounts: StateFlow<List<PersonWithAccounts>> =
         repository.allPersonsFlow
@@ -33,14 +32,25 @@ class LedgerViewModel(application: Application) : AndroidViewModel(application) 
         phone: String,
         address: String
     ) {
-        if (name.isBlank()) return
-
         viewModelScope.launch {
-            repository.addPerson(
-                name = name.trim(),
-                phone = phone.trim(),
-                address = address.trim()
-            )
+
+            if (name.isNotBlank()) {
+
+                repository.addPerson(
+                    name = name.trim(),
+                    phone = phone.trim(),
+                    address = address.trim()
+                )
+            }
         }
+    }
+
+    fun getPersonWithAccounts(
+        personId: Long
+    ): Flow<PersonWithAccounts?> {
+
+        return repository.getPersonWithAccounts(
+            personId
+        )
     }
 }
