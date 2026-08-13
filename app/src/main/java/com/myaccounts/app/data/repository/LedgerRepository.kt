@@ -3,6 +3,7 @@ package com.myaccounts.app.data.repository
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.LedgerDao
 import com.myaccounts.app.data.local.PersonEntity
+import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import kotlinx.coroutines.flow.Flow
 
 class LedgerRepository(
@@ -19,6 +20,17 @@ class LedgerRepository(
         personId: Long
     ): Flow<PersonEntity?> {
         return dao.observePerson(personId)
+    }
+
+    override fun observePersonsWithAccounts():
+        Flow<List<PersonWithAccounts>> {
+        return dao.observePersonsWithAccounts()
+    }
+
+    override fun observePersonWithAccounts(
+        personId: Long
+    ): Flow<PersonWithAccounts?> {
+        return dao.observePersonWithAccounts(personId)
     }
 
     override fun observeCurrencyAccounts(
@@ -75,6 +87,7 @@ class LedgerRepository(
     }
 
     companion object {
+
         val DEFAULT_CURRENCIES = listOf(
             "YER",
             "SAR",
