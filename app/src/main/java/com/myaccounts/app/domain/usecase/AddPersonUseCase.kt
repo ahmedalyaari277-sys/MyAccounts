@@ -9,22 +9,28 @@ class AddPersonUseCase(
     suspend operator fun invoke(
         name: String,
         phone: String,
-        address: String
+        address: String,
+        notes: String
     ): Result<Long> {
 
-        val normalizedName = name.trim()
+        val normalizedName =
+            name.trim()
 
         if (normalizedName.isBlank()) {
             return Result.failure(
-                IllegalArgumentException("اسم الشخص مطلوب")
+                IllegalArgumentException(
+                    "اسم الشخص مطلوب"
+                )
             )
         }
 
         return runCatching {
+
             repository.addPerson(
                 name = normalizedName,
                 phone = phone.trim(),
-                address = address.trim()
+                address = address.trim(),
+                notes = notes.trim()
             )
         }
     }
