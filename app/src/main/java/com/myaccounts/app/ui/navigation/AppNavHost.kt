@@ -17,7 +17,10 @@ fun AppNavHost(
     navController: NavHostController,
     viewModel: LedgerViewModel
 ) {
-    val persons by viewModel.personsWithAccounts.collectAsState()
+
+    val persons by
+        viewModel.personsWithAccounts
+            .collectAsState()
 
     NavHost(
         navController = navController,
@@ -27,48 +30,98 @@ fun AppNavHost(
         composable(
             route = Routes.HOME
         ) {
+
             HomeScreen(
+
                 personsList = persons,
 
-                onAddPerson = { name, phone, address ->
+                onAddPerson = {
+                        name,
+                        phone,
+                        address,
+                        notes ->
+
                     viewModel.addPerson(
                         name = name,
                         phone = phone,
-                        address = address
+                        address = address,
+                        notes = notes
                     )
                 },
 
                 onPersonClick = { personId ->
+
                     navController.navigate(
-                        Routes.personAccount(personId)
+                        Routes.personAccount(
+                            personId
+                        )
                     )
                 }
             )
         }
 
         composable(
-            route = Routes.PERSON_ACCOUNT,
+            route =
+                Routes.PERSON_ACCOUNT,
+
             arguments = listOf(
-                navArgument("personId") {
-                    type = NavType.LongType
+                navArgument(
+                    "personId"
+                ) {
+                    type =
+                        NavType.LongType
                 }
             )
         ) { backStackEntry ->
 
             val personId =
-                backStackEntry.arguments?.getLong("personId")
+                backStackEntry
+                    .arguments
+                    ?.getLong(
+                        "personId"
+                    )
 
-            val personWithAccounts =
+            val person =
                 persons.firstOrNull {
                     it.person.id == personId
                 }
 
-            if (personWithAccounts != null) {
+            if (person != null) {
 
                 PersonAccountScreen(
-                    personWithAccounts = personWithAccounts,
+
+                    personWithAccounts =
+                        person,
+
                     onBack = {
-                        navController.popBackStack()
+                        navController
+                            .popBackStack()
+                    },
+
+                    onUpdatePerson = {
+                            name,
+                            phone,
+                            address,
+                            notes ->
+
+                        viewModel.updatePerson(
+                            personId =
+                                person.person.id,
+                            name = name,
+                            phone = phone,
+                            address = address,
+                            notes = notes
+                        )
+                    },
+
+                    onDeletePerson = {
+
+                        viewModel.deletePerson(
+                            person.person.id
+                        )
+
+                        navController
+                            .popBackStack()
                     }
                 )
             }
