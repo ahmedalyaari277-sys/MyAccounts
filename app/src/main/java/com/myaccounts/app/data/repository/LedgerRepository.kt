@@ -12,27 +12,33 @@ class LedgerRepository(
     private val dao: LedgerDao
 ) : LedgerRepositoryContract {
 
-    override val allPersonsFlow: Flow<List<PersonWithAccounts>> =
+    override val allPersonsFlow:
+        Flow<List<PersonWithAccounts>> =
         dao.getAllPersonsWithAccountsFlow()
 
     override suspend fun addPerson(
         name: String,
         phone: String,
-        address: String
+        address: String,
+        notes: String
     ): Long {
 
         val person = PersonEntity(
             name = name.trim(),
             phone = phone.trim(),
-            address = address.trim()
+            address = address.trim(),
+            notes = notes.trim(),
+            isActive = true
         )
 
-        val defaultAccounts = CurrencyCode.entries.map { currency ->
-            CurrencyAccountEntity(
-                personId = 0L,
-                currency = currency
-            )
-        }
+        val defaultAccounts =
+            CurrencyCode.entries.map { currency ->
+
+                CurrencyAccountEntity(
+                    personId = 0L,
+                    currency = currency
+                )
+            }
 
         return dao.insertPersonWithAccounts(
             person = person,
@@ -43,12 +49,51 @@ class LedgerRepository(
     override suspend fun getPersonWithAccounts(
         personId: Long
     ): PersonWithAccounts? {
-        return dao.getPersonWithAccounts(personId)
+
+        return dao.getPersonWithAccounts(
+            personId
+        )
+    }
+
+    override suspend fun updatePerson(
+        personId: Long,
+        name: String,
+        phone: String,
+        address: String,
+        notes: String
+    ): Result<Unit> {
+
+        return runCatching {
+
+            val affectedRows =
+                dao.updatePerson(
+                    personId = personId,
+                    name = name.trim(),
+                    phone = phone.trim(),
+                    address = address.trim(),
+                    notes = notes.trim()
+                )
+
+            check(affectedRows > 0) {
+                "تعذر تعديل بيانات الشخص"
+            }
+        }
     }
 
     override suspend fun deletePerson(
         personId: Long
-    ) {
-        dao.deletePerson(personId)
+    ): Result<Unit> {
+
+        return runCatching {
+
+            val affectedRows =
+                dao.deactivatePerson(
+                    personId
+                )
+
+            check(affectedRows > 0) {
+                "تعذر حذف الشخص"
+            }
+        }
     }
 }
