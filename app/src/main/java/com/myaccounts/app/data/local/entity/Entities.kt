@@ -1,49 +1,25 @@
-package com.myaccounts.app.data.local.entity
+package com.myaccounts.app.data.local
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
-import androidx.room.PrimaryKey
-
-enum class CurrencyCode(
-    val code: String
-) {
-    YER("YER"),
-    SAR("SAR"),
-    USD("USD");
-
-    companion object {
-        fun fromCode(value: String): CurrencyCode {
-            return entries.firstOrNull { it.code == value }
-                ?: throw IllegalArgumentException(
-                    "Unsupported currency code: $value"
-                )
-        }
-    }
-}
-
-enum class TransactionType {
-    RECEIVABLE,
-    PAYABLE
-}
 
 @Entity(
-    tableName = "persons"
+    tableName = "people",
+    indices = [
+        Index(value = ["name"]),
+        Index(value = ["phone"]),
+        Index(value = ["isActive"])
+    ]
 )
 data class PersonEntity(
-    @PrimaryKey(autoGenerate = true)
+    @androidx.room.PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-
     val name: String,
-
     val phone: String = "",
-
     val address: String = "",
-
     val notes: String = "",
-
     val createdAt: Long = System.currentTimeMillis(),
-
     val isActive: Boolean = true
 )
 
@@ -54,51 +30,21 @@ data class PersonEntity(
             entity = PersonEntity::class,
             parentColumns = ["id"],
             childColumns = ["personId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
+            onUpdate = ForeignKey.CASCADE
         )
     ],
     indices = [
         Index(value = ["personId"]),
-        Index(value = ["currency"])
+        Index(value = ["personId", "currencyCode"], unique = true)
     ]
 )
 data class CurrencyAccountEntity(
-    @PrimaryKey(autoGenerate = true)
+    @androidx.room.PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-
     val personId: Long,
-
-    val currency: CurrencyCode
-)
-
-@Entity(
-    tableName = "transactions",
-    foreignKeys = [
-        ForeignKey(
-            entity = CurrencyAccountEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["currencyAccountId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
-    indices = [
-        Index(value = ["currencyAccountId"]),
-        Index(value = ["transactionDate"])
-    ]
-)
-data class TransactionEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-
-    val currencyAccountId: Long,
-
-    val type: TransactionType,
-
-    val amountMinor: Long,
-
-    val description: String = "",
-
-    val transactionDate: Long,
-
-    val createdAt: Long = System.currentTimeMillis()
+    val currencyCode: String,
+    val balanceMinor: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
 )
