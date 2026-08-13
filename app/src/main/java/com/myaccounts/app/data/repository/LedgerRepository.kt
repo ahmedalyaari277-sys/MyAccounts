@@ -1,99 +1,84 @@
 package com.myaccounts.app.data.repository
 
-import com.myaccounts.app.data.local.dao.LedgerDao
-import com.myaccounts.app.data.local.dao.PersonWithAccounts
-import com.myaccounts.app.data.local.entity.CurrencyAccountEntity
-import com.myaccounts.app.data.local.entity.CurrencyCode
-import com.myaccounts.app.data.local.entity.PersonEntity
-import com.myaccounts.app.domain.repository.LedgerRepositoryContract
+import com.myaccounts.app.data.local.CurrencyAccountEntity
+import com.myaccounts.app.data.local.LedgerDao
+import com.myaccounts.app.data.local.PersonEntity
 import kotlinx.coroutines.flow.Flow
 
 class LedgerRepository(
     private val dao: LedgerDao
 ) : LedgerRepositoryContract {
 
-    override val allPersonsFlow:
-        Flow<List<PersonWithAccounts>> =
-        dao.getAllPersonsWithAccountsFlow()
-
-    override suspend fun addPerson(
-        name: String,
-        phone: String,
-        address: String,
-        notes: String
-    ): Long {
-
-        val person = PersonEntity(
-            name = name.trim(),
-            phone = phone.trim(),
-            address = address.trim(),
-            notes = notes.trim(),
-            isActive = true
-        )
-
-        val defaultAccounts =
-            CurrencyCode.entries.map { currency ->
-
-                CurrencyAccountEntity(
-                    personId = 0L,
-                    currency = currency
-                )
-            }
-
-        return dao.insertPersonWithAccounts(
-            person = person,
-            accounts = defaultAccounts
-        )
+    override fun observePeople(
+        query: String
+    ): Flow<List<PersonEntity>> {
+        return dao.observePeople(query)
     }
 
-    override suspend fun getPersonWithAccounts(
+    override fun observePerson(
         personId: Long
-    ): PersonWithAccounts? {
+    ): Flow<PersonEntity?> {
+        return dao.observePerson(personId)
+    }
 
-        return dao.getPersonWithAccounts(
-            personId
+    override fun observeCurrencyAccounts(
+        personId: Long
+    ): Flow<List<CurrencyAccountEntity>> {
+        return dao.observeCurrencyAccounts(personId)
+    }
+
+    override fun observeCurrencyAccount(
+        accountId: Long
+    ): Flow<CurrencyAccountEntity?> {
+        return dao.observeCurrencyAccount(accountId)
+    }
+
+    override suspend fun insertPerson(
+        person: PersonEntity
+    ): Long {
+        return dao.insertPersonWithCurrencyAccounts(
+            person = person,
+            currencyCodes = DEFAULT_CURRENCIES
         )
     }
 
     override suspend fun updatePerson(
-        personId: Long,
-        name: String,
-        phone: String,
-        address: String,
-        notes: String
-    ): Result<Unit> {
-
-        return runCatching {
-
-            val affectedRows =
-                dao.updatePerson(
-                    personId = personId,
-                    name = name.trim(),
-                    phone = phone.trim(),
-                    address = address.trim(),
-                    notes = notes.trim()
-                )
-
-            check(affectedRows > 0) {
-                "تعذر تعديل بيانات الشخص"
-            }
-        }
+        person: PersonEntity
+    ) {
+        dao.updatePerson(person)
     }
 
     override suspend fun deletePerson(
         personId: Long
-    ): Result<Unit> {
+    ) {
+        dao.softDeletePerson(personId)
+    }
 
-        return runCatching {
+    override suspend fun getCurrencyAccount(
+        personId: Long,
+        currencyCode: String
+    ): CurrencyAccountEntity? {
+        return dao.getCurrencyAccount(
+            personId = personId,
+            currencyCode = currencyCode
+        )
+    }
 
-            val affectedRows =
-                dao.deactivatePerson(
-                    personId
-                )
+    override suspend fun updateCurrencyBalance(
+        accountId: Long,
+        balanceMinor: Long
+    ) {
+        dao.updateCurrencyBalance(
+            accountId = accountId,
+            balanceMinor = balanceMinor
+        )
+    }
 
-            check(affectedRows > 0) {
-                "تعذر حذف الشخص"
-            }
-        }
+    companion object {
+        val DEFAULT_CURRENCIES = listOf(
+            "YER",
+            "SAR",
+            "USD"
+        )
     }
 }
