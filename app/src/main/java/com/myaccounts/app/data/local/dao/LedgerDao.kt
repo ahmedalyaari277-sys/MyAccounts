@@ -12,9 +12,6 @@ import com.myaccounts.app.data.local.entity.PersonEntity
 import com.myaccounts.app.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
-/**
- * بيانات الشخص مع جميع حساباته بالعملات المختلفة.
- */
 data class PersonWithAccounts(
 
     @Embedded
@@ -30,30 +27,29 @@ data class PersonWithAccounts(
 @Dao
 interface LedgerDao {
 
-    /**
-     * الحصول على جميع الأشخاص مع حساباتهم.
-     */
     @Transaction
     @Query(
-        "SELECT * FROM persons ORDER BY name COLLATE NOCASE ASC"
+        """
+        SELECT *
+        FROM persons
+        ORDER BY name COLLATE NOCASE ASC
+        """
     )
-    fun getAllPersonsWithAccountsFlow():
-            Flow<List<PersonWithAccounts>>
+    fun getAllPersonsWithAccountsFlow(): Flow<List<PersonWithAccounts>>
 
-    /**
-     * الحصول على شخص واحد مع جميع حساباته.
-     */
     @Transaction
     @Query(
-        "SELECT * FROM persons WHERE id = :personId LIMIT 1"
+        """
+        SELECT *
+        FROM persons
+        WHERE id = :personId
+        LIMIT 1
+        """
     )
     suspend fun getPersonWithAccounts(
         personId: Long
     ): PersonWithAccounts?
 
-    /**
-     * إضافة شخص جديد.
-     */
     @Insert(
         onConflict = OnConflictStrategy.ABORT
     )
@@ -61,9 +57,6 @@ interface LedgerDao {
         person: PersonEntity
     ): Long
 
-    /**
-     * إضافة حسابات العملات للشخص.
-     */
     @Insert(
         onConflict = OnConflictStrategy.ABORT
     )
@@ -71,22 +64,34 @@ interface LedgerDao {
         accounts: List<CurrencyAccountEntity>
     )
 
-    /**
-     * حذف شخص.
-     *
-     * الحذف المتسلسل CASCADE في قاعدة البيانات
-     * سيحذف الحسابات والمعاملات المرتبطة به.
-     */
+    @Transaction
+    suspend fun insertPersonWithAccounts(
+        person: PersonEntity,
+        accounts: List<CurrencyAccountEntity>
+    ): Long {
+        val personId = insertPerson(person)
+
+        val accountsForPerson = accounts.map { account ->
+            account.copy(
+                personId = personId
+            )
+        }
+
+        insertCurrencyAccounts(accountsForPerson)
+
+        return personId
+    }
+
     @Query(
-        "DELETE FROM persons WHERE id = :personId"
+        """
+        DELETE FROM persons
+        WHERE id = :personId
+        """
     )
     suspend fun deletePerson(
         personId: Long
     )
 
-    /**
-     * إضافة معاملة مالية.
-     */
     @Insert(
         onConflict = OnConflictStrategy.ABORT
     )
