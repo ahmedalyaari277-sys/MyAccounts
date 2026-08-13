@@ -2,188 +2,85 @@ package com.myaccounts.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.myaccounts.app.data.local.dao.PersonWithAccounts
-import com.myaccounts.app.domain.repository.LedgerRepositoryContract
-import com.myaccounts.app.domain.usecase.AddPersonUseCase
-import com.myaccounts.app.domain.usecase.DeletePersonUseCase
-import com.myaccounts.app.domain.usecase.UpdatePersonUseCase
+import com.myaccounts.app.data.local.CurrencyAccountEntity
+import com.myaccounts.app.data.local.PersonEntity
+import com.myaccounts.app.data.repository.LedgerRepositoryContract
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
-data class LedgerUiState(
-    val isSaving: Boolean = false,
-    val isUpdating: Boolean = false,
-    val isDeleting: Boolean = false,
-    val errorMessage: String? = null
-)
-
 class LedgerViewModel(
-    repository: LedgerRepositoryContract
+    private val repository: LedgerRepositoryContract
 ) : ViewModel() {
 
-    private val addPersonUseCase =
-        AddPersonUseCase(repository)
+    private val searchQuery = MutableStateFlow("")
 
-    private val updatePersonUseCase =
-        UpdatePersonUseCase(repository)
+    private val _people = MutableStateFlow<List<PersonEntity>>(emptyList())
+    val people: StateFlow<List<PersonEntity>> = _people.asStateFlow()
 
-    private val deletePersonUseCase =
-        DeletePersonUseCase(repository)
+    private val _currencyAccounts =
+        MutableStateFlow<List<CurrencyAccountEntity>>(emptyList())
 
-    val personsWithAccounts:
-        StateFlow<List<PersonWithAccounts>> =
-        repository.allPersonsFlow.stateIn(
-            scope = viewModelScope,
-            started =
-                SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
-        )
+    val currencyAccounts: StateFlow<List<CurrencyAccountEntity>> =
+        _currencyAccounts.asStateFlow()
 
-    private val _uiState =
-        MutableStateFlow(
-            LedgerUiState()
-        )
+    init {
+        viewModelScope.launch {
+            searchQuery
+                .flatMapLatest { query ->
+                    repository.observePeople(query)
+                }
+                .collect { result ->
+                    _people.value = result
+                }
+        }
+    }
 
-    val uiState:
-        StateFlow<LedgerUiState> =
-        _uiState.asStateFlow()
+    fun setSearchQuery(query: String) {
+        searchQuery.value = query
+    }
+
+    fun loadCurrencyAccounts(personId: Long) {
+        viewModelScope.launch {
+            repository
+                .observeCurrencyAccounts(personId)
+                .collect { accounts ->
+                    _currencyAccounts.value = accounts
+                }
+        }
+    }
 
     fun addPerson(
         name: String,
-        phone: String,
-        address: String,
-        notes: String
+        phone: String = "",
+        address: String = "",
+        notes: String = ""
     ) {
-
         viewModelScope.launch {
-
-            _uiState.value =
-                _uiState.value.copy(
-                    isSaving = true,
-                    errorMessage = null
+            repository.insertPerson(
+                PersonEntity(
+                    name = name.trim(),
+                    phone = phone.trim(),
+                    address = address.trim(),
+                    notes = notes.trim()
                 )
-
-            val result =
-                addPersonUseCase(
-                    name = name,
-                    phone = phone,
-                    address = address,
-                    notes = notes
-                )
-
-            result.fold(
-                onSuccess = {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isSaving = false
-                        )
-                },
-                onFailure = { error ->
-
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isSaving = false,
-                            errorMessage =
-                                error.message
-                                    ?: "حدث خطأ أثناء حفظ الشخص"
-                        )
-                }
             )
         }
     }
 
-    fun updatePerson(
-        personId: Long,
-        name: String,
-        phone: String,
-        address: String,
-        notes: String
-    ) {
-
+    fun updatePerson(person: PersonEntity) {
         viewModelScope.launch {
-
-            _uiState.value =
-                _uiState.value.copy(
-                    isUpdating = true,
-                    errorMessage = null
-                )
-
-            val result =
-                updatePersonUseCase(
-                    personId = personId,
-                    name = name,
-                    phone = phone,
-                    address = address,
-                    notes = notes
-                )
-
-            result.fold(
-                onSuccess = {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isUpdating = false
-                        )
-                },
-                onFailure = { error ->
-
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isUpdating = false,
-                            errorMessage =
-                                error.message
-                                    ?: "حدث خطأ أثناء تعديل الشخص"
-                        )
-                }
-            )
+            repository.updatePerson(person)
         }
     }
 
-    fun deletePerson(
-        personId: Long
-    ) {
-
+    fun deletePerson(personId: Long) {
         viewModelScope.launch {
-
-            _uiState.value =
-                _uiState.value.copy(
-                    isDeleting = true,
-                    errorMessage = null
-                )
-
-            val result =
-                deletePersonUseCase(
-                    personId
-                )
-
-            result.fold(
-                onSuccess = {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isDeleting = false
-                        )
-                },
-                onFailure = { error ->
-
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isDeleting = false,
-                            errorMessage =
-                                error.message
-                                    ?: "حدث خطأ أثناء حذف الشخص"
-                        )
-                }
-            )
+            repository.deletePerson(personId)
         }
-    }
-
-    fun clearError() {
-        _uiState.value =
-            _uiState.value.copy(
-                errorMessage = null
-            )
     }
 }
