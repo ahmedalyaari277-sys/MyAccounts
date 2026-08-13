@@ -3,91 +3,52 @@ package com.myaccounts.app.data.repository
 import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.local.entity.CurrencyAccountEntity
+import com.myaccounts.app.data.local.entity.CurrencyCode
 import com.myaccounts.app.data.local.entity.PersonEntity
+import com.myaccounts.app.domain.repository.LedgerRepositoryContract
 import kotlinx.coroutines.flow.Flow
 
 class LedgerRepository(
     private val dao: LedgerDao
-) {
+) : LedgerRepositoryContract {
 
-    /**
-     * جميع الأشخاص مع حساباتهم
-     */
-    val allPersonsFlow: Flow<List<PersonWithAccounts>> =
+    override val allPersonsFlow: Flow<List<PersonWithAccounts>> =
         dao.getAllPersonsWithAccountsFlow()
 
-    /**
-     * إضافة شخص جديد مع إنشاء حساباته بالعملات الأساسية
-     */
-    suspend fun addPerson(
+    override suspend fun addPerson(
         name: String,
         phone: String,
         address: String
-    ) {
+    ): Long {
 
         val person = PersonEntity(
-            name = name,
-            phone = phone,
-            address = address
+            name = name.trim(),
+            phone = phone.trim(),
+            address = address.trim()
         )
 
-        val personId = dao.insertPerson(person)
-
-        /*
-         * عند إنشاء الشخص يتم إنشاء ثلاثة حسابات له:
-         *
-         * YER = ريال يمني
-         * SAR = ريال سعودي
-         * USD = دولار أمريكي
-         */
-
-        val currencyAccounts = listOf(
-
+        val defaultAccounts = CurrencyCode.entries.map { currency ->
             CurrencyAccountEntity(
-                personId = personId,
-                currency = "YER"
-            ),
-
-            CurrencyAccountEntity(
-                personId = personId,
-                currency = "SAR"
-            ),
-
-            CurrencyAccountEntity(
-                personId = personId,
-                currency = "USD"
+                personId = 0L,
+                currency = currency
             )
-        )
+        }
 
-        dao.insertCurrencyAccounts(
-            currencyAccounts
+        return dao.insertPersonWithAccounts(
+            person = person,
+            accounts = defaultAccounts
         )
     }
 
-    /**
-     * الحصول على شخص محدد مع جميع حساباته
-     */
-    suspend fun getPersonWithAccounts(
+    override suspend fun getPersonWithAccounts(
         personId: Long
     ): PersonWithAccounts? {
-
-        return dao.getPersonWithAccounts(
-            personId
-        )
+        return dao.getPersonWithAccounts(personId)
     }
 
-    /**
-     * حذف شخص.
-     *
-     * بسبب ForeignKey + CASCADE سيتم حذف
-     * حساباته ومعاملاته المرتبطة به تلقائياً.
-     */
-    suspend fun deletePerson(
+    override suspend fun deletePerson(
         personId: Long
     ) {
-
-        dao.deletePerson(
-            personId
-        )
+        dao.deletePerson(personId)
     }
 }
