@@ -10,18 +10,15 @@ class LedgerRepository(
     private val dao: LedgerDao
 ) {
 
+    /**
+     * جميع الأشخاص مع حساباتهم
+     */
     val allPersonsFlow: Flow<List<PersonWithAccounts>> =
         dao.getAllPersonsWithAccountsFlow()
 
-    fun getPersonWithAccounts(
-        personId: Long
-    ): Flow<PersonWithAccounts?> {
-
-        return dao.getPersonWithAccountsFlow(
-            personId
-        )
-    }
-
+    /**
+     * إضافة شخص جديد مع إنشاء حساباته بالعملات الأساسية
+     */
     suspend fun addPerson(
         name: String,
         phone: String,
@@ -34,12 +31,10 @@ class LedgerRepository(
             address = address
         )
 
-        val personId =
-            dao.insertPerson(person)
+        val personId = dao.insertPerson(person)
 
         /*
-         * عند إنشاء شخص جديد يتم إنشاء ثلاثة
-         * حسابات مستقلة له تلقائياً:
+         * عند إنشاء الشخص يتم إنشاء ثلاثة حسابات له:
          *
          * YER = ريال يمني
          * SAR = ريال سعودي
@@ -66,6 +61,33 @@ class LedgerRepository(
 
         dao.insertCurrencyAccounts(
             currencyAccounts
+        )
+    }
+
+    /**
+     * الحصول على شخص محدد مع جميع حساباته
+     */
+    suspend fun getPersonWithAccounts(
+        personId: Long
+    ): PersonWithAccounts? {
+
+        return dao.getPersonWithAccounts(
+            personId
+        )
+    }
+
+    /**
+     * حذف شخص.
+     *
+     * بسبب ForeignKey + CASCADE سيتم حذف
+     * حساباته ومعاملاته المرتبطة به تلقائياً.
+     */
+    suspend fun deletePerson(
+        personId: Long
+    ) {
+
+        dao.deletePerson(
+            personId
         )
     }
 }
