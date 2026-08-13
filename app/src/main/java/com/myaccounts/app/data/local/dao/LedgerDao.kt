@@ -12,6 +12,9 @@ import com.myaccounts.app.data.local.entity.PersonEntity
 import com.myaccounts.app.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * بيانات الشخص مع جميع حساباته بالعملات المختلفة.
+ */
 data class PersonWithAccounts(
 
     @Embedded
@@ -24,10 +27,12 @@ data class PersonWithAccounts(
     val accounts: List<CurrencyAccountEntity>
 )
 
-
 @Dao
 interface LedgerDao {
 
+    /**
+     * الحصول على جميع الأشخاص مع حساباتهم.
+     */
     @Transaction
     @Query(
         "SELECT * FROM persons ORDER BY name COLLATE NOCASE ASC"
@@ -35,16 +40,20 @@ interface LedgerDao {
     fun getAllPersonsWithAccountsFlow():
             Flow<List<PersonWithAccounts>>
 
-
+    /**
+     * الحصول على شخص واحد مع جميع حساباته.
+     */
     @Transaction
     @Query(
         "SELECT * FROM persons WHERE id = :personId LIMIT 1"
     )
-    fun getPersonWithAccountsFlow(
+    suspend fun getPersonWithAccounts(
         personId: Long
-    ): Flow<PersonWithAccounts?>
+    ): PersonWithAccounts?
 
-
+    /**
+     * إضافة شخص جديد.
+     */
     @Insert(
         onConflict = OnConflictStrategy.ABORT
     )
@@ -52,7 +61,9 @@ interface LedgerDao {
         person: PersonEntity
     ): Long
 
-
+    /**
+     * إضافة حسابات العملات للشخص.
+     */
     @Insert(
         onConflict = OnConflictStrategy.ABORT
     )
@@ -60,7 +71,12 @@ interface LedgerDao {
         accounts: List<CurrencyAccountEntity>
     )
 
-
+    /**
+     * حذف شخص.
+     *
+     * الحذف المتسلسل CASCADE في قاعدة البيانات
+     * سيحذف الحسابات والمعاملات المرتبطة به.
+     */
     @Query(
         "DELETE FROM persons WHERE id = :personId"
     )
@@ -68,7 +84,9 @@ interface LedgerDao {
         personId: Long
     )
 
-
+    /**
+     * إضافة معاملة مالية.
+     */
     @Insert(
         onConflict = OnConflictStrategy.ABORT
     )
