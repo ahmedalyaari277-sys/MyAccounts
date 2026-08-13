@@ -2,13 +2,25 @@ package com.myaccounts.app.data.repository
 
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.PersonEntity
+import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import kotlinx.coroutines.flow.Flow
 
 interface LedgerRepositoryContract {
 
-    fun observePeople(query: String): Flow<List<PersonEntity>>
+    fun observePeople(
+        query: String
+    ): Flow<List<PersonEntity>>
 
-    fun observePerson(personId: Long): Flow<PersonEntity?>
+    fun observePerson(
+        personId: Long
+    ): Flow<PersonEntity?>
+
+    fun observePersonsWithAccounts():
+        Flow<List<PersonWithAccounts>>
+
+    fun observePersonWithAccounts(
+        personId: Long
+    ): Flow<PersonWithAccounts?>
 
     fun observeCurrencyAccounts(
         personId: Long
