@@ -10,6 +10,7 @@ import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.entity.CurrencyAccountEntity
 import com.myaccounts.app.data.local.entity.PersonEntity
 import com.myaccounts.app.data.local.entity.TransactionEntity
+import com.myaccounts.app.data.local.migration.MIGRATION_1_2
 
 @Database(
     entities = [
@@ -17,7 +18,7 @@ import com.myaccounts.app.data.local.entity.TransactionEntity
         CurrencyAccountEntity::class,
         TransactionEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(DatabaseConverters::class)
@@ -27,20 +28,28 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
 
-        private const val DATABASE_NAME = "ledger_local_database.db"
+        private const val DATABASE_NAME =
+            "ledger_local_database.db"
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(context: Context): AppDatabase {
+        fun getInstance(
+            context: Context
+        ): AppDatabase {
+
             return INSTANCE ?: synchronized(this) {
+
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .build()
-                    .also { INSTANCE = it }
+                    .also {
+                        INSTANCE = it
+                    }
             }
         }
     }
