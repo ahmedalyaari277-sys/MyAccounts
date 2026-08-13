@@ -1,130 +1,116 @@
-package com.myaccounts.app.data.local.dao
+package com.myaccounts.app.data.local
 
 import androidx.room.Dao
-import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Relation
-import androidx.room.Transaction
-import com.myaccounts.app.data.local.entity.CurrencyAccountEntity
-import com.myaccounts.app.data.local.entity.PersonEntity
-import com.myaccounts.app.data.local.entity.TransactionEntity
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
-
-data class PersonWithAccounts(
-
-    @Embedded
-    val person: PersonEntity,
-
-    @Relation(
-        parentColumn = "id",
-        entityColumn = "personId"
-    )
-    val accounts: List<CurrencyAccountEntity>
-)
 
 @Dao
 interface LedgerDao {
 
-    @Transaction
     @Query(
         """
-        SELECT *
-        FROM persons
+        SELECT * FROM people
         WHERE isActive = 1
+        AND (
+            name LIKE '%' || :query || '%'
+            OR phone LIKE '%' || :query || '%'
+            OR address LIKE '%' || :query || '%'
+            OR notes LIKE '%' || :query || '%'
+        )
         ORDER BY name COLLATE NOCASE ASC
         """
     )
-    fun getAllPersonsWithAccountsFlow():
-        Flow<List<PersonWithAccounts>>
+    fun observePeople(query: String): Flow<List<PersonEntity>>
 
-    @Transaction
     @Query(
         """
-        SELECT *
-        FROM persons
+        SELECT * FROM people
         WHERE id = :personId
-        AND isActive = 1
         LIMIT 1
         """
     )
-    suspend fun getPersonWithAccounts(
-        personId: Long
-    ): PersonWithAccounts?
+    fun observePerson(personId: Long): Flow<PersonEntity?>
 
-    @Insert(
-        onConflict = OnConflictStrategy.ABORT
-    )
-    suspend fun insertPerson(
-        person: PersonEntity
-    ): Long
+    @Insert
+    suspend fun insertPerson(person: PersonEntity): Long
 
-    @Insert(
-        onConflict = OnConflictStrategy.ABORT
+    @Update
+    suspend fun updatePerson(person: PersonEntity)
+
+    @Query("UPDATE people SET isActive = 0 WHERE id = :personId")
+    suspend fun softDeletePerson(personId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCurrencyAccounts(accounts: List<CurrencyAccountEntity>)
+
+    @Query(
+        """
+        SELECT * FROM currency_accounts
+        WHERE personId = :personId
+        ORDER BY currencyCode ASC
+        """
     )
-    suspend fun insertCurrencyAccounts(
-        accounts: List<CurrencyAccountEntity>
+    fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>>
+
+    @Query(
+        """
+        SELECT * FROM currency_accounts
+        WHERE id = :accountId
+        LIMIT 1
+        """
+    )
+    fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?>
+
+    @Query(
+        """
+        SELECT * FROM currency_accounts
+        WHERE personId = :personId
+        AND currencyCode = :currencyCode
+        LIMIT 1
+        """
+    )
+    suspend fun getCurrencyAccount(
+        personId: Long,
+        currencyCode: String
+    ): CurrencyAccountEntity?
+
+    @Update
+    suspend fun updateCurrencyAccount(account: CurrencyAccountEntity)
+
+    @Query(
+        """
+        UPDATE currency_accounts
+        SET balanceMinor = :balanceMinor,
+            updatedAt = :updatedAt
+        WHERE id = :accountId
+        """
+    )
+    suspend fun updateCurrencyBalance(
+        accountId: Long,
+        balanceMinor: Long,
+        updatedAt: Long = System.currentTimeMillis()
     )
 
-    @Transaction
-    suspend fun insertPersonWithAccounts(
+    @androidx.room.Transaction
+    suspend fun insertPersonWithCurrencyAccounts(
         person: PersonEntity,
-        accounts: List<CurrencyAccountEntity>
+        currencyCodes: List<String>
     ): Long {
-
         val personId = insertPerson(person)
 
-        val accountsForPerson =
-            accounts.map { account ->
-                account.copy(
-                    personId = personId
+        insertCurrencyAccounts(
+            currencyCodes.map { currencyCode ->
+                CurrencyAccountEntity(
+                    personId = personId,
+                    currencyCode = currencyCode,
+                    balanceMinor = 0L
                 )
             }
-
-        insertCurrencyAccounts(
-            accountsForPerson
         )
 
         return personId
     }
-
-    @Query(
-        """
-        UPDATE persons
-        SET
-            name = :name,
-            phone = :phone,
-            address = :address,
-            notes = :notes
-        WHERE id = :personId
-        AND isActive = 1
-        """
-    )
-    suspend fun updatePerson(
-        personId: Long,
-        name: String,
-        phone: String,
-        address: String,
-        notes: String
-    ): Int
-
-    @Query(
-        """
-        UPDATE persons
-        SET isActive = 0
-        WHERE id = :personId
-        AND isActive = 1
-        """
-    )
-    suspend fun deactivatePerson(
-        personId: Long
-    ): Int
-
-    @Insert(
-        onConflict = OnConflictStrategy.ABORT
-    )
-    suspend fun insertTransaction(
-        transaction: TransactionEntity
-    ): Long
 }
