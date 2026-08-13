@@ -9,8 +9,9 @@ class DeletePersonUseCase(
     suspend operator fun invoke(
         personId: Long
     ): Result<Unit> {
-        return runCatching {
-            repository.deletePerson(personId)
-        }
+
+        return repository.deletePerson(
+            personId
+        )
     }
 }
