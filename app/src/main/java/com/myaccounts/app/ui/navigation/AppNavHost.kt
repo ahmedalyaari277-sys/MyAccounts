@@ -18,18 +18,16 @@ fun AppNavHost(
     viewModel: LedgerViewModel
 ) {
 
-    val persons by
-        viewModel.personsWithAccounts
-            .collectAsState()
+    val persons by viewModel
+        .personsWithAccounts
+        .collectAsState()
 
     NavHost(
         navController = navController,
         startDestination = Routes.HOME
     ) {
 
-        composable(
-            route = Routes.HOME
-        ) {
+        composable(Routes.HOME) {
 
             HomeScreen(
                 personsList = persons,
@@ -51,9 +49,7 @@ fun AppNavHost(
                 onPersonClick = { personId ->
 
                     navController.navigate(
-                        Routes.personAccount(
-                            personId
-                        )
+                        Routes.personAccount(personId)
                     )
                 }
             )
@@ -67,12 +63,10 @@ fun AppNavHost(
                     type = NavType.LongType
                 }
             )
-        ) { backStackEntry ->
+        ) { entry ->
 
             val personId =
-                backStackEntry
-                    .arguments
-                    ?.getLong("personId")
+                entry.arguments?.getLong("personId")
 
             val person =
                 persons.firstOrNull {
