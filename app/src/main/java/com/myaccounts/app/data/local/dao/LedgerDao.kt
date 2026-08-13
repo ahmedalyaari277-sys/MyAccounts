@@ -1,10 +1,13 @@
-package com.myaccounts.app.data.local
+package com.myaccounts.app.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
+import com.myaccounts.app.data.local.CurrencyAccountEntity
+import com.myaccounts.app.data.local.PersonEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,17 +37,56 @@ interface LedgerDao {
     )
     fun observePerson(personId: Long): Flow<PersonEntity?>
 
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM people
+        WHERE isActive = 1
+        ORDER BY name COLLATE NOCASE ASC
+        """
+    )
+    fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>>
+
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM people
+        WHERE id = :personId
+        AND isActive = 1
+        LIMIT 1
+        """
+    )
+    fun observePersonWithAccounts(
+        personId: Long
+    ): Flow<PersonWithAccounts?>
+
     @Insert
-    suspend fun insertPerson(person: PersonEntity): Long
+    suspend fun insertPerson(
+        person: PersonEntity
+    ): Long
 
     @Update
-    suspend fun updatePerson(person: PersonEntity)
+    suspend fun updatePerson(
+        person: PersonEntity
+    )
 
-    @Query("UPDATE people SET isActive = 0 WHERE id = :personId")
-    suspend fun softDeletePerson(personId: Long)
+    @Query(
+        """
+        UPDATE people
+        SET isActive = 0
+        WHERE id = :personId
+        """
+    )
+    suspend fun softDeletePerson(
+        personId: Long
+    )
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertCurrencyAccounts(accounts: List<CurrencyAccountEntity>)
+    @Insert(
+        onConflict = OnConflictStrategy.IGNORE
+    )
+    suspend fun insertCurrencyAccounts(
+        accounts: List<CurrencyAccountEntity>
+    )
 
     @Query(
         """
@@ -53,7 +95,9 @@ interface LedgerDao {
         ORDER BY currencyCode ASC
         """
     )
-    fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>>
+    fun observeCurrencyAccounts(
+        personId: Long
+    ): Flow<List<CurrencyAccountEntity>>
 
     @Query(
         """
@@ -62,7 +106,9 @@ interface LedgerDao {
         LIMIT 1
         """
     )
-    fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?>
+    fun observeCurrencyAccount(
+        accountId: Long
+    ): Flow<CurrencyAccountEntity?>
 
     @Query(
         """
@@ -78,7 +124,9 @@ interface LedgerDao {
     ): CurrencyAccountEntity?
 
     @Update
-    suspend fun updateCurrencyAccount(account: CurrencyAccountEntity)
+    suspend fun updateCurrencyAccount(
+        account: CurrencyAccountEntity
+    )
 
     @Query(
         """
@@ -94,7 +142,7 @@ interface LedgerDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    @androidx.room.Transaction
+    @Transaction
     suspend fun insertPersonWithCurrencyAccounts(
         person: PersonEntity,
         currencyCodes: List<String>
