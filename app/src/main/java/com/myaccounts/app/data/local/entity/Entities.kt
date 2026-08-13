@@ -15,7 +15,9 @@ enum class CurrencyCode(
     companion object {
         fun fromCode(value: String): CurrencyCode {
             return entries.firstOrNull { it.code == value }
-                ?: throw IllegalArgumentException("Unsupported currency code: $value")
+                ?: throw IllegalArgumentException(
+                    "Unsupported currency code: $value"
+                )
         }
     }
 }
@@ -31,10 +33,18 @@ enum class TransactionType {
 data class PersonEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+
     val name: String,
+
     val phone: String = "",
+
     val address: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+
+    val notes: String = "",
+
+    val createdAt: Long = System.currentTimeMillis(),
+
+    val isActive: Boolean = true
 )
 
 @Entity(
@@ -55,7 +65,9 @@ data class PersonEntity(
 data class CurrencyAccountEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+
     val personId: Long,
+
     val currency: CurrencyCode
 )
 
@@ -77,10 +89,16 @@ data class CurrencyAccountEntity(
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+
     val currencyAccountId: Long,
+
     val type: TransactionType,
+
     val amountMinor: Long,
+
     val description: String = "",
+
     val transactionDate: Long,
+
     val createdAt: Long = System.currentTimeMillis()
 )
