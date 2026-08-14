@@ -1,3 +1,4 @@
+```kotlin
 package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.clickable
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -266,7 +268,8 @@ private fun CurrencyAccountCard(
     currencyName: String,
     onClick: (Long) -> Unit
 ) {
-    val balance = account?.balanceMinor ?: 0L
+    val balanceMinor =
+        account?.balanceMinor ?: 0L
 
     Card(
         modifier = Modifier
@@ -311,12 +314,21 @@ private fun CurrencyAccountCard(
             }
 
             Text(
-                text = balance.toString(),
+                text = formatBalance(balanceMinor),
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
         }
     }
+}
+
+private fun formatBalance(
+    balanceMinor: Long
+): String {
+    return BigDecimal(balanceMinor)
+        .movePointLeft(2)
+        .stripTrailingZeros()
+        .toPlainString()
 }
 
 @Composable
@@ -460,3 +472,4 @@ private fun EditPersonDialog(
         }
     )
 }
+```
