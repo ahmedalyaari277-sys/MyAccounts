@@ -48,6 +48,13 @@ fun AppNavHost(
             )
         )
 
+    val transactionViewModel: TransactionViewModel =
+        viewModel(
+            factory = TransactionViewModelFactory(
+                application
+            )
+        )
+
     NavHost(
         navController = navController,
         startDestination = Routes.HOME
@@ -204,15 +211,6 @@ fun AppNavHost(
                 currencyCode != null
             ) {
 
-                val transactionViewModel:
-                    TransactionViewModel =
-                    viewModel(
-                        factory =
-                            TransactionViewModelFactory(
-                                application
-                            )
-                    )
-
                 TransactionScreen(
 
                     accountId = accountId,
@@ -303,6 +301,9 @@ fun AppNavHost(
 
                     viewModel =
                         reportsViewModel,
+
+                    transactionViewModel =
+                        transactionViewModel,
 
                     onBack = {
                         navController.popBackStack()
