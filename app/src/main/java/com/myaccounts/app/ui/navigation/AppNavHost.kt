@@ -3,6 +3,7 @@ package com.myaccounts.app.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -11,6 +12,8 @@ import androidx.navigation.navArgument
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
+import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 
 @Composable
 fun AppNavHost(
@@ -72,6 +75,20 @@ fun AppNavHost(
                 persons.firstOrNull {
                     it.person.id == personId
                 }
+
+            val transactionViewModel: TransactionViewModel =
+                viewModel(
+                    factory = TransactionViewModelFactory(
+                        application = androidx.compose.ui.platform
+                            .LocalContext.current
+                            .applicationContext
+                            as android.app.Application
+                    )
+                )
+
+            transactionViewModel.selectAccount(
+                personId
+            )
 
             if (person != null) {
 
