@@ -1,4 +1,4 @@
-```kotlin
+kotlin
 package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.clickable
@@ -472,4 +472,3 @@ private fun EditPersonDialog(
         }
     )
 }
-```
