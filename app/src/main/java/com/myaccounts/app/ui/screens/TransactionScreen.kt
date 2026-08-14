@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,10 +32,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun TransactionScreen(
@@ -44,7 +47,9 @@ fun TransactionScreen(
     transactionViewModel: TransactionViewModel
 ) {
 
-    transactionViewModel.selectAccount(accountId)
+    LaunchedEffect(accountId) {
+        transactionViewModel.selectAccount(accountId)
+    }
 
     val transactions by transactionViewModel
         .transactions
@@ -177,7 +182,7 @@ fun TransactionScreen(
                     onClick = {
 
                         transactionViewModel
-                            .deleteTransaction(
+                            .deleteTransactionById(
                                 transaction.id
                             )
 
@@ -227,6 +232,16 @@ private fun TransactionItem(
                 "-${transaction.amountMinor}"
         }
 
+    val formattedDate =
+        remember(transaction.transactionDate) {
+            SimpleDateFormat(
+                "yyyy-MM-dd HH:mm",
+                Locale.getDefault()
+            ).format(
+                Date(transaction.transactionDate)
+            )
+        }
+
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -266,8 +281,7 @@ private fun TransactionItem(
                 }
 
                 Text(
-                    text = transaction.transactionDate
-                        .toString(),
+                    text = formattedDate,
                     style =
                         MaterialTheme.typography.bodySmall
                 )
