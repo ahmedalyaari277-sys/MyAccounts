@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -137,7 +139,7 @@ fun TransactionScreen(
                     )
 
                     Text(
-                        text = balance.toString(),
+                        text = formatAmount(balance),
                         style =
                             MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
@@ -366,7 +368,8 @@ private fun AddTransactionDialog(
                 if (amountError) {
 
                     Text(
-                        text = "أدخل مبلغًا صحيحًا أكبر من صفر.",
+                        text =
+                            "أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.",
                         color =
                             MaterialTheme.colorScheme.error,
                         style =
@@ -403,37 +406,25 @@ private fun AddTransactionDialog(
             TextButton(
                 onClick = {
 
-                    val amount =
-                        amountText
-                            .trim()
-                            .replace(',', '.')
-                            .toDoubleOrNull()
+                    val amountMinor =
+                        parseAmountToMinor(
+                            amountText
+                        )
 
                     if (
-                        amount == null ||
-                        amount <= 0.0
+                        amountMinor == null ||
+                        amountMinor <= 0L
                     ) {
 
                         amountError = true
 
                     } else {
 
-                        val amountMinor =
-                            (amount * 100.0)
-                                .toLong()
-
-                        if (amountMinor <= 0L) {
-
-                            amountError = true
-
-                        } else {
-
-                            onSave(
-                                selectedType,
-                                amountMinor,
-                                description.trim()
-                            )
-                        }
+                        onSave(
+                            selectedType,
+                            amountMinor,
+                            description.trim()
+                        )
                     }
                 }
             ) {
@@ -560,27 +551,58 @@ private fun TransactionItem(
     }
 }
 
+private fun parseAmountToMinor(
+    input: String
+): Long? {
+
+    val normalized =
+        input
+            .trim()
+            .replace(',', '.')
+
+    if (normalized.isEmpty()) {
+        return null
+    }
+
+    return try {
+
+        val decimal =
+            BigDecimal(normalized)
+
+        if (decimal <= BigDecimal.ZERO) {
+            return null
+        }
+
+        decimal
+            .setScale(
+                2,
+                RoundingMode.UNNECESSARY
+            )
+            .movePointRight(2)
+            .longValueExact()
+
+    } catch (
+        exception: NumberFormatException
+    ) {
+
+        null
+
+    } catch (
+        exception: ArithmeticException
+    ) {
+
+        null
+    }
+}
+
 private fun formatAmount(
     amountMinor: Long
 ): String {
 
-    val wholePart =
-        amountMinor / 100
+    val decimal =
+        BigDecimal(amountMinor)
+            .movePointLeft(2)
+            .stripTrailingZeros()
 
-    val fractionalPart =
-        amountMinor % 100
-
-    return if (fractionalPart == 0L) {
-
-        wholePart.toString()
-
-    } else {
-
-        String.format(
-            Locale.US,
-            "%d.%02d",
-            wholePart,
-            fractionalPart
-        )
-    }
+    return decimal.toPlainString()
 }
