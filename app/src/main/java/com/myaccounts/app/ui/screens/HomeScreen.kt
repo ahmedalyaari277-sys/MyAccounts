@@ -40,8 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -326,6 +326,7 @@ private fun PersonCard(
 private fun PersonWithAccounts.balance(
     currencyCode: String
 ): Long {
+
     return accounts
         .firstOrNull {
             it.currencyCode == currencyCode
@@ -341,10 +342,20 @@ private fun CurrencyLabel(
 ) {
 
     Text(
-        text = "$currency\n$balance",
+        text = "$currency\n${formatBalance(balance)}",
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold
     )
+}
+
+private fun formatBalance(
+    balanceMinor: Long
+): String {
+
+    return BigDecimal(balanceMinor)
+        .movePointLeft(2)
+        .stripTrailingZeros()
+        .toPlainString()
 }
 
 @Composable
