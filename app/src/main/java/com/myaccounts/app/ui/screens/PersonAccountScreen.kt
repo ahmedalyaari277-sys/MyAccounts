@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +49,8 @@ fun PersonAccountScreen(
         String,
         String
     ) -> Unit,
-    onDeletePerson: () -> Unit
+    onDeletePerson: () -> Unit,
+    onAccountClick: (Long) -> Unit
 ) {
     var showEditDialog by remember {
         mutableStateOf(false)
@@ -74,7 +76,8 @@ fun PersonAccountScreen(
                         onClick = onBack
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector =
+                                Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "رجوع"
                         )
                     }
@@ -161,7 +164,8 @@ fun PersonAccountScreen(
                     personWithAccounts.accounts,
                     "YER"
                 ),
-                currencyName = "الريال اليمني"
+                currencyName = "الريال اليمني",
+                onClick = onAccountClick
             )
 
             CurrencyAccountCard(
@@ -169,7 +173,8 @@ fun PersonAccountScreen(
                     personWithAccounts.accounts,
                     "SAR"
                 ),
-                currencyName = "الريال السعودي"
+                currencyName = "الريال السعودي",
+                onClick = onAccountClick
             )
 
             CurrencyAccountCard(
@@ -177,7 +182,8 @@ fun PersonAccountScreen(
                     personWithAccounts.accounts,
                     "USD"
                 ),
-                currencyName = "الدولار الأمريكي"
+                currencyName = "الدولار الأمريكي",
+                onClick = onAccountClick
             )
         }
     }
@@ -257,14 +263,24 @@ private fun account(
 @Composable
 private fun CurrencyAccountCard(
     account: CurrencyAccountEntity?,
-    currencyName: String
+    currencyName: String,
+    onClick: (Long) -> Unit
 ) {
     val balance = account?.balanceMinor ?: 0L
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 6.dp)
+            .then(
+                if (account != null) {
+                    Modifier.clickable {
+                        onClick(account.id)
+                    }
+                } else {
+                    Modifier
+                }
+            ),
         colors = CardDefaults.cardColors(
             containerColor =
                 MaterialTheme.colorScheme.surfaceVariant
