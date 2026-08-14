@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.myaccounts.app.data.local.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -17,6 +18,11 @@ interface TransactionDao {
     suspend fun insertTransaction(
         transaction: TransactionEntity
     ): Long
+
+    @Update
+    suspend fun updateTransaction(
+        transaction: TransactionEntity
+    )
 
     @Query(
         """
