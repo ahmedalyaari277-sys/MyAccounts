@@ -4,17 +4,23 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.myaccounts.app.data.local.converter.TransactionConverters
 import com.myaccounts.app.data.local.dao.LedgerDao
 
 @Database(
     entities = [
         PersonEntity::class,
-        CurrencyAccountEntity::class
+        CurrencyAccountEntity::class,
+        TransactionEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
+)
+@TypeConverters(
+    TransactionConverters::class
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -34,10 +40,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2,
-                        MIGRATION_2_3
+                        MIGRATION_2_3,
+                        MIGRATION_3_4
                     )
                     .build()
-                    .also { INSTANCE = it }
+                    .also {
+                        INSTANCE = it
+                    }
             }
         }
 
@@ -162,6 +171,56 @@ abstract class AppDatabase : RoomDatabase() {
                             createdAt
                         FROM people
                         WHERE isActive = 1
+                        """.trimIndent()
+                    )
+                }
+            }
+
+        private val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+
+                override fun migrate(
+                    db: SupportSQLiteDatabase
+                ) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS transactions (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            accountId INTEGER NOT NULL,
+                            type TEXT NOT NULL,
+                            amountMinor INTEGER NOT NULL,
+                            description TEXT NOT NULL,
+                            transactionDate INTEGER NOT NULL,
+                            createdAt INTEGER NOT NULL,
+                            FOREIGN KEY(accountId)
+                                REFERENCES currency_accounts(id)
+                                ON UPDATE CASCADE
+                                ON DELETE CASCADE
+                        )
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        index_transactions_accountId
+                        ON transactions(accountId)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        index_transactions_transactionDate
+                        ON transactions(transactionDate)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        index_transactions_type
+                        ON transactions(type)
                         """.trimIndent()
                     )
                 }
