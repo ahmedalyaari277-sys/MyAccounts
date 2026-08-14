@@ -1,6 +1,6 @@
 package com.myaccounts.app.domain.usecase
 
-import com.myaccounts.app.domain.repository.LedgerRepositoryContract
+import com.myaccounts.app.data.repository.LedgerRepositoryContract
 
 class DeletePersonUseCase(
     private val repository: LedgerRepositoryContract
@@ -8,10 +8,7 @@ class DeletePersonUseCase(
 
     suspend operator fun invoke(
         personId: Long
-    ): Result<Unit> {
-
-        return repository.deletePerson(
-            personId
-        )
+    ) {
+        repository.deletePerson(personId)
     }
 }
