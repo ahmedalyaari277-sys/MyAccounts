@@ -1,6 +1,7 @@
 package com.myaccounts.app.data.repository
 
 import com.myaccounts.app.data.local.TransactionEntity
+import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.data.local.dao.TransactionDao
 import kotlinx.coroutines.flow.Flow
 
@@ -11,7 +12,18 @@ class TransactionRepository(
     override suspend fun addTransaction(
         transaction: TransactionEntity
     ): Long {
-        return transactionDao.insertTransaction(transaction)
+        val transactionId =
+            transactionDao.insertTransaction(transaction)
+
+        val newBalance =
+            transactionDao.getBalance(transaction.accountId)
+
+        transactionDao.updateCurrencyBalance(
+            accountId = transaction.accountId,
+            balanceMinor = newBalance
+        )
+
+        return transactionId
     }
 
     override fun observeTransactions(
@@ -48,11 +60,32 @@ class TransactionRepository(
         transaction: TransactionEntity
     ) {
         transactionDao.deleteTransaction(transaction)
+
+        val newBalance =
+            transactionDao.getBalance(transaction.accountId)
+
+        transactionDao.updateCurrencyBalance(
+            accountId = transaction.accountId,
+            balanceMinor = newBalance
+        )
     }
 
     override suspend fun deleteTransactionById(
         transactionId: Long
     ) {
+        val transaction =
+            transactionDao.getTransaction(transactionId)
+
         transactionDao.deleteTransactionById(transactionId)
+
+        if (transaction != null) {
+            val newBalance =
+                transactionDao.getBalance(transaction.accountId)
+
+            transactionDao.updateCurrencyBalance(
+                accountId = transaction.accountId,
+                balanceMinor = newBalance
+            )
+        }
     }
 }
