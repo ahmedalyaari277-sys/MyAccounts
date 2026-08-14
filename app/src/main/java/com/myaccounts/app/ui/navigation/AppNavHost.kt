@@ -105,6 +105,13 @@ fun AppNavHost(
                         )
 
                         navController.popBackStack()
+                    },
+
+                    onAccountClick = { accountId ->
+
+                        // سيتم ربط TransactionViewModel
+                        // بالحساب المحدد في الخطوة التالية.
+
                     }
                 )
             }
