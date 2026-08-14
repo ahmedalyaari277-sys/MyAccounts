@@ -5,7 +5,6 @@ import android.app.Application
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-
 import androidx.compose.ui.platform.LocalContext
 
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -19,8 +18,11 @@ import androidx.navigation.navArgument
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
+import com.myaccounts.app.ui.screens.reports.ReportsScreen
 
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
+import com.myaccounts.app.ui.viewmodel.ReportsViewModel
+import com.myaccounts.app.ui.viewmodel.ReportsViewModelFactory
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 
@@ -33,6 +35,17 @@ fun AppNavHost(
     val persons by viewModel
         .personsWithAccounts
         .collectAsState()
+
+    val application =
+        LocalContext.current
+            .applicationContext as Application
+
+    val reportsViewModel: ReportsViewModel =
+        viewModel(
+            factory = ReportsViewModelFactory(
+                application
+            )
+        )
 
     NavHost(
         navController = navController,
@@ -190,10 +203,6 @@ fun AppNavHost(
                 currencyCode != null
             ) {
 
-                val application =
-                    LocalContext.current
-                        .applicationContext as Application
-
                 val transactionViewModel:
                     TransactionViewModel =
                     viewModel(
@@ -218,6 +227,32 @@ fun AppNavHost(
                         transactionViewModel
                 )
             }
+        }
+
+        // ---------------------------------------------------------
+        // REPORTS
+        // ---------------------------------------------------------
+
+        composable(
+            route = Routes.REPORTS
+        ) {
+
+            ReportsScreen(
+
+                viewModel = reportsViewModel,
+
+                onBack = {
+                    navController.popBackStack()
+                },
+
+                onPersonClick = {
+                        personId,
+                        currencyCode ->
+
+                    // سيتم ربط تقرير الشخص التفصيلي
+                    // في الخطوة التالية.
+                }
+            )
         }
     }
 }
