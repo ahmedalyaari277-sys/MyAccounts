@@ -61,9 +61,12 @@ interface ReportDao {
 
         WHERE p.isActive = 1
 
-        GROUP BY p.id, p.name
+        GROUP BY
+            p.id,
+            p.name
 
-        ORDER BY p.name COLLATE NOCASE ASC
+        ORDER BY
+            p.name COLLATE NOCASE ASC
         """
     )
     fun observeCurrencyReportPeople(
@@ -73,6 +76,8 @@ interface ReportDao {
     @Query(
         """
         SELECT
+            :currencyCode AS currencyCode,
+
             COALESCE(
                 SUM(
                     CASE
