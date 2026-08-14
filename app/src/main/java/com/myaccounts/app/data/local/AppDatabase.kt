@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.myaccounts.app.data.local.converter.TransactionConverters
 import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.TransactionDao
+import com.myaccounts.app.data.reports.ReportDao
 
 @Database(
     entities = [
@@ -28,6 +29,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
 
     abstract fun transactionDao(): TransactionDao
+
+    abstract fun reportDao(): ReportDao
 
     companion object {
 
