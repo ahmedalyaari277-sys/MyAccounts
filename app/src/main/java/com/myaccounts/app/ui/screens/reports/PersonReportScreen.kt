@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens.reports
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,11 +25,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +45,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,9 +54,12 @@ fun PersonReportScreen(
     currencyCode: String,
     viewModel: ReportsViewModel,
     transactionViewModel: TransactionViewModel? = null,
+    onTransactionClick: (Long, String) -> Unit = { _, _ -> },
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    val coroutineScope = rememberCoroutineScope()
 
     var showStartDatePicker by remember {
         mutableStateOf(false)
@@ -239,7 +245,26 @@ fun PersonReportScreen(
                                 transaction =
                                     transaction,
                                 currencyCode =
-                                    currencyCode
+                                    currencyCode,
+                                onClick = {
+
+                                    coroutineScope.launch {
+
+                                        val selectedTransaction =
+                                            transactionViewModel
+                                                ?.getTransaction(
+                                                    transaction.transactionId
+                                                )
+
+                                        selectedTransaction?.let {
+
+                                            onTransactionClick(
+                                                it.accountId,
+                                                currencyCode
+                                            )
+                                        }
+                                    }
+                                }
                             )
                         }
                     }
@@ -584,10 +609,15 @@ private fun ReportSummaryRow(
 @Composable
 private fun PersonReportTransactionCard(
     transaction: PersonReportTransaction,
-    currencyCode: String
+    currencyCode: String,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                onClick = onClick
+            )
     ) {
 
         Column(
