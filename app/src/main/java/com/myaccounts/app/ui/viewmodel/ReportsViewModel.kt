@@ -1,0 +1,202 @@
+package com.myaccounts.app.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.myaccounts.app.data.reports.CurrencyReportPersonRow
+import com.myaccounts.app.data.reports.CurrencyReportSummary
+import com.myaccounts.app.data.reports.PersonReportSummary
+import com.myaccounts.app.data.reports.PersonReportTransaction
+import com.myaccounts.app.data.reports.ReportRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+data class ReportsUiState(
+    val selectedCurrencyCode: String = "YER",
+    val people: List<CurrencyReportPersonRow> = emptyList(),
+    val currencySummary: CurrencyReportSummary? = null,
+    val selectedPersonSummary: PersonReportSummary? = null,
+    val selectedPersonTransactions: List<PersonReportTransaction> = emptyList(),
+    val selectedPersonId: Long? = null,
+    val startDateMillis: Long? = null,
+    val endDateMillisExclusive: Long? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)
+
+class ReportsViewModel(
+    private val repository: ReportRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(ReportsUiState())
+
+    val uiState: StateFlow<ReportsUiState> = _uiState.asStateFlow()
+
+    fun selectCurrency(currencyCode: String) {
+        if (currencyCode == _uiState.value.selectedCurrencyCode) {
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            selectedCurrencyCode = currencyCode,
+            selectedPersonId = null,
+            selectedPersonSummary = null,
+            selectedPersonTransactions = emptyList(),
+            errorMessage = null
+        )
+
+        loadCurrencyReport()
+    }
+
+    fun loadCurrencyReport() {
+        val currencyCode = _uiState.value.selectedCurrencyCode
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                errorMessage = null
+            )
+
+            try {
+                val summary = repository.getCurrencyReportSummary(
+                    currencyCode = currencyCode
+                )
+
+                _uiState.value = _uiState.value.copy(
+                    currencySummary = summary,
+                    isLoading = false
+                )
+
+                observePeople(currencyCode)
+            } catch (exception: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = exception.message
+                        ?: "حدث خطأ أثناء تحميل التقرير"
+                )
+            }
+        }
+    }
+
+    private fun observePeople(currencyCode: String) {
+        viewModelScope.launch {
+            repository
+                .observeCurrencyReportPeople(currencyCode)
+                .collect { people ->
+                    _uiState.value = _uiState.value.copy(
+                        people = people
+                    )
+                }
+        }
+    }
+
+    fun selectPerson(personId: Long) {
+        _uiState.value = _uiState.value.copy(
+            selectedPersonId = personId,
+            selectedPersonSummary = null,
+            selectedPersonTransactions = emptyList(),
+            errorMessage = null
+        )
+
+        loadPersonReport()
+    }
+
+    fun setDateRange(
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ) {
+        require(endDateMillisExclusive > startDateMillis) {
+            "End date must be after start date"
+        }
+
+        _uiState.value = _uiState.value.copy(
+            startDateMillis = startDateMillis,
+            endDateMillisExclusive = endDateMillisExclusive,
+            errorMessage = null
+        )
+
+        if (_uiState.value.selectedPersonId != null) {
+            loadPersonReport()
+        }
+    }
+
+    fun clearDateRange() {
+        _uiState.value = _uiState.value.copy(
+            startDateMillis = null,
+            endDateMillisExclusive = null,
+            selectedPersonSummary = null,
+            selectedPersonTransactions = emptyList(),
+            errorMessage = null
+        )
+    }
+
+    fun loadPersonReport() {
+        val state = _uiState.value
+
+        val personId = state.selectedPersonId
+            ?: return
+
+        val startDateMillis = state.startDateMillis
+            ?: return
+
+        val endDateMillisExclusive = state.endDateMillisExclusive
+            ?: return
+
+        val currencyCode = state.selectedCurrencyCode
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                errorMessage = null
+            )
+
+            try {
+                val summary = repository.getPersonReportSummary(
+                    personId = personId,
+                    currencyCode = currencyCode,
+                    startDateMillis = startDateMillis,
+                    endDateMillisExclusive = endDateMillisExclusive
+                )
+
+                val transactions =
+                    repository.getPersonReportTransactions(
+                        personId = personId,
+                        currencyCode = currencyCode,
+                        startDateMillis = startDateMillis,
+                        endDateMillisExclusive = endDateMillisExclusive
+                    )
+
+                _uiState.value = _uiState.value.copy(
+                    selectedPersonSummary = summary,
+                    selectedPersonTransactions = transactions,
+                    isLoading = false
+                )
+            } catch (exception: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = exception.message
+                        ?: "حدث خطأ أثناء تحميل تقرير الشخص"
+                )
+            }
+        }
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = null
+        )
+    }
+
+    fun refresh() {
+        loadCurrencyReport()
+
+        if (
+            _uiState.value.selectedPersonId != null &&
+            _uiState.value.startDateMillis != null &&
+            _uiState.value.endDateMillisExclusive != null
+        ) {
+            loadPersonReport()
+        }
+    }
+}
