@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.myaccounts.app.data.local.dao.LedgerDao
 
 @Database(
@@ -30,25 +32,29 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "myaccounts_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3
+                    )
                     .build()
                     .also { INSTANCE = it }
             }
         }
 
         private val MIGRATION_1_2 =
-            object : androidx.room.migration.Migration(1, 2) {
+            object : Migration(1, 2) {
+
                 override fun migrate(
-                    database: androidx.sqlite.db.SupportSQLiteDatabase
+                    db: SupportSQLiteDatabase
                 ) {
-                    database.execSQL(
+                    db.execSQL(
                         """
                         ALTER TABLE people
                         ADD COLUMN notes TEXT NOT NULL DEFAULT ''
                         """.trimIndent()
                     )
 
-                    database.execSQL(
+                    db.execSQL(
                         """
                         ALTER TABLE people
                         ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1
@@ -58,11 +64,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
 
         private val MIGRATION_2_3 =
-            object : androidx.room.migration.Migration(2, 3) {
+            object : Migration(2, 3) {
+
                 override fun migrate(
-                    database: androidx.sqlite.db.SupportSQLiteDatabase
+                    db: SupportSQLiteDatabase
                 ) {
-                    database.execSQL(
+                    db.execSQL(
                         """
                         CREATE TABLE IF NOT EXISTS currency_accounts (
                             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -79,14 +86,15 @@ abstract class AppDatabase : RoomDatabase() {
                         """.trimIndent()
                     )
 
-                    database.execSQL(
+                    db.execSQL(
                         """
-                        CREATE INDEX IF NOT EXISTS index_currency_accounts_personId
+                        CREATE INDEX IF NOT EXISTS
+                        index_currency_accounts_personId
                         ON currency_accounts(personId)
                         """.trimIndent()
                     )
 
-                    database.execSQL(
+                    db.execSQL(
                         """
                         CREATE UNIQUE INDEX IF NOT EXISTS
                         index_currency_accounts_personId_currencyCode
@@ -94,10 +102,16 @@ abstract class AppDatabase : RoomDatabase() {
                         """.trimIndent()
                     )
 
-                    database.execSQL(
+                    db.execSQL(
                         """
                         INSERT INTO currency_accounts
-                        (personId, currencyCode, balanceMinor, createdAt, updatedAt)
+                        (
+                            personId,
+                            currencyCode,
+                            balanceMinor,
+                            createdAt,
+                            updatedAt
+                        )
                         SELECT
                             id,
                             'YER',
@@ -109,10 +123,16 @@ abstract class AppDatabase : RoomDatabase() {
                         """.trimIndent()
                     )
 
-                    database.execSQL(
+                    db.execSQL(
                         """
                         INSERT OR IGNORE INTO currency_accounts
-                        (personId, currencyCode, balanceMinor, createdAt, updatedAt)
+                        (
+                            personId,
+                            currencyCode,
+                            balanceMinor,
+                            createdAt,
+                            updatedAt
+                        )
                         SELECT
                             id,
                             'SAR',
@@ -124,10 +144,16 @@ abstract class AppDatabase : RoomDatabase() {
                         """.trimIndent()
                     )
 
-                    database.execSQL(
+                    db.execSQL(
                         """
                         INSERT OR IGNORE INTO currency_accounts
-                        (personId, currencyCode, balanceMinor, createdAt, updatedAt)
+                        (
+                            personId,
+                            currencyCode,
+                            balanceMinor,
+                            createdAt,
+                            updatedAt
+                        )
                         SELECT
                             id,
                             'USD',
