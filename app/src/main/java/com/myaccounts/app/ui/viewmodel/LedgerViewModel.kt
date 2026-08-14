@@ -5,12 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.repository.LedgerRepositoryContract
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class LedgerViewModel(
     private val repository: LedgerRepositoryContract
 ) : ViewModel() {
