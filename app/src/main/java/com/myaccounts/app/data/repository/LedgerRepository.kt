@@ -1,8 +1,8 @@
 package com.myaccounts.app.data.repository
 
 import com.myaccounts.app.data.local.CurrencyAccountEntity
-import com.myaccounts.app.data.local.LedgerDao
 import com.myaccounts.app.data.local.PersonEntity
+import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import kotlinx.coroutines.flow.Flow
 
