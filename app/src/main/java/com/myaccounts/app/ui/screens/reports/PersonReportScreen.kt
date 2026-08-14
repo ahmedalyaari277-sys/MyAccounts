@@ -1,3 +1,4 @@
+```kotlin
 package com.myaccounts.app.ui.screens.reports
 
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.reports.PersonReportSummary
 import com.myaccounts.app.data.reports.PersonReportTransaction
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
+import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -49,6 +51,7 @@ fun PersonReportScreen(
     personId: Long,
     currencyCode: String,
     viewModel: ReportsViewModel,
+    transactionViewModel: TransactionViewModel,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -789,9 +792,11 @@ private fun addDays(
 ): Long {
     return Calendar.getInstance().apply {
         timeInMillis = millis
+
         add(
             Calendar.DAY_OF_MONTH,
             days
         )
     }.timeInMillis
 }
+```
