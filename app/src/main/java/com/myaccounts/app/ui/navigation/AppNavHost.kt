@@ -1,16 +1,28 @@
 package com.myaccounts.app.ui.navigation
 
+import android.app.Application
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+
+import androidx.compose.ui.platform.LocalContext
+
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
+import com.myaccounts.app.ui.screens.TransactionScreen
+
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
+import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 
 @Composable
 fun AppNavHost(
@@ -27,7 +39,13 @@ fun AppNavHost(
         startDestination = Routes.HOME
     ) {
 
-        composable(Routes.HOME) {
+        // ---------------------------------------------------------
+        // HOME
+        // ---------------------------------------------------------
+
+        composable(
+            route = Routes.HOME
+        ) {
 
             HomeScreen(
                 personsList = persons,
@@ -49,11 +67,17 @@ fun AppNavHost(
                 onPersonClick = { personId ->
 
                     navController.navigate(
-                        Routes.personAccount(personId)
+                        Routes.personAccount(
+                            personId
+                        )
                     )
                 }
             )
         }
+
+        // ---------------------------------------------------------
+        // PERSON ACCOUNT
+        // ---------------------------------------------------------
 
         composable(
             route = Routes.PERSON_ACCOUNT,
@@ -66,7 +90,9 @@ fun AppNavHost(
         ) { entry ->
 
             val personId =
-                entry.arguments?.getLong("personId")
+                entry.arguments?.getLong(
+                    "personId"
+                )
 
             val person =
                 persons.firstOrNull {
@@ -109,12 +135,104 @@ fun AppNavHost(
 
                     onAccountClick = { accountId ->
 
-                        // سيتم ربط TransactionViewModel
-                        // بالحساب المحدد في الخطوة التالية.
+                        val account =
+                            personWithAccountsAccount(
+                                person.accounts,
+                                accountId
+                            )
 
+                        if (account != null) {
+
+                            navController.navigate(
+                                Routes.transactions(
+                                    accountId = account.id,
+                                    currencyCode =
+                                        account.currencyCode
+                                )
+                            )
+                        }
                     }
                 )
             }
         }
+
+        // ---------------------------------------------------------
+        // TRANSACTIONS
+        // ---------------------------------------------------------
+
+        composable(
+            route = Routes.TRANSACTIONS,
+
+            arguments = listOf(
+
+                navArgument("accountId") {
+                    type = NavType.LongType
+                },
+
+                navArgument("currencyCode") {
+                    type = NavType.StringType
+                }
+            )
+        ) { entry ->
+
+            val accountId =
+                entry.arguments?.getLong(
+                    "accountId"
+                )
+
+            val currencyCode =
+                entry.arguments?.getString(
+                    "currencyCode"
+                )
+
+            if (
+                accountId != null &&
+                currencyCode != null
+            ) {
+
+                val application =
+                    LocalContext.current
+                        .applicationContext as Application
+
+                val transactionViewModel:
+                    TransactionViewModel =
+                    viewModel(
+                        factory =
+                            TransactionViewModelFactory(
+                                application
+                            )
+                    )
+
+                TransactionScreen(
+
+                    accountId = accountId,
+
+                    currencyCode =
+                        currencyCode,
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    transactionViewModel =
+                        transactionViewModel
+                )
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// Find the selected currency account
+// -------------------------------------------------------------
+
+private fun personWithAccountsAccount(
+    accounts:
+        List<com.myaccounts.app.data.local.CurrencyAccountEntity>,
+    accountId: Long
+): com.myaccounts.app.data.local.CurrencyAccountEntity? {
+
+    return accounts.firstOrNull {
+        it.id == accountId
     }
 }
