@@ -305,6 +305,19 @@ fun AppNavHost(
                     transactionViewModel =
                         transactionViewModel,
 
+                    onTransactionClick = {
+                            accountId,
+                            selectedCurrencyCode ->
+
+                        navController.navigate(
+                            Routes.transactions(
+                                accountId = accountId,
+                                currencyCode =
+                                    selectedCurrencyCode
+                            )
+                        )
+                    },
+
                     onBack = {
                         navController.popBackStack()
                     }
