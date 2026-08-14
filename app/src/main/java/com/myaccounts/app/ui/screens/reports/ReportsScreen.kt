@@ -1,7 +1,6 @@
 package com.myaccounts.app.ui.screens.reports
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,11 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,20 +22,28 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.reports.CurrencyReportPersonRow
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
+import com.myaccounts.app.util.ReportPdfExporter
 import java.math.BigDecimal
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +53,15 @@ fun ReportsScreen(
     onPersonClick: (Long, String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    val context = LocalContext.current
+
+    val coroutineScope = rememberCoroutineScope()
+
+    val snackbarHostState =
+        remember {
+            SnackbarHostState()
+        }
 
     LaunchedEffect(Unit) {
         viewModel.loadCurrencyReport()
@@ -70,6 +87,11 @@ fun ReportsScreen(
                         )
                     }
                 }
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState
             )
         }
     ) { paddingValues ->
@@ -104,7 +126,8 @@ fun ReportsScreen(
                         "اختر العملة لعرض ملخص الحسابات والأشخاص والعمليات.",
                     fontSize = 14.sp,
                     color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
                 )
 
                 Spacer(
@@ -112,11 +135,84 @@ fun ReportsScreen(
                 )
 
                 CurrencySelector(
-                    selectedCurrency = uiState.selectedCurrencyCode,
+                    selectedCurrency =
+                        uiState.selectedCurrencyCode,
                     onCurrencySelected = {
                         viewModel.selectCurrency(it)
                     }
                 )
+
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                Button(
+                    onClick = {
+
+                        val summary =
+                            uiState.currencySummary
+
+                        if (summary == null) {
+
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "لا توجد بيانات كافية لإنشاء التقرير."
+                                )
+                            }
+
+                        } else {
+
+                            val result =
+                                ReportPdfExporter
+                                    .exportCurrencyReport(
+                                        context = context,
+                                        summary = summary,
+                                        people = uiState.people
+                                    )
+
+                            coroutineScope.launch {
+
+                                result.fold(
+                                    onSuccess = { message ->
+                                        snackbarHostState
+                                            .showSnackbar(
+                                                message
+                                            )
+                                    },
+                                    onFailure = { exception ->
+                                        snackbarHostState
+                                            .showSnackbar(
+                                                exception.message
+                                                    ?: "حدث خطأ أثناء إنشاء ملف PDF."
+                                            )
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    enabled =
+                        !uiState.isLoading &&
+                            uiState.currencySummary != null
+                ) {
+
+                    Icon(
+                        imageVector =
+                            Icons.Default.PictureAsPdf,
+                        contentDescription = null
+                    )
+
+                    Spacer(
+                        modifier = Modifier.padding(
+                            horizontal = 4.dp
+                        )
+                    )
+
+                    Text(
+                        text = "تصدير التقرير إلى PDF"
+                    )
+                }
             }
 
             uiState.currencySummary?.let { summary ->
@@ -124,7 +220,8 @@ fun ReportsScreen(
                 item {
 
                     CurrencySummaryCard(
-                        currencyCode = summary.currencyCode,
+                        currencyCode =
+                            summary.currencyCode,
                         totalReceivableMinor =
                             summary.totalReceivableMinor,
                         totalPayableMinor =
@@ -269,7 +366,8 @@ private fun CurrencySummaryCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor =
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme
+                    .primaryContainer
         )
     ) {
 
@@ -278,7 +376,8 @@ private fun CurrencySummaryCard(
         ) {
 
             Text(
-                text = "ملخص ${currencyName(currencyCode)}",
+                text =
+                    "ملخص ${currencyName(currencyCode)}",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color =
@@ -366,8 +465,8 @@ private fun ReportMetricCard(
     modifier: Modifier,
     title: String,
     amountMinor: Long,
-    containerColor: androidx.compose.ui.graphics.Color,
-    contentColor: androidx.compose.ui.graphics.Color
+    containerColor: Color,
+    contentColor: Color
 ) {
     Card(
         modifier = modifier,
@@ -453,9 +552,10 @@ private fun CurrencyReportPersonCard(
                 }
 
                 Text(
-                    text = formatAmount(
-                        person.balanceMinor
-                    ),
+                    text =
+                        formatAmount(
+                            person.balanceMinor
+                        ),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color =
@@ -537,7 +637,7 @@ private fun PersonAmountItem(
     modifier: Modifier,
     label: String,
     amountMinor: Long,
-    color: androidx.compose.ui.graphics.Color
+    color: Color
 ) {
     Column(
         modifier = modifier
@@ -568,12 +668,12 @@ private fun LoadingReportCard() {
         modifier = Modifier.fillMaxWidth()
     ) {
 
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(32.dp),
-            contentAlignment =
-                Alignment.Center
+            horizontalAlignment =
+                Alignment.CenterHorizontally
         ) {
 
             Text(
@@ -654,7 +754,7 @@ private fun ErrorReportCard(
 @Composable
 private fun balanceTextColor(
     balanceMinor: Long
-): androidx.compose.ui.graphics.Color {
+): Color {
     return when {
         balanceMinor > 0L ->
             MaterialTheme.colorScheme.tertiary
@@ -670,13 +770,15 @@ private fun balanceTextColor(
 @Composable
 private fun balanceContainerColor(
     balanceMinor: Long
-): androidx.compose.ui.graphics.Color {
+): Color {
     return when {
         balanceMinor > 0L ->
-            MaterialTheme.colorScheme.tertiaryContainer
+            MaterialTheme.colorScheme
+                .tertiaryContainer
 
         balanceMinor < 0L ->
-            MaterialTheme.colorScheme.errorContainer
+            MaterialTheme.colorScheme
+                .errorContainer
 
         else ->
             MaterialTheme.colorScheme.surface
@@ -686,13 +788,15 @@ private fun balanceContainerColor(
 @Composable
 private fun balanceContentColor(
     balanceMinor: Long
-): androidx.compose.ui.graphics.Color {
+): Color {
     return when {
         balanceMinor > 0L ->
-            MaterialTheme.colorScheme.onTertiaryContainer
+            MaterialTheme.colorScheme
+                .onTertiaryContainer
 
         balanceMinor < 0L ->
-            MaterialTheme.colorScheme.onErrorContainer
+            MaterialTheme.colorScheme
+                .onErrorContainer
 
         else ->
             MaterialTheme.colorScheme.onSurface
