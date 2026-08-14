@@ -9,6 +9,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.myaccounts.app.data.local.converter.TransactionConverters
 import com.myaccounts.app.data.local.dao.LedgerDao
+import com.myaccounts.app.data.local.dao.TransactionDao
 
 @Database(
     entities = [
@@ -25,6 +26,8 @@ import com.myaccounts.app.data.local.dao.LedgerDao
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun ledgerDao(): LedgerDao
+
+    abstract fun transactionDao(): TransactionDao
 
     companion object {
 
