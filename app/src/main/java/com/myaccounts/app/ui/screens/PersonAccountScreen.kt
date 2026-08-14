@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -50,7 +50,6 @@ fun PersonAccountScreen(
     ) -> Unit,
     onDeletePerson: () -> Unit
 ) {
-
     var showEditDialog by remember {
         mutableStateOf(false)
     }
@@ -62,46 +61,33 @@ fun PersonAccountScreen(
     val person = personWithAccounts.person
 
     Scaffold(
-
         topBar = {
-
             TopAppBar(
-
                 title = {
                     Text(
                         text = person.name,
                         fontWeight = FontWeight.Bold
                     )
                 },
-
                 navigationIcon = {
-
                     IconButton(
                         onClick = onBack
                     ) {
-
                         Icon(
-                            imageVector =
-                                Icons.Default.ArrowBack,
-                            contentDescription =
-                                "رجوع"
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "رجوع"
                         )
                     }
                 },
-
                 actions = {
-
                     IconButton(
                         onClick = {
                             showEditDialog = true
                         }
                     ) {
-
                         Icon(
-                            imageVector =
-                                Icons.Default.Edit,
-                            contentDescription =
-                                "تعديل"
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "تعديل"
                         )
                     }
 
@@ -110,22 +96,17 @@ fun PersonAccountScreen(
                             showDeleteDialog = true
                         }
                     ) {
-
                         Icon(
-                            imageVector =
-                                Icons.Default.Delete,
-                            contentDescription =
-                                "حذف"
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "حذف"
                         )
                     }
                 }
             )
         }
-
     ) { paddingValues ->
 
         Column(
-
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -133,7 +114,6 @@ fun PersonAccountScreen(
         ) {
 
             if (person.phone.isNotBlank()) {
-
                 Text(
                     text = "الهاتف: ${person.phone}",
                     fontSize = 14.sp
@@ -145,7 +125,6 @@ fun PersonAccountScreen(
             }
 
             if (person.address.isNotBlank()) {
-
                 Text(
                     text = "العنوان: ${person.address}",
                     fontSize = 14.sp
@@ -157,7 +136,6 @@ fun PersonAccountScreen(
             }
 
             if (person.notes.isNotBlank()) {
-
                 Text(
                     text = "الملاحظات: ${person.notes}",
                     fontSize = 14.sp
@@ -205,18 +183,14 @@ fun PersonAccountScreen(
     }
 
     if (showEditDialog) {
-
         EditPersonDialog(
-
             name = person.name,
             phone = person.phone,
             address = person.address,
             notes = person.notes,
-
             onDismiss = {
                 showEditDialog = false
             },
-
             onSave = {
                     name,
                     phone,
@@ -236,25 +210,19 @@ fun PersonAccountScreen(
     }
 
     if (showDeleteDialog) {
-
         AlertDialog(
-
             onDismissRequest = {
                 showDeleteDialog = false
             },
-
             title = {
                 Text("حذف الحساب")
             },
-
             text = {
                 Text(
                     "هل أنت متأكد من حذف هذا الشخص؟"
                 )
             },
-
             confirmButton = {
-
                 Button(
                     onClick = {
                         showDeleteDialog = false
@@ -264,9 +232,7 @@ fun PersonAccountScreen(
                     Text("حذف")
                 }
             },
-
             dismissButton = {
-
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
@@ -283,7 +249,6 @@ private fun account(
     accounts: List<CurrencyAccountEntity>,
     currencyCode: String
 ): CurrencyAccountEntity? {
-
     return accounts.firstOrNull {
         it.currencyCode == currencyCode
     }
@@ -294,33 +259,25 @@ private fun CurrencyAccountCard(
     account: CurrencyAccountEntity?,
     currencyName: String
 ) {
-
     val balance = account?.balanceMinor ?: 0L
 
     Card(
-
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-
         colors = CardDefaults.cardColors(
             containerColor =
                 MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-
         Row(
-
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(18.dp),
-
             horizontalArrangement =
                 Arrangement.SpaceBetween
         ) {
-
             Column {
-
                 Text(
                     text = currencyName,
                     fontWeight = FontWeight.Bold,
@@ -360,7 +317,6 @@ private fun EditPersonDialog(
         String
     ) -> Unit
 ) {
-
     var editedName by remember {
         mutableStateOf(name)
     }
@@ -382,15 +338,11 @@ private fun EditPersonDialog(
     }
 
     AlertDialog(
-
         onDismissRequest = onDismiss,
-
         title = {
             Text("تعديل بيانات الشخص")
         },
-
         text = {
-
             Column {
 
                 OutlinedTextField(
@@ -408,7 +360,6 @@ private fun EditPersonDialog(
                 )
 
                 if (nameError) {
-
                     Text(
                         text = "الاسم مطلوب",
                         color =
@@ -465,18 +416,13 @@ private fun EditPersonDialog(
                 )
             }
         },
-
         confirmButton = {
-
             Button(
                 onClick = {
 
                     if (editedName.isBlank()) {
-
                         nameError = true
-
                     } else {
-
                         onSave(
                             editedName.trim(),
                             editedPhone.trim(),
@@ -486,17 +432,13 @@ private fun EditPersonDialog(
                     }
                 }
             ) {
-
                 Text("حفظ")
             }
         },
-
         dismissButton = {
-
             TextButton(
                 onClick = onDismiss
             ) {
-
                 Text("إلغاء")
             }
         }
