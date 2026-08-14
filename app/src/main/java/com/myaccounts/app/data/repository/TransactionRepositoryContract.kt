@@ -9,6 +9,10 @@ interface TransactionRepositoryContract {
         transaction: TransactionEntity
     ): Long
 
+    suspend fun updateTransaction(
+        transaction: TransactionEntity
+    )
+
     fun observeTransactions(
         accountId: Long
     ): Flow<List<TransactionEntity>>
