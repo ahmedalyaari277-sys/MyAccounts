@@ -1,6 +1,5 @@
 package com.myaccounts.app.ui.screens.reports
 
-import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +43,7 @@ import com.myaccounts.app.data.reports.PersonReportSummary
 import com.myaccounts.app.data.reports.PersonReportTransaction
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import com.myaccounts.app.util.PersonReportExcelExporter
 import com.myaccounts.app.util.PersonReportPdfExporter
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
@@ -241,6 +241,70 @@ fun PersonReportScreen(
             ) {
                 Text(
                     text = "تصدير تقرير الشخص إلى PDF"
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            Button(
+                onClick = {
+
+                    val summary =
+                        uiState.selectedPersonSummary
+
+                    if (summary == null) {
+
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                "لا توجد بيانات كافية لإنشاء التقرير."
+                            )
+                        }
+
+                    } else {
+
+                        val result =
+                            PersonReportExcelExporter
+                                .exportPersonReport(
+                                    context = context,
+                                    summary = summary,
+                                    transactions =
+                                        uiState
+                                            .selectedPersonTransactions,
+                                    startDateMillis =
+                                        startDateMillis,
+                                    endDateMillisExclusive =
+                                        endDateMillisExclusive
+                                )
+
+                        coroutineScope.launch {
+
+                            result.fold(
+                                onSuccess = { message ->
+                                    snackbarHostState
+                                        .showSnackbar(
+                                            message
+                                        )
+                                },
+                                onFailure = { exception ->
+                                    snackbarHostState
+                                        .showSnackbar(
+                                            exception.message
+                                                ?: "حدث خطأ أثناء إنشاء تقرير Excel."
+                                        )
+                                }
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled =
+                    !uiState.isLoading &&
+                        uiState.selectedPersonSummary != null
+            ) {
+                Text(
+                    text = "تصدير تقرير الشخص إلى Excel"
                 )
             }
 
