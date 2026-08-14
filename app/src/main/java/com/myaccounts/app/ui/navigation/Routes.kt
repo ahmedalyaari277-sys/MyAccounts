@@ -10,6 +10,9 @@ object Routes {
     const val TRANSACTIONS =
         "transactions/{accountId}/{currencyCode}"
 
+    const val REPORTS =
+        "reports"
+
     fun personAccount(
         personId: Long
     ): String {
@@ -21,5 +24,9 @@ object Routes {
         currencyCode: String
     ): String {
         return "transactions/$accountId/$currencyCode"
+    }
+
+    fun reports(): String {
+        return REPORTS
     }
 }
