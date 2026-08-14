@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -25,8 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -73,105 +74,129 @@ fun ReportsScreen(
         }
     ) { paddingValues ->
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(12.dp)
         ) {
 
-            CurrencySelector(
-                selectedCurrency = uiState.selectedCurrencyCode,
-                onCurrencySelected = {
-                    viewModel.selectCurrency(it)
-                }
-            )
+            item {
 
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+                Spacer(
+                    modifier = Modifier.height(4.dp)
+                )
 
-            uiState.currencySummary?.let { summary ->
-
-                CurrencySummaryCard(
-                    currencyCode = summary.currencyCode,
-                    totalReceivableMinor =
-                        summary.totalReceivableMinor,
-                    totalPayableMinor =
-                        summary.totalPayableMinor,
-                    balanceMinor =
-                        summary.balanceMinor,
-                    transactionCount =
-                        summary.transactionCount
+                Text(
+                    text = "تقرير الحسابات",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
                 )
 
                 Spacer(
-                    modifier = Modifier.height(16.dp)
+                    modifier = Modifier.height(4.dp)
+                )
+
+                Text(
+                    text =
+                        "اختر العملة لعرض ملخص الحسابات والأشخاص والعمليات.",
+                    fontSize = 14.sp,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                CurrencySelector(
+                    selectedCurrency = uiState.selectedCurrencyCode,
+                    onCurrencySelected = {
+                        viewModel.selectCurrency(it)
+                    }
                 )
             }
 
-            Text(
-                text = "الأشخاص",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
+            uiState.currencySummary?.let { summary ->
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+                item {
+
+                    CurrencySummaryCard(
+                        currencyCode = summary.currencyCode,
+                        totalReceivableMinor =
+                            summary.totalReceivableMinor,
+                        totalPayableMinor =
+                            summary.totalPayableMinor,
+                        balanceMinor =
+                            summary.balanceMinor,
+                        transactionCount =
+                            summary.transactionCount
+                    )
+                }
+            }
+
+            item {
+
+                Text(
+                    text = "الأشخاص",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             if (uiState.isLoading) {
 
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("جاري تحميل التقرير...")
+                item {
+
+                    LoadingReportCard()
                 }
 
             } else if (uiState.people.isEmpty()) {
 
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("لا توجد بيانات لهذه العملة")
+                item {
+
+                    EmptyReportCard()
                 }
 
             } else {
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-
-                    items(
-                        items = uiState.people,
-                        key = {
-                            it.personId
-                        }
-                    ) { person ->
-
-                        CurrencyReportPersonCard(
-                            person = person,
-                            onClick = {
-                                onPersonClick(
-                                    person.personId,
-                                    uiState.selectedCurrencyCode
-                                )
-                            }
-                        )
+                items(
+                    items = uiState.people,
+                    key = {
+                        it.personId
                     }
+                ) { person ->
+
+                    CurrencyReportPersonCard(
+                        person = person,
+                        currencyCode =
+                            uiState.selectedCurrencyCode,
+                        onClick = {
+                            onPersonClick(
+                                person.personId,
+                                uiState.selectedCurrencyCode
+                            )
+                        }
+                    )
                 }
             }
 
             uiState.errorMessage?.let { message ->
 
-                Text(
-                    text = message,
-                    modifier = Modifier.padding(
-                        top = 8.dp
-                    ),
-                    color = MaterialTheme.colorScheme.error
+                item {
+
+                    ErrorReportCard(
+                        message = message
+                    )
+                }
+            }
+
+            item {
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
                 )
             }
         }
@@ -225,7 +250,9 @@ private fun CurrencyChip(
             onSelected(code)
         },
         label = {
-            Text(label)
+            Text(
+                text = label
+            )
         }
     )
 }
@@ -242,7 +269,7 @@ private fun CurrencySummaryCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor =
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.primaryContainer
         )
     ) {
 
@@ -251,37 +278,124 @@ private fun CurrencySummaryCard(
         ) {
 
             Text(
-                text = currencyName(currencyCode),
+                text = "ملخص ${currencyName(currencyCode)}",
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color =
+                    MaterialTheme.colorScheme
+                        .onPrimaryContainer
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier = Modifier.height(14.dp)
             )
 
-            ReportAmountRow(
-                label = "إجمالي لك",
-                amountMinor = totalReceivableMinor
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
 
-            ReportAmountRow(
-                label = "إجمالي عليك",
-                amountMinor = totalPayableMinor
-            )
+                ReportMetricCard(
+                    modifier =
+                        Modifier.weight(1f),
+                    title = "لك",
+                    amountMinor =
+                        totalReceivableMinor,
+                    containerColor =
+                        MaterialTheme.colorScheme
+                            .tertiaryContainer,
+                    contentColor =
+                        MaterialTheme.colorScheme
+                            .onTertiaryContainer
+                )
 
-            ReportAmountRow(
-                label = "الرصيد",
-                amountMinor = balanceMinor
-            )
+                ReportMetricCard(
+                    modifier =
+                        Modifier.weight(1f),
+                    title = "عليك",
+                    amountMinor =
+                        totalPayableMinor,
+                    containerColor =
+                        MaterialTheme.colorScheme
+                            .errorContainer,
+                    contentColor =
+                        MaterialTheme.colorScheme
+                            .onErrorContainer
+                )
+            }
 
             Spacer(
                 modifier = Modifier.height(8.dp)
             )
 
+            ReportMetricCard(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                title = "الرصيد",
+                amountMinor = balanceMinor,
+                containerColor =
+                    balanceContainerColor(
+                        balanceMinor
+                    ),
+                contentColor =
+                    balanceContentColor(
+                        balanceMinor
+                    )
+            )
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
             Text(
-                text = "عدد العمليات: $transactionCount",
-                fontSize = 13.sp
+                text =
+                    "عدد العمليات: $transactionCount",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReportMetricCard(
+    modifier: Modifier,
+    title: String,
+    amountMinor: Long,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor
+        )
+    ) {
+
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = contentColor
+            )
+
+            Spacer(
+                modifier = Modifier.height(4.dp)
+            )
+
+            Text(
+                text = formatAmount(amountMinor),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
             )
         }
     }
@@ -290,16 +404,18 @@ private fun CurrencySummaryCard(
 @Composable
 private fun CurrencyReportPersonCard(
     person: CurrencyReportPersonRow,
+    currencyCode: String,
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp),
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         colors = CardDefaults.cardColors(
             containerColor =
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
         )
     ) {
 
@@ -307,75 +423,280 @@ private fun CurrencyReportPersonCard(
             modifier = Modifier.padding(16.dp)
         ) {
 
-            Text(
-                text = person.personName,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+
+                    Text(
+                        text = person.personName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(3.dp)
+                    )
+
+                    Text(
+                        text = currencyName(currencyCode),
+                        fontSize = 12.sp,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                Text(
+                    text = formatAmount(
+                        person.balanceMinor
+                    ),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color =
+                        balanceTextColor(
+                            person.balanceMinor
+                        )
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                PersonAmountItem(
+                    modifier =
+                        Modifier.weight(1f),
+                    label = "لك",
+                    amountMinor =
+                        person.totalReceivableMinor,
+                    color =
+                        MaterialTheme.colorScheme
+                            .tertiary
+                )
+
+                PersonAmountItem(
+                    modifier =
+                        Modifier.weight(1f),
+                    label = "عليك",
+                    amountMinor =
+                        person.totalPayableMinor,
+                    color =
+                        MaterialTheme.colorScheme
+                            .error
+                )
+            }
 
             Spacer(
                 modifier = Modifier.height(10.dp)
             )
 
-            ReportAmountRow(
-                label = "لك",
-                amountMinor =
-                    person.totalReceivableMinor
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
 
-            ReportAmountRow(
-                label = "عليك",
-                amountMinor =
-                    person.totalPayableMinor
-            )
+                Text(
+                    text =
+                        "عدد العمليات: ${person.transactionCount}",
+                    fontSize = 13.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
 
-            ReportAmountRow(
-                label = "الرصيد",
-                amountMinor =
-                    person.balanceMinor
-            )
+                Text(
+                    text = "عرض التقرير",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            }
+        }
+    }
+}
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+@Composable
+private fun PersonAmountItem(
+    modifier: Modifier,
+    label: String,
+    amountMinor: Long,
+    color: androidx.compose.ui.graphics.Color
+) {
+    Column(
+        modifier = modifier
+    ) {
+
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(
+            modifier = Modifier.height(2.dp)
+        )
+
+        Text(
+            text = formatAmount(amountMinor),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun LoadingReportCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            contentAlignment =
+                Alignment.Center
+        ) {
 
             Text(
-                text =
-                    "عدد العمليات: ${person.transactionCount}",
-                fontSize = 13.sp
+                text = "جاري تحميل التقرير...",
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun ReportAmountRow(
-    label: String,
-    amountMinor: Long
-) {
-    Row(
+private fun EmptyReportCard() {
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.SpaceBetween,
-        verticalAlignment =
-            Alignment.CenterVertically
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme
+                    .surfaceVariant
+        )
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+
+            Text(
+                text = "لا توجد بيانات",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(
+                modifier = Modifier.height(6.dp)
+            )
+
+            Text(
+                text =
+                    "لا توجد حسابات أو عمليات لهذه العملة حاليًا.",
+                fontSize = 14.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ErrorReportCard(
+    message: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme
+                    .errorContainer
+        )
     ) {
 
         Text(
-            text = label,
+            text = message,
+            modifier = Modifier.padding(16.dp),
+            color =
+                MaterialTheme.colorScheme
+                    .onErrorContainer,
             fontSize = 14.sp
         )
-
-        Text(
-            text = formatAmount(amountMinor),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
     }
+}
 
-    Spacer(
-        modifier = Modifier.height(4.dp)
-    )
+@Composable
+private fun balanceTextColor(
+    balanceMinor: Long
+): androidx.compose.ui.graphics.Color {
+    return when {
+        balanceMinor > 0L ->
+            MaterialTheme.colorScheme.tertiary
+
+        balanceMinor < 0L ->
+            MaterialTheme.colorScheme.error
+
+        else ->
+            MaterialTheme.colorScheme.onSurface
+    }
+}
+
+@Composable
+private fun balanceContainerColor(
+    balanceMinor: Long
+): androidx.compose.ui.graphics.Color {
+    return when {
+        balanceMinor > 0L ->
+            MaterialTheme.colorScheme.tertiaryContainer
+
+        balanceMinor < 0L ->
+            MaterialTheme.colorScheme.errorContainer
+
+        else ->
+            MaterialTheme.colorScheme.surface
+    }
+}
+
+@Composable
+private fun balanceContentColor(
+    balanceMinor: Long
+): androidx.compose.ui.graphics.Color {
+    return when {
+        balanceMinor > 0L ->
+            MaterialTheme.colorScheme.onTertiaryContainer
+
+        balanceMinor < 0L ->
+            MaterialTheme.colorScheme.onErrorContainer
+
+        else ->
+            MaterialTheme.colorScheme.onSurface
+    }
 }
 
 private fun currencyName(
