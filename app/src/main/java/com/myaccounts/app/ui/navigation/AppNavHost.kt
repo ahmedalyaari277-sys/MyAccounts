@@ -18,6 +18,7 @@ import androidx.navigation.navArgument
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
+import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
 
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
@@ -249,10 +250,65 @@ fun AppNavHost(
                         personId,
                         currencyCode ->
 
-                    // سيتم ربط تقرير الشخص التفصيلي
-                    // في الخطوة التالية.
+                    navController.navigate(
+                        Routes.personReport(
+                            personId = personId,
+                            currencyCode = currencyCode
+                        )
+                    )
                 }
             )
+        }
+
+        // ---------------------------------------------------------
+        // PERSON REPORT
+        // ---------------------------------------------------------
+
+        composable(
+            route = Routes.PERSON_REPORT,
+
+            arguments = listOf(
+
+                navArgument("personId") {
+                    type = NavType.LongType
+                },
+
+                navArgument("currencyCode") {
+                    type = NavType.StringType
+                }
+            )
+        ) { entry ->
+
+            val personId =
+                entry.arguments?.getLong(
+                    "personId"
+                )
+
+            val currencyCode =
+                entry.arguments?.getString(
+                    "currencyCode"
+                )
+
+            if (
+                personId != null &&
+                currencyCode != null
+            ) {
+
+                PersonReportScreen(
+
+                    personId = personId,
+
+                    currencyCode =
+                        currencyCode,
+
+                    viewModel =
+                        reportsViewModel,
+
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
     }
 }
