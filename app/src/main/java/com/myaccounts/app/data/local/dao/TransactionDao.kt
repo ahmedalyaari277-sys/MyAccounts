@@ -54,6 +54,46 @@ interface TransactionDao {
         transactionId: Long
     ): TransactionEntity?
 
+    @Query(
+        """
+        SELECT COALESCE(
+            SUM(
+                CASE
+                    WHEN type = 'RECEIVABLE' THEN amountMinor
+                    WHEN type = 'PAYABLE' THEN -amountMinor
+                    ELSE 0
+                END
+            ),
+            0
+        )
+        FROM transactions
+        WHERE accountId = :accountId
+        """
+    )
+    fun observeBalance(
+        accountId: Long
+    ): Flow<Long>
+
+    @Query(
+        """
+        SELECT COALESCE(
+            SUM(
+                CASE
+                    WHEN type = 'RECEIVABLE' THEN amountMinor
+                    WHEN type = 'PAYABLE' THEN -amountMinor
+                    ELSE 0
+                END
+            ),
+            0
+        )
+        FROM transactions
+        WHERE accountId = :accountId
+        """
+    )
+    suspend fun getBalance(
+        accountId: Long
+    ): Long
+
     @Delete
     suspend fun deleteTransaction(
         transaction: TransactionEntity
