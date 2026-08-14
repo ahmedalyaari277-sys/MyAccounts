@@ -94,6 +94,18 @@ interface TransactionDao {
         accountId: Long
     ): Long
 
+    @Query(
+        """
+        UPDATE currency_accounts
+        SET balanceMinor = :balanceMinor
+        WHERE id = :accountId
+        """
+    )
+    suspend fun updateCurrencyBalance(
+        accountId: Long,
+        balanceMinor: Long
+    )
+
     @Delete
     suspend fun deleteTransaction(
         transaction: TransactionEntity
