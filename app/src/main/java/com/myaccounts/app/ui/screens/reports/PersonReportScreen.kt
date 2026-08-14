@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.reports.PersonReportSummary
 import com.myaccounts.app.data.reports.PersonReportTransaction
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
+import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -49,6 +50,7 @@ fun PersonReportScreen(
     personId: Long,
     currencyCode: String,
     viewModel: ReportsViewModel,
+    transactionViewModel: TransactionViewModel? = null,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
