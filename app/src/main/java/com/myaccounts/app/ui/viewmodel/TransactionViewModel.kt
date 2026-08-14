@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 class TransactionViewModel(
@@ -18,7 +19,9 @@ class TransactionViewModel(
         MutableStateFlow<Long?>(null)
 
     private val _transactions =
-        MutableStateFlow<List<TransactionEntity>>(emptyList())
+        MutableStateFlow<List<TransactionEntity>>(
+            emptyList()
+        )
 
     val transactions: StateFlow<List<TransactionEntity>> =
         _transactions.asStateFlow()
@@ -37,9 +40,11 @@ class TransactionViewModel(
                 .flatMapLatest { accountId ->
 
                     if (accountId == null) {
-                        kotlinx.coroutines.flow.flowOf(emptyList())
+                        flowOf(emptyList())
                     } else {
-                        repository.observeTransactions(accountId)
+                        repository.observeTransactions(
+                            accountId
+                        )
                     }
                 }
                 .collect { result ->
@@ -54,9 +59,11 @@ class TransactionViewModel(
                 .flatMapLatest { accountId ->
 
                     if (accountId == null) {
-                        kotlinx.coroutines.flow.flowOf(0L)
+                        flowOf(0L)
                     } else {
-                        repository.observeBalance(accountId)
+                        repository.observeBalance(
+                            accountId
+                        )
                     }
                 }
                 .collect { result ->
@@ -75,6 +82,7 @@ class TransactionViewModel(
     fun addTransaction(
         transaction: TransactionEntity
     ) {
+
         viewModelScope.launch {
 
             repository.addTransaction(
@@ -83,9 +91,22 @@ class TransactionViewModel(
         }
     }
 
+    fun updateTransaction(
+        transaction: TransactionEntity
+    ) {
+
+        viewModelScope.launch {
+
+            repository.updateTransaction(
+                transaction
+            )
+        }
+    }
+
     fun deleteTransaction(
         transaction: TransactionEntity
     ) {
+
         viewModelScope.launch {
 
             repository.deleteTransaction(
@@ -97,6 +118,7 @@ class TransactionViewModel(
     fun deleteTransactionById(
         transactionId: Long
     ) {
+
         viewModelScope.launch {
 
             repository.deleteTransactionById(
