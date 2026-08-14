@@ -13,23 +13,28 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.myaccounts.app.data.local.TransactionEntity
+import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
-import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 
 @Composable
 fun TransactionScreen(
@@ -39,9 +44,7 @@ fun TransactionScreen(
     transactionViewModel: TransactionViewModel
 ) {
 
-    transactionViewModel.selectAccount(
-        accountId
-    )
+    transactionViewModel.selectAccount(accountId)
 
     val transactions by transactionViewModel
         .transactions
@@ -50,6 +53,10 @@ fun TransactionScreen(
     val balance by transactionViewModel
         .balance
         .collectAsState()
+
+    var transactionToDelete by remember {
+        mutableStateOf<TransactionEntity?>(null)
+    }
 
     Scaffold(
         topBar = {
@@ -82,8 +89,7 @@ fun TransactionScreen(
         ) {
 
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
@@ -92,7 +98,7 @@ fun TransactionScreen(
                 ) {
 
                     Text(
-                        text = "الرصيد من الحركات",
+                        text = "الرصيد",
                         fontWeight = FontWeight.Bold
                     )
 
@@ -138,26 +144,91 @@ fun TransactionScreen(
                     ) { transaction ->
 
                         TransactionItem(
-                            transaction = transaction
+                            transaction = transaction,
+                            onDelete = {
+                                transactionToDelete = transaction
+                            }
                         )
                     }
                 }
             }
         }
     }
+
+    transactionToDelete?.let { transaction ->
+
+        AlertDialog(
+            onDismissRequest = {
+                transactionToDelete = null
+            },
+
+            title = {
+                Text("حذف الحركة")
+            },
+
+            text = {
+                Text(
+                    "هل أنت متأكد من حذف هذه الحركة؟"
+                )
+            },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+
+                        transactionViewModel
+                            .deleteTransaction(
+                                transaction.id
+                            )
+
+                        transactionToDelete = null
+                    }
+                ) {
+                    Text("حذف")
+                }
+            },
+
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        transactionToDelete = null
+                    }
+                ) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun TransactionItem(
-    transaction: TransactionEntity
+    transaction: TransactionEntity,
+    onDelete: () -> Unit
 ) {
 
-    val amount =
-        transaction.amountMinor.toString()
+    val typeText =
+        when (transaction.type) {
+
+            TransactionType.RECEIVABLE ->
+                "قبض"
+
+            TransactionType.PAYABLE ->
+                "دفع"
+        }
+
+    val amountText =
+        when (transaction.type) {
+
+            TransactionType.RECEIVABLE ->
+                "+${transaction.amountMinor}"
+
+            TransactionType.PAYABLE ->
+                "-${transaction.amountMinor}"
+        }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
 
         Row(
@@ -168,10 +239,12 @@ private fun TransactionItem(
                 Arrangement.SpaceBetween
         ) {
 
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
 
                 Text(
-                    text = transaction.type.name,
+                    text = typeText,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -179,17 +252,43 @@ private fun TransactionItem(
                     modifier = Modifier.height(4.dp)
                 )
 
+                if (transaction.description.isNotBlank()) {
+
+                    Text(
+                        text = transaction.description,
+                        style =
+                            MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(4.dp)
+                    )
+                }
+
                 Text(
-                    text = transaction.createdAt.toString(),
+                    text = transaction.transactionDate
+                        .toString(),
                     style =
                         MaterialTheme.typography.bodySmall
                 )
             }
 
-            Text(
-                text = amount,
-                fontWeight = FontWeight.Bold
-            )
+            Row {
+
+                Text(
+                    text = amountText,
+                    fontWeight = FontWeight.Bold
+                )
+
+                IconButton(
+                    onClick = onDelete
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "حذف الحركة"
+                    )
+                }
+            }
         }
     }
 }
