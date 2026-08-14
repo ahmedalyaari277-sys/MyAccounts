@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens.reports
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -33,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +44,7 @@ import com.myaccounts.app.data.reports.PersonReportSummary
 import com.myaccounts.app.data.reports.PersonReportTransaction
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import com.myaccounts.app.util.PersonReportPdfExporter
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -59,7 +64,14 @@ fun PersonReportScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    val context = LocalContext.current
+
     val coroutineScope = rememberCoroutineScope()
+
+    val snackbarHostState =
+        remember {
+            SnackbarHostState()
+        }
 
     var showStartDatePicker by remember {
         mutableStateOf(false)
@@ -114,6 +126,11 @@ fun PersonReportScreen(
                     )
                 }
             )
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState
+            )
         }
     ) { paddingValues ->
 
@@ -162,6 +179,70 @@ fun PersonReportScreen(
                     showEndDatePicker = true
                 }
             )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            Button(
+                onClick = {
+
+                    val summary =
+                        uiState.selectedPersonSummary
+
+                    if (summary == null) {
+
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                "لا توجد بيانات كافية لإنشاء التقرير."
+                            )
+                        }
+
+                    } else {
+
+                        val result =
+                            PersonReportPdfExporter
+                                .exportPersonReport(
+                                    context = context,
+                                    summary = summary,
+                                    transactions =
+                                        uiState
+                                            .selectedPersonTransactions,
+                                    startDateMillis =
+                                        startDateMillis,
+                                    endDateMillisExclusive =
+                                        endDateMillisExclusive
+                                )
+
+                        coroutineScope.launch {
+
+                            result.fold(
+                                onSuccess = { message ->
+                                    snackbarHostState
+                                        .showSnackbar(
+                                            message
+                                        )
+                                },
+                                onFailure = { exception ->
+                                    snackbarHostState
+                                        .showSnackbar(
+                                            exception.message
+                                                ?: "حدث خطأ أثناء إنشاء تقرير PDF."
+                                        )
+                                }
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled =
+                    !uiState.isLoading &&
+                        uiState.selectedPersonSummary != null
+            ) {
+                Text(
+                    text = "تصدير تقرير الشخص إلى PDF"
+                )
+            }
 
             Spacer(
                 modifier = Modifier.height(16.dp)
