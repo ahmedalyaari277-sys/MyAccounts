@@ -13,8 +13,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface LedgerDao {
 
-    @Query(
-        """
+    @Query("""
         SELECT * FROM people
         WHERE isActive = 1
         AND (
@@ -24,118 +23,101 @@ interface LedgerDao {
             OR notes LIKE '%' || :query || '%'
         )
         ORDER BY name COLLATE NOCASE ASC
-        """
-    )
+    """)
     fun observePeople(query: String): Flow<List<PersonEntity>>
 
-    @Query(
-        """
+    @Query("""
         SELECT * FROM people
         WHERE id = :personId
         LIMIT 1
-        """
-    )
+    """)
     fun observePerson(personId: Long): Flow<PersonEntity?>
 
     @Transaction
-    @Query(
-        """
+    @Query("""
         SELECT * FROM people
         WHERE isActive = 1
         ORDER BY name COLLATE NOCASE ASC
-        """
-    )
+    """)
     fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>>
 
     @Transaction
-    @Query(
-        """
+    @Query("""
+        SELECT * FROM people
+        WHERE isActive = 0
+        ORDER BY name COLLATE NOCASE ASC
+    """)
+    fun observeArchivedPersonsWithAccounts(): Flow<List<PersonWithAccounts>>
+
+    @Transaction
+    @Query("""
         SELECT * FROM people
         WHERE id = :personId
         AND isActive = 1
         LIMIT 1
-        """
-    )
-    fun observePersonWithAccounts(
-        personId: Long
-    ): Flow<PersonWithAccounts?>
+    """)
+    fun observePersonWithAccounts(personId: Long): Flow<PersonWithAccounts?>
 
     @Insert
-    suspend fun insertPerson(
-        person: PersonEntity
-    ): Long
+    suspend fun insertPerson(person: PersonEntity): Long
 
     @Update
-    suspend fun updatePerson(
-        person: PersonEntity
-    )
+    suspend fun updatePerson(person: PersonEntity)
 
-    @Query(
-        """
+    @Query("""
         UPDATE people
         SET isActive = 0
         WHERE id = :personId
-        """
-    )
-    suspend fun softDeletePerson(
-        personId: Long
-    )
+    """)
+    suspend fun softDeletePerson(personId: Long)
 
-    @Insert(
-        onConflict = OnConflictStrategy.IGNORE
-    )
-    suspend fun insertCurrencyAccounts(
-        accounts: List<CurrencyAccountEntity>
-    )
+    @Query("""
+        UPDATE people
+        SET isActive = 1
+        WHERE id = :personId
+    """)
+    suspend fun restorePerson(personId: Long)
 
-    @Query(
-        """
+    @Query("""
+        DELETE FROM people
+        WHERE id = :personId
+    """)
+    suspend fun permanentlyDeletePerson(personId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCurrencyAccounts(accounts: List<CurrencyAccountEntity>)
+
+    @Query("""
         SELECT * FROM currency_accounts
         WHERE personId = :personId
         ORDER BY currencyCode ASC
-        """
-    )
-    fun observeCurrencyAccounts(
-        personId: Long
-    ): Flow<List<CurrencyAccountEntity>>
+    """)
+    fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>>
 
-    @Query(
-        """
+    @Query("""
         SELECT * FROM currency_accounts
         WHERE id = :accountId
         LIMIT 1
-        """
-    )
-    fun observeCurrencyAccount(
-        accountId: Long
-    ): Flow<CurrencyAccountEntity?>
+    """)
+    fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?>
 
-    @Query(
-        """
+    @Query("""
         SELECT * FROM currency_accounts
         WHERE personId = :personId
         AND currencyCode = :currencyCode
         LIMIT 1
-        """
-    )
-    suspend fun getCurrencyAccount(
-        personId: Long,
-        currencyCode: String
-    ): CurrencyAccountEntity?
+    """)
+    suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
 
     @Update
-    suspend fun updateCurrencyAccount(
-        account: CurrencyAccountEntity
-    )
+    suspend fun updateCurrencyAccount(account: CurrencyAccountEntity)
 
-    @Query(
-        """
+    @Query("""
         UPDATE currency_accounts
         SET balanceMinor = :balanceMinor,
             updatedAt = :updatedAt
         WHERE id = :accountId
-        """
-    )
+    """)
     suspend fun updateCurrencyBalance(
         accountId: Long,
         balanceMinor: Long,
@@ -148,7 +130,6 @@ interface LedgerDao {
         currencyCodes: List<String>
     ): Long {
         val personId = insertPerson(person)
-
         insertCurrencyAccounts(
             currencyCodes.map { currencyCode ->
                 CurrencyAccountEntity(
@@ -158,7 +139,6 @@ interface LedgerDao {
                 )
             }
         )
-
         return personId
     }
 }
