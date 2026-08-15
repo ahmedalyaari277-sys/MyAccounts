@@ -79,6 +79,13 @@ class ReportsViewModel(
                 observePeople(currencyCode)
 
             } catch (exception: Exception) {
+                if (
+                    exception is
+                    kotlinx.coroutines.CancellationException
+                ) {
+                    throw exception
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage =
@@ -145,7 +152,7 @@ class ReportsViewModel(
         require(
             endDateMillisExclusive > startDateMillis
         ) {
-            "End date must be after start date"
+            "يجب أن يكون تاريخ النهاية بعد تاريخ البداية"
         }
 
         _uiState.value = _uiState.value.copy(
@@ -245,16 +252,6 @@ class ReportsViewModel(
 
     fun refresh() {
         loadCurrencyReport()
-
-        val state = _uiState.value
-
-        if (
-            state.selectedPersonId != null &&
-            state.startDateMillis != null &&
-            state.endDateMillisExclusive != null
-        ) {
-            loadPersonReport()
-        }
     }
 
     override fun onCleared() {
