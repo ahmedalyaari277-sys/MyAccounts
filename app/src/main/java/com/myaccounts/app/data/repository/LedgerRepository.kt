@@ -9,89 +9,36 @@ import kotlinx.coroutines.flow.Flow
 class LedgerRepository(
     private val dao: LedgerDao
 ) : LedgerRepositoryContract {
+    override fun observePeople(query: String): Flow<List<PersonEntity>> = dao.observePeople(query)
+    override fun observePerson(personId: Long): Flow<PersonEntity?> = dao.observePerson(personId)
+    override fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>> = dao.observePersonsWithAccounts()
+    override fun observeArchivedPersonsWithAccounts(): Flow<List<PersonWithAccounts>> = dao.observeArchivedPersonsWithAccounts()
+    override fun observePersonWithAccounts(personId: Long): Flow<PersonWithAccounts?> = dao.observePersonWithAccounts(personId)
+    override fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>> = dao.observeCurrencyAccounts(personId)
+    override fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?> = dao.observeCurrencyAccount(accountId)
 
-    override fun observePeople(
-        query: String
-    ): Flow<List<PersonEntity>> {
-        return dao.observePeople(query)
-    }
-
-    override fun observePerson(
-        personId: Long
-    ): Flow<PersonEntity?> {
-        return dao.observePerson(personId)
-    }
-
-    override fun observePersonsWithAccounts():
-        Flow<List<PersonWithAccounts>> {
-        return dao.observePersonsWithAccounts()
-    }
-
-    override fun observePersonWithAccounts(
-        personId: Long
-    ): Flow<PersonWithAccounts?> {
-        return dao.observePersonWithAccounts(personId)
-    }
-
-    override fun observeCurrencyAccounts(
-        personId: Long
-    ): Flow<List<CurrencyAccountEntity>> {
-        return dao.observeCurrencyAccounts(personId)
-    }
-
-    override fun observeCurrencyAccount(
-        accountId: Long
-    ): Flow<CurrencyAccountEntity?> {
-        return dao.observeCurrencyAccount(accountId)
-    }
-
-    override suspend fun insertPerson(
-        person: PersonEntity
-    ): Long {
-        return dao.insertPersonWithCurrencyAccounts(
+    override suspend fun insertPerson(person: PersonEntity): Long =
+        dao.insertPersonWithCurrencyAccounts(
             person = person,
             currencyCodes = DEFAULT_CURRENCIES
         )
-    }
 
-    override suspend fun updatePerson(
-        person: PersonEntity
-    ) {
-        dao.updatePerson(person)
-    }
-
-    override suspend fun deletePerson(
-        personId: Long
-    ) {
-        dao.softDeletePerson(personId)
-    }
+    override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
+    override suspend fun deletePerson(personId: Long) = dao.softDeletePerson(personId)
+    override suspend fun restorePerson(personId: Long) = dao.restorePerson(personId)
+    override suspend fun permanentlyDeletePerson(personId: Long) = dao.permanentlyDeletePerson(personId)
 
     override suspend fun getCurrencyAccount(
         personId: Long,
         currencyCode: String
-    ): CurrencyAccountEntity? {
-        return dao.getCurrencyAccount(
-            personId = personId,
-            currencyCode = currencyCode
-        )
-    }
+    ): CurrencyAccountEntity? = dao.getCurrencyAccount(personId, currencyCode)
 
     override suspend fun updateCurrencyBalance(
         accountId: Long,
         balanceMinor: Long
-    ) {
-        dao.updateCurrencyBalance(
-            accountId = accountId,
-            balanceMinor = balanceMinor
-        )
-    }
+    ) = dao.updateCurrencyBalance(accountId, balanceMinor)
 
     companion object {
-
-        val DEFAULT_CURRENCIES = listOf(
-            "YER",
-            "SAR",
-            "USD"
-        )
+        val DEFAULT_CURRENCIES = listOf("YER", "SAR", "USD")
     }
 }
