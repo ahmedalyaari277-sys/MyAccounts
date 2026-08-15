@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.ui.screens.ArchiveScreen
+import com.myaccounts.app.ui.screens.ArchivedPersonDetailScreen
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
@@ -37,7 +38,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
             HomeScreen(
                 personsList = persons,
                 onAddPerson = { name, phone, address, notes -> viewModel.addPerson(name, phone, address, notes) },
-                onPersonClick = { personId -> navController.navigate(Routes.personAccount(personId)) },
+                onPersonClick = { navController.navigate(Routes.personAccount(it)) },
                 onReportsClick = { navController.navigate(Routes.REPORTS) },
                 onArchiveClick = { navController.navigate(Routes.ARCHIVE) }
             )
@@ -53,8 +54,9 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                     onUpdatePerson = { name, phone, address, notes -> viewModel.updatePerson(person.person.id, name, phone, address, notes) },
                     onDeletePerson = { viewModel.deletePerson(person.person.id); navController.popBackStack() },
                     onAccountClick = { accountId ->
-                        val account = person.accounts.firstOrNull { it.id == accountId }
-                        if (account != null) navController.navigate(Routes.transactions(account.id, account.currencyCode))
+                        person.accounts.firstOrNull { it.id == accountId }?.let {
+                            navController.navigate(Routes.transactions(it.id, it.currencyCode))
+                        }
                     }
                 )
             }
@@ -109,8 +111,30 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 onBack = { navController.popBackStack() },
                 onRestore = { viewModel.restorePerson(it) },
                 onPermanentDelete = { viewModel.permanentlyDeletePerson(it) },
-                onPersonClick = { navController.navigate(Routes.personAccount(it)) }
+                onPersonClick = { navController.navigate(Routes.archivedPerson(it)) }
             )
+        }
+
+        composable(
+            Routes.ARCHIVED_PERSON,
+            arguments = listOf(navArgument("personId") { type = NavType.LongType })
+        ) { entry ->
+            val personId = entry.arguments?.getLong("personId")
+            val person = archivedPersons.firstOrNull { it.person.id == personId }
+            if (person != null) {
+                ArchivedPersonDetailScreen(
+                    personWithAccounts = person,
+                    onBack = { navController.popBackStack() },
+                    onRestore = {
+                        viewModel.restorePerson(person.person.id)
+                        navController.popBackStack(Routes.ARCHIVE, inclusive = false)
+                    },
+                    onPermanentDelete = {
+                        viewModel.permanentlyDeletePerson(person.person.id)
+                        navController.popBackStack(Routes.ARCHIVE, inclusive = false)
+                    }
+                )
+            }
         }
     }
 }
