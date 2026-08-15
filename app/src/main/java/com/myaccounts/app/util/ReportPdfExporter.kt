@@ -136,7 +136,7 @@ object ReportPdfExporter {
             y += 30f
 
             canvas.drawText(
-                "إجمالي لك: ${formatAmount(summary.totalReceivableMinor)}",
+                "إجمالي عليه: ${formatAmount(summary.totalReceivableMinor)}",
                 40f,
                 y,
                 textPaint
@@ -145,7 +145,7 @@ object ReportPdfExporter {
             y += 22f
 
             canvas.drawText(
-                "إجمالي عليك: ${formatAmount(summary.totalPayableMinor)}",
+                "إجمالي له: ${formatAmount(summary.totalPayableMinor)}",
                 40f,
                 y,
                 textPaint
@@ -215,7 +215,7 @@ object ReportPdfExporter {
                     y += 22f
 
                     canvas.drawText(
-                        "لك: ${formatAmount(person.totalReceivableMinor)}",
+                        "عليه: ${formatAmount(person.totalReceivableMinor)}",
                         55f,
                         y,
                         textPaint
@@ -224,7 +224,7 @@ object ReportPdfExporter {
                     y += 20f
 
                     canvas.drawText(
-                        "عليك: ${formatAmount(person.totalPayableMinor)}",
+                        "له: ${formatAmount(person.totalPayableMinor)}",
                         55f,
                         y,
                         textPaint
