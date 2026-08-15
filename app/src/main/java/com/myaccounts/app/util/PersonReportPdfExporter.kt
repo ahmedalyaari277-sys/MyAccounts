@@ -271,6 +271,10 @@ object PersonReportPdfExporter {
     ).format(Date(millis))
 
     private fun formatDateRange(startDateMillis: Long?, endDateMillisExclusive: Long?): String {
+        if (startDateMillis == null && endDateMillisExclusive == null) {
+            return "كل الحساب"
+        }
+
         val start = startDateMillis?.let(::formatDate) ?: "غير محدد"
         val end = endDateMillisExclusive?.let { formatDate(addDays(it, -1)) } ?: "غير محدد"
         return "$start - $end"
