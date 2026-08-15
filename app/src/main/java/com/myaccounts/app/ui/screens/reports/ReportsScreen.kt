@@ -168,12 +168,12 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
     }
 
     if (showStartDatePicker) DatePickerDialog({ showStartDatePicker = false }, { TextButton({ showStartDatePicker = false }) { Text("تم") } }) {
-        val pickerState = remember { androidx.compose.material3.DatePickerState(initialSelectedDateMillis = customStartMillis) }
+        val pickerState = remember { androidx.compose.material3.DatePickerState(initialSelectedDateMillis = customStartMillis, locale = Locale.getDefault()) }
         DatePicker(pickerState)
         LaunchedEffect(pickerState.selectedDateMillis) { pickerState.selectedDateMillis?.let { customStartMillis = it; if (customEndMillis != null) viewModel.setDateRange(it, endOfDayExclusive(customEndMillis!!)) } }
     }
     if (showEndDatePicker) DatePickerDialog({ showEndDatePicker = false }, { TextButton({ showEndDatePicker = false }) { Text("تم") } }) {
-        val pickerState = remember { androidx.compose.material3.DatePickerState(initialSelectedDateMillis = customEndMillis) }
+        val pickerState = remember { androidx.compose.material3.DatePickerState(initialSelectedDateMillis = customEndMillis, locale = Locale.getDefault()) }
         DatePicker(pickerState)
         LaunchedEffect(pickerState.selectedDateMillis) { pickerState.selectedDateMillis?.let { customEndMillis = it; if (customStartMillis != null) viewModel.setDateRange(customStartMillis!!, endOfDayExclusive(it)) } }
     }
@@ -225,7 +225,7 @@ private fun CurrencyChip(label: String, code: String, selectedCurrency: String, 
 private fun CurrencySummaryCard(currencyCode: String, totalReceivableMinor: Long, totalPayableMinor: Long, balanceMinor: Long, transactionCount: Int) {
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.padding(16.dp)) {
-            Text("ملخص ${currencyName(currencyCode)}", 18.sp, FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("ملخص ${currencyName(currencyCode)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReportMetricCard(Modifier.weight(1f), "عليه", totalReceivableMinor, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
