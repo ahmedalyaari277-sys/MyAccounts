@@ -7,15 +7,27 @@ class ReportRepository(
 ) {
 
     fun observeCurrencyReportPeople(
-        currencyCode: String
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
     ): Flow<List<CurrencyReportPersonRow>> {
-        return reportDao.observeCurrencyReportPeople(currencyCode)
+        return reportDao.observeCurrencyReportPeople(
+            currencyCode = currencyCode,
+            startDateMillis = startDateMillis,
+            endDateMillisExclusive = endDateMillisExclusive
+        )
     }
 
     suspend fun getCurrencyReportSummary(
-        currencyCode: String
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
     ): CurrencyReportSummary {
-        return reportDao.getCurrencyReportSummary(currencyCode)
+        return reportDao.getCurrencyReportSummary(
+            currencyCode = currencyCode,
+            startDateMillis = startDateMillis,
+            endDateMillisExclusive = endDateMillisExclusive
+        )
     }
 
     suspend fun getPersonReportSummary(
