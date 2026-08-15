@@ -38,14 +38,8 @@ object PersonReportExcelExporter {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
-                    put(
-                        MediaStore.Downloads.DISPLAY_NAME,
-                        fileName
-                    )
-                    put(
-                        MediaStore.Downloads.MIME_TYPE,
-                        XLSX_MIME_TYPE
-                    )
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, XLSX_MIME_TYPE)
                     put(
                         MediaStore.Downloads.RELATIVE_PATH,
                         "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts"
@@ -53,21 +47,15 @@ object PersonReportExcelExporter {
                 }
 
                 val resolver = context.contentResolver
-
-                val uri =
-                    resolver.insert(
-                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                        values
-                    ) ?: throw IllegalStateException(
-                        "تعذر إنشاء ملف Excel."
-                    )
+                val uri = resolver.insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values
+                ) ?: throw IllegalStateException("تعذر إنشاء ملف Excel.")
 
                 try {
                     resolver.openOutputStream(uri).use { outputStream ->
                         if (outputStream == null) {
-                            throw IllegalStateException(
-                                "تعذر فتح ملف Excel."
-                            )
+                            throw IllegalStateException("تعذر فتح ملف Excel.")
                         }
 
                         createWorkbook(
@@ -79,35 +67,22 @@ object PersonReportExcelExporter {
                         )
                     }
                 } catch (exception: Exception) {
-                    resolver.delete(
-                        uri,
-                        null,
-                        null
-                    )
+                    resolver.delete(uri, null, null)
                     throw exception
                 }
 
-                Result.success(
-                    "تم حفظ تقرير Excel في مجلد التنزيلات/MyAccounts"
-                )
+                Result.success("تم حفظ تقرير Excel في مجلد التنزيلات/MyAccounts")
             } else {
-                val directory =
-                    File(
-                        context.getExternalFilesDir(
-                            Environment.DIRECTORY_DOCUMENTS
-                        ),
-                        "MyAccounts"
-                    )
+                val directory = File(
+                    context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+                    "MyAccounts"
+                )
 
                 if (!directory.exists()) {
                     directory.mkdirs()
                 }
 
-                val file =
-                    File(
-                        directory,
-                        fileName
-                    )
+                val file = File(directory, fileName)
 
                 FileOutputStream(file).use { outputStream ->
                     createWorkbook(
@@ -119,9 +94,7 @@ object PersonReportExcelExporter {
                     )
                 }
 
-                Result.success(
-                    file.absolutePath
-                )
+                Result.success(file.absolutePath)
             }
         } catch (exception: Exception) {
             Result.failure(exception)
@@ -136,40 +109,15 @@ object PersonReportExcelExporter {
         endDateMillisExclusive: Long?
     ) {
         ZipOutputStream(outputStream).use { zip ->
+            writeEntry(zip, "[Content_Types].xml", contentTypesXml())
+            writeEntry(zip, "_rels/.rels", rootRelationshipsXml())
+            writeEntry(zip, "xl/workbook.xml", workbookXml())
+            writeEntry(zip, "xl/_rels/workbook.xml.rels", workbookRelationshipsXml())
+            writeEntry(zip, "xl/styles.xml", stylesXml())
             writeEntry(
-                zip = zip,
-                path = "[Content_Types].xml",
-                content = contentTypesXml()
-            )
-
-            writeEntry(
-                zip = zip,
-                path = "_rels/.rels",
-                content = rootRelationshipsXml()
-            )
-
-            writeEntry(
-                zip = zip,
-                path = "xl/workbook.xml",
-                content = workbookXml()
-            )
-
-            writeEntry(
-                zip = zip,
-                path = "xl/_rels/workbook.xml.rels",
-                content = workbookRelationshipsXml()
-            )
-
-            writeEntry(
-                zip = zip,
-                path = "xl/styles.xml",
-                content = stylesXml()
-            )
-
-            writeEntry(
-                zip = zip,
-                path = "xl/worksheets/sheet1.xml",
-                content = worksheetXml(
+                zip,
+                "xl/worksheets/sheet1.xml",
+                worksheetXml(
                     summary = summary,
                     transactions = transactions,
                     startDateMillis = startDateMillis,
@@ -184,14 +132,8 @@ object PersonReportExcelExporter {
         path: String,
         content: String
     ) {
-        zip.putNextEntry(
-            ZipEntry(path)
-        )
-
-        zip.write(
-            content.toByteArray(Charsets.UTF_8)
-        )
-
+        zip.putNextEntry(ZipEntry(path))
+        zip.write(content.toByteArray(Charsets.UTF_8))
         zip.closeEntry()
     }
 
@@ -227,10 +169,7 @@ object PersonReportExcelExporter {
                 xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                 <sheets>
-                    <sheet
-                        name="تقرير الشخص"
-                        sheetId="1"
-                        r:id="rId1"/>
+                    <sheet name="تقرير الشخص" sheetId="1" r:id="rId1"/>
                 </sheets>
             </workbook>
         """.trimIndent()
@@ -256,7 +195,6 @@ object PersonReportExcelExporter {
         return """
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-
                 <fonts count="2">
                     <font>
                         <sz val="11"/>
@@ -268,50 +206,20 @@ object PersonReportExcelExporter {
                         <name val="Arial"/>
                     </font>
                 </fonts>
-
                 <fills count="2">
-                    <fill>
-                        <patternFill patternType="none"/>
-                    </fill>
-                    <fill>
-                        <patternFill patternType="gray125"/>
-                    </fill>
+                    <fill><patternFill patternType="none"/></fill>
+                    <fill><patternFill patternType="gray125"/></fill>
                 </fills>
-
                 <borders count="1">
-                    <border>
-                        <left/>
-                        <right/>
-                        <top/>
-                        <bottom/>
-                        <diagonal/>
-                    </border>
+                    <border><left/><right/><top/><bottom/><diagonal/></border>
                 </borders>
-
                 <cellStyleXfs count="1">
-                    <xf
-                        numFmtId="0"
-                        fontId="0"
-                        fillId="0"
-                        borderId="0"/>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
                 </cellStyleXfs>
-
                 <cellXfs count="2">
-                    <xf
-                        numFmtId="0"
-                        fontId="0"
-                        fillId="0"
-                        borderId="0"
-                        xfId="0"/>
-
-                    <xf
-                        numFmtId="0"
-                        fontId="1"
-                        fillId="0"
-                        borderId="0"
-                        xfId="0"/>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+                    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/>
                 </cellXfs>
-
             </styleSheet>
         """.trimIndent()
     }
@@ -322,31 +230,20 @@ object PersonReportExcelExporter {
         startDateMillis: Long?,
         endDateMillisExclusive: Long?
     ): String {
-
-        val rows =
-            mutableListOf<String>()
-
+        val rows = mutableListOf<String>()
         var rowNumber = 1
 
         rows.add(
             row(
                 rowNumber++,
-                listOf(
-                    cell(
-                        value = "تقرير حساب شخص",
-                        style = 1
-                    )
-                )
+                listOf(cell("تقرير حساب شخص", style = 1))
             )
         )
 
         rows.add(
             row(
                 rowNumber++,
-                listOf(
-                    cell("اسم الشخص"),
-                    cell(summary.personName)
-                )
+                listOf(cell("اسم الشخص"), cell(summary.personName))
             )
         )
 
@@ -355,11 +252,7 @@ object PersonReportExcelExporter {
                 rowNumber++,
                 listOf(
                     cell("العملة"),
-                    cell(
-                        currencyName(
-                            summary.currencyCode
-                        )
-                    )
+                    cell(currencyName(summary.currencyCode))
                 )
             )
         )
@@ -369,12 +262,7 @@ object PersonReportExcelExporter {
                 rowNumber++,
                 listOf(
                     cell("الفترة"),
-                    cell(
-                        formatDateRange(
-                            startDateMillis,
-                            endDateMillisExclusive
-                        )
-                    )
+                    cell(formatDateRange(startDateMillis, endDateMillisExclusive))
                 )
             )
         )
@@ -382,12 +270,7 @@ object PersonReportExcelExporter {
         rows.add(
             row(
                 rowNumber++,
-                listOf(
-                    cell(
-                        value = "ملخص الحساب",
-                        style = 1
-                    )
-                )
+                listOf(cell("ملخص الحساب", style = 1))
             )
         )
 
@@ -395,14 +278,8 @@ object PersonReportExcelExporter {
             row(
                 rowNumber++,
                 listOf(
-                    cell(
-                        value = "البند",
-                        style = 1
-                    ),
-                    cell(
-                        value = "المبلغ",
-                        style = 1
-                    )
+                    cell("البند", style = 1),
+                    cell("المبلغ", style = 1)
                 )
             )
         )
@@ -412,9 +289,7 @@ object PersonReportExcelExporter {
                 rowNumber++,
                 listOf(
                     cell("الرصيد الافتتاحي"),
-                    numericCell(
-                        summary.openingBalanceMinor
-                    )
+                    numericCell(summary.openingBalanceMinor)
                 )
             )
         )
@@ -423,10 +298,8 @@ object PersonReportExcelExporter {
             row(
                 rowNumber++,
                 listOf(
-                    cell("إجمالي لك خلال الفترة"),
-                    numericCell(
-                        summary.periodReceivableMinor
-                    )
+                    cell("إجمالي عليه خلال الفترة"),
+                    numericCell(summary.periodReceivableMinor)
                 )
             )
         )
@@ -435,10 +308,8 @@ object PersonReportExcelExporter {
             row(
                 rowNumber++,
                 listOf(
-                    cell("إجمالي عليك خلال الفترة"),
-                    numericCell(
-                        summary.periodPayableMinor
-                    )
+                    cell("إجمالي له خلال الفترة"),
+                    numericCell(summary.periodPayableMinor)
                 )
             )
         )
@@ -448,9 +319,7 @@ object PersonReportExcelExporter {
                 rowNumber++,
                 listOf(
                     cell("صافي حركة الفترة"),
-                    numericCell(
-                        summary.periodBalanceMinor
-                    )
+                    numericCell(summary.periodBalanceMinor)
                 )
             )
         )
@@ -460,9 +329,7 @@ object PersonReportExcelExporter {
                 rowNumber++,
                 listOf(
                     cell("الرصيد الختامي"),
-                    numericCell(
-                        summary.closingBalanceMinor
-                    )
+                    numericCell(summary.closingBalanceMinor)
                 )
             )
         )
@@ -472,9 +339,7 @@ object PersonReportExcelExporter {
                 rowNumber++,
                 listOf(
                     cell("عدد العمليات"),
-                    integerCell(
-                        summary.transactionCount.toLong()
-                    )
+                    integerCell(summary.transactionCount.toLong())
                 )
             )
         )
@@ -482,71 +347,35 @@ object PersonReportExcelExporter {
         rows.add(
             row(
                 rowNumber++,
-                listOf(
-                    cell(
-                        value = "تفاصيل العمليات",
-                        style = 1
-                    )
-                )
+                listOf(cell("تفاصيل العمليات", style = 1))
             )
         )
 
-        val transactionHeaderRow =
-            rowNumber
+        val transactionHeaderRow = rowNumber
 
         rows.add(
             row(
                 rowNumber++,
                 listOf(
-                    cell(
-                        value = "#",
-                        style = 1
-                    ),
-                    cell(
-                        value = "التاريخ",
-                        style = 1
-                    ),
-                    cell(
-                        value = "النوع",
-                        style = 1
-                    ),
-                    cell(
-                        value = "المبلغ",
-                        style = 1
-                    ),
-                    cell(
-                        value = "الوصف",
-                        style = 1
-                    )
+                    cell("#", style = 1),
+                    cell("التاريخ", style = 1),
+                    cell("النوع", style = 1),
+                    cell("المبلغ", style = 1),
+                    cell("الوصف", style = 1)
                 )
             )
         )
 
         transactions.forEachIndexed { index, transaction ->
-
             rows.add(
                 row(
                     rowNumber++,
                     listOf(
-                        integerCell(
-                            (index + 1).toLong()
-                        ),
-                        cell(
-                            formatDate(
-                                transaction.transactionDate
-                            )
-                        ),
-                        cell(
-                            transactionTypeName(
-                                transaction.type
-                            )
-                        ),
-                        numericCell(
-                            transaction.amountMinor
-                        ),
-                        cell(
-                            transaction.description
-                        )
+                        integerCell((index + 1).toLong()),
+                        cell(formatDate(transaction.transactionDate)),
+                        cell(transactionTypeName(transaction.type)),
+                        numericCell(transaction.amountMinor),
+                        cell(transaction.description)
                     )
                 )
             )
@@ -556,73 +385,31 @@ object PersonReportExcelExporter {
             rows.add(
                 row(
                     rowNumber,
-                    listOf(
-                        cell(
-                            "لا توجد عمليات خلال الفترة المحددة."
-                        )
-                    )
+                    listOf(cell("لا توجد عمليات خلال الفترة المحددة."))
                 )
             )
         }
 
-        val lastRow =
-            maxOf(
-                rowNumber - 1,
-                transactionHeaderRow
-            )
+        val lastRow = maxOf(rowNumber - 1, transactionHeaderRow)
 
         return """
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <worksheet
-                xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-
+            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
                 <sheetViews>
-                    <sheetView
-                        workbookViewId="0"
-                        rightToLeft="1"/>
+                    <sheetView workbookViewId="0" rightToLeft="1"/>
                 </sheetViews>
-
                 <sheetFormatPr defaultRowHeight="18"/>
-
                 <cols>
-                    <col
-                        min="1"
-                        max="1"
-                        width="8"
-                        customWidth="1"/>
-
-                    <col
-                        min="2"
-                        max="2"
-                        width="16"
-                        customWidth="1"/>
-
-                    <col
-                        min="3"
-                        max="3"
-                        width="18"
-                        customWidth="1"/>
-
-                    <col
-                        min="4"
-                        max="4"
-                        width="18"
-                        customWidth="1"/>
-
-                    <col
-                        min="5"
-                        max="5"
-                        width="45"
-                        customWidth="1"/>
+                    <col min="1" max="1" width="8" customWidth="1"/>
+                    <col min="2" max="2" width="16" customWidth="1"/>
+                    <col min="3" max="3" width="18" customWidth="1"/>
+                    <col min="4" max="4" width="18" customWidth="1"/>
+                    <col min="5" max="5" width="45" customWidth="1"/>
                 </cols>
-
                 <sheetData>
                     ${rows.joinToString("\n")}
                 </sheetData>
-
-                <autoFilter
-                    ref="A${transactionHeaderRow}:E${lastRow}"/>
-
+                <autoFilter ref="A${transactionHeaderRow}:E${lastRow}"/>
             </worksheet>
         """.trimIndent()
     }
@@ -643,13 +430,9 @@ object PersonReportExcelExporter {
         style: Int = 0
     ): String {
         return """
-            <c
-                t="inlineStr"
-                s="$style">
+            <c t="inlineStr" s="$style">
                 <is>
-                    <t xml:space="preserve">${
-                        xmlEscape(value)
-                    }</t>
+                    <t xml:space="preserve">${xmlEscape(value)}</t>
                 </is>
             </c>
         """.trimIndent()
@@ -659,17 +442,13 @@ object PersonReportExcelExporter {
         amountMinor: Long,
         style: Int = 0
     ): String {
-
-        val value =
-            BigDecimal(amountMinor)
-                .movePointLeft(2)
-                .stripTrailingZeros()
-                .toPlainString()
+        val value = BigDecimal(amountMinor)
+            .movePointLeft(2)
+            .stripTrailingZeros()
+            .toPlainString()
 
         return """
-            <c
-                t="n"
-                s="$style">
+            <c t="n" s="$style">
                 <v>$value</v>
             </c>
         """.trimIndent()
@@ -680,9 +459,7 @@ object PersonReportExcelExporter {
         style: Int = 0
     ): String {
         return """
-            <c
-                t="n"
-                s="$style">
+            <c t="n" s="$style">
                 <v>$value</v>
             </c>
         """.trimIndent()
@@ -703,8 +480,8 @@ object PersonReportExcelExporter {
         type: String
     ): String {
         return when (type) {
-            "RECEIVABLE" -> "لك"
-            "PAYABLE" -> "عليك"
+            "RECEIVABLE" -> "عليه"
+            "PAYABLE" -> "له"
             else -> type
         }
     }
@@ -715,33 +492,17 @@ object PersonReportExcelExporter {
         return SimpleDateFormat(
             "dd/MM/yyyy",
             Locale("ar")
-        ).format(
-            Date(millis)
-        )
+        ).format(Date(millis))
     }
 
     private fun formatDateRange(
         startDateMillis: Long?,
         endDateMillisExclusive: Long?
     ): String {
-
-        val start =
-            startDateMillis?.let {
-                formatDate(it)
-            } ?: "غير محدد"
-
-        val end =
-            endDateMillisExclusive
-                ?.let {
-                    formatDate(
-                        addDays(
-                            it,
-                            -1
-                        )
-                    )
-                }
-                ?: "غير محدد"
-
+        val start = startDateMillis?.let { formatDate(it) } ?: "غير محدد"
+        val end = endDateMillisExclusive?.let {
+            formatDate(addDays(it, -1))
+        } ?: "غير محدد"
         return "$start - $end"
     }
 
@@ -751,10 +512,7 @@ object PersonReportExcelExporter {
     ): Long {
         return Calendar.getInstance().apply {
             timeInMillis = millis
-            add(
-                Calendar.DAY_OF_MONTH,
-                days
-            )
+            add(Calendar.DAY_OF_MONTH, days)
         }.timeInMillis
     }
 
@@ -762,18 +520,10 @@ object PersonReportExcelExporter {
         value: String
     ): String {
         return value
-            .replace(
-                Regex("[\\\\/:*?\"<>|]"),
-                "_"
-            )
-            .replace(
-                Regex("\\s+"),
-                "_"
-            )
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .replace(Regex("\\s+"), "_")
             .take(60)
-            .ifBlank {
-                "Person"
-            }
+            .ifBlank { "Person" }
     }
 
     private fun xmlEscape(
