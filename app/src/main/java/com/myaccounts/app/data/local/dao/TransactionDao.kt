@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.myaccounts.app.data.local.TransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -126,4 +127,60 @@ interface TransactionDao {
     suspend fun deleteTransactionById(
         transactionId: Long
     )
+
+    @Transaction
+    suspend fun insertTransactionAndUpdateBalance(
+        transaction: TransactionEntity
+    ): Long {
+        val transactionId = insertTransaction(transaction)
+        recalculateBalance(transaction.accountId)
+        return transactionId
+    }
+
+    @Transaction
+    suspend fun updateTransactionAndUpdateBalance(
+        transaction: TransactionEntity
+    ) {
+        val previousTransaction = getTransaction(transaction.id)
+
+        updateTransaction(transaction)
+
+        previousTransaction?.let {
+            if (it.accountId != transaction.accountId) {
+                recalculateBalance(it.accountId)
+            }
+        }
+
+        recalculateBalance(transaction.accountId)
+    }
+
+    @Transaction
+    suspend fun deleteTransactionAndUpdateBalance(
+        transaction: TransactionEntity
+    ) {
+        deleteTransaction(transaction)
+        recalculateBalance(transaction.accountId)
+    }
+
+    @Transaction
+    suspend fun deleteTransactionByIdAndUpdateBalance(
+        transactionId: Long
+    ) {
+        val transaction = getTransaction(transactionId)
+
+        deleteTransactionById(transactionId)
+
+        transaction?.let {
+            recalculateBalance(it.accountId)
+        }
+    }
+
+    private suspend fun recalculateBalance(
+        accountId: Long
+    ) {
+        updateCurrencyBalance(
+            accountId = accountId,
+            balanceMinor = getBalance(accountId)
+        )
+    }
 }
