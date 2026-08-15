@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 
+import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
@@ -332,10 +333,9 @@ fun AppNavHost(
 // -------------------------------------------------------------
 
 private fun personWithAccountsAccount(
-    accounts:
-        List<com.myaccounts.app.data.local.CurrencyAccountEntity>,
+    accounts: List<CurrencyAccountEntity>,
     accountId: Long
-): com.myaccounts.app.data.local.CurrencyAccountEntity? {
+): CurrencyAccountEntity? {
 
     return accounts.firstOrNull {
         it.id == accountId
