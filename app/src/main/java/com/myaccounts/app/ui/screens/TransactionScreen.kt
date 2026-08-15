@@ -57,11 +57,8 @@ fun TransactionScreen(
     onBack: () -> Unit,
     transactionViewModel: TransactionViewModel
 ) {
-
     LaunchedEffect(accountId) {
-        transactionViewModel.selectAccount(
-            accountId
-        )
+        transactionViewModel.selectAccount(accountId)
     }
 
     val transactions by transactionViewModel
@@ -105,7 +102,6 @@ fun TransactionScreen(
                 }
             )
         },
-
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -146,9 +142,8 @@ fun TransactionScreen(
                     )
 
                     Text(
-                        text = formatAmount(balance),
-                        style =
-                            MaterialTheme.typography.headlineSmall,
+                        text = formatBalance(balance),
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -184,15 +179,11 @@ fun TransactionScreen(
 
                         TransactionItem(
                             transaction = transaction,
-
                             onEdit = {
-                                transactionToEdit =
-                                    transaction
+                                transactionToEdit = transaction
                             },
-
                             onDelete = {
-                                transactionToDelete =
-                                    transaction
+                                transactionToDelete = transaction
                             }
                         )
                     }
@@ -210,7 +201,10 @@ fun TransactionScreen(
                 showAddTransactionDialog = false
             },
 
-            onSave = { type, amountMinor, description ->
+            onSave = {
+                    type,
+                    amountMinor,
+                    description ->
 
                 transactionViewModel.addTransaction(
                     TransactionEntity(
@@ -305,7 +299,6 @@ private fun AddTransactionDialog(
         String
     ) -> Unit
 ) {
-
     var selectedType by remember {
         mutableStateOf(
             TransactionType.RECEIVABLE
@@ -406,7 +399,6 @@ private fun EditTransactionDialog(
         TransactionEntity
     ) -> Unit
 ) {
-
     var selectedType by remember(
         transaction.id
     ) {
@@ -536,7 +528,7 @@ private fun TransactionFormContent(
     Column {
 
         Text(
-            text = "نوع الحركة",
+            text = "نوع العملية",
             fontWeight = FontWeight.Bold
         )
 
@@ -563,9 +555,9 @@ private fun TransactionFormContent(
                         selectedType ==
                         TransactionType.RECEIVABLE
                     ) {
-                        "✓ قبض"
+                        "✓ عليه"
                     } else {
-                        "قبض"
+                        "عليه"
                     }
                 )
             }
@@ -583,9 +575,9 @@ private fun TransactionFormContent(
                         selectedType ==
                         TransactionType.PAYABLE
                     ) {
-                        "✓ دفع"
+                        "✓ له"
                     } else {
-                        "دفع"
+                        "له"
                     }
                 )
             }
@@ -658,40 +650,28 @@ private fun TransactionItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-
     val typeText =
         when (transaction.type) {
 
             TransactionType.RECEIVABLE ->
-                "قبض"
+                "عليه"
 
             TransactionType.PAYABLE ->
-                "دفع"
+                "له"
         }
 
-    val amountText =
-        when (transaction.type) {
-
-            TransactionType.RECEIVABLE ->
-                "+${formatAmount(transaction.amountMinor)}"
-
-            TransactionType.PAYABLE ->
-                "-${formatAmount(transaction.amountMinor)}"
-        }
-
-    val formattedDate =
-        remember(
-            transaction.transactionDate
-        ) {
-            SimpleDateFormat(
-                "yyyy-MM-dd HH:mm",
-                Locale.getDefault()
-            ).format(
-                Date(
-                    transaction.transactionDate
-                )
+    val formattedDate = remember(
+        transaction.transactionDate
+    ) {
+        SimpleDateFormat(
+            "yyyy-MM-dd HH:mm",
+            Locale.getDefault()
+        ).format(
+            Date(
+                transaction.transactionDate
             )
-        }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -746,10 +726,25 @@ private fun TransactionItem(
 
             Row {
 
-                Text(
-                    text = amountText,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(
+                    horizontalAlignment =
+                        androidx.compose.ui.Alignment.End
+                ) {
+
+                    Text(
+                        text = typeText,
+                        style =
+                            MaterialTheme.typography.bodySmall
+                    )
+
+                    Text(
+                        text =
+                            formatAmount(
+                                transaction.amountMinor
+                            ),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 IconButton(
                     onClick = onEdit
@@ -834,4 +829,20 @@ private fun formatAmount(
             .stripTrailingZeros()
 
     return decimal.toPlainString()
+}
+
+private fun formatBalance(
+    balanceMinor: Long
+): String {
+
+    return when {
+        balanceMinor > 0L ->
+            "عليه ${formatAmount(balanceMinor)}"
+
+        balanceMinor < 0L ->
+            "له ${formatAmount(-balanceMinor)}"
+
+        else ->
+            "متوازن 0"
+    }
 }
