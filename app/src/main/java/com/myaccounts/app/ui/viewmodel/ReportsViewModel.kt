@@ -145,6 +145,18 @@ class ReportsViewModel(
         loadPersonReport()
     }
 
+    fun setAllTime() {
+        _uiState.value = _uiState.value.copy(
+            startDateMillis = null,
+            endDateMillisExclusive = null,
+            errorMessage = null
+        )
+
+        if (_uiState.value.selectedPersonId != null) {
+            loadPersonReport()
+        }
+    }
+
     fun setDateRange(
         startDateMillis: Long,
         endDateMillisExclusive: Long
@@ -168,13 +180,7 @@ class ReportsViewModel(
     }
 
     fun clearDateRange() {
-        _uiState.value = _uiState.value.copy(
-            startDateMillis = null,
-            endDateMillisExclusive = null,
-            selectedPersonSummary = null,
-            selectedPersonTransactions = emptyList(),
-            errorMessage = null
-        )
+        setAllTime()
     }
 
     fun loadPersonReport() {
@@ -184,16 +190,16 @@ class ReportsViewModel(
             state.selectedPersonId
                 ?: return
 
+        val currencyCode =
+            state.selectedCurrencyCode
+
         val startDateMillis =
             state.startDateMillis
-                ?: return
+                ?: 0L
 
         val endDateMillisExclusive =
             state.endDateMillisExclusive
-                ?: return
-
-        val currencyCode =
-            state.selectedCurrencyCode
+                ?: Long.MAX_VALUE
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
