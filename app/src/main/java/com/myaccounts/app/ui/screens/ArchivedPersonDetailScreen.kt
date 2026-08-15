@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchivedPersonDetailScreen(
     personWithAccounts: PersonWithAccounts,
@@ -56,7 +58,10 @@ fun ArchivedPersonDetailScreen(
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
             horizontalAlignment = Alignment.Start
         ) {
             Text("شخص مؤرشف", fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -65,14 +70,23 @@ fun ArchivedPersonDetailScreen(
             if (person.address.isNotBlank()) Text("العنوان: ${person.address}")
             if (person.notes.isNotBlank()) Text("الملاحظات: ${person.notes}")
             Spacer(Modifier.height(20.dp))
-            Text("الحسابات محفوظة مع جميع أرصدتها وحركاتها.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "الحسابات محفوظة مع جميع أرصدتها وحركاتها.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(20.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(onClick = onRestore, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.Restore, contentDescription = null)
                     Text("استعادة")
                 }
-                Button(onClick = { showDeleteDialog = true }, modifier = Modifier.weight(1f)) {
+                Button(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.weight(1f)
+                ) {
                     Icon(Icons.Default.DeleteForever, contentDescription = null)
                     Text("حذف نهائي")
                 }
@@ -84,15 +98,23 @@ fun ArchivedPersonDetailScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("حذف نهائي") },
-            text = { Text("سيتم حذف ${person.name} وجميع حساباته وحركاته نهائيًا. لا يمكن التراجع عن هذا الإجراء.") },
+            text = {
+                Text(
+                    "سيتم حذف ${person.name} وجميع حساباته وحركاته نهائيًا. لا يمكن التراجع عن هذا الإجراء."
+                )
+            },
             confirmButton = {
                 Button(onClick = {
                     showDeleteDialog = false
                     onPermanentDelete()
-                }) { Text("حذف نهائي") }
+                }) {
+                    Text("حذف نهائي")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("إلغاء") }
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("إلغاء")
+                }
             }
         )
     }
