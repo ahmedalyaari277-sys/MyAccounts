@@ -24,7 +24,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -53,7 +52,8 @@ fun HomeScreen(
         String,
         String
     ) -> Unit,
-    onPersonClick: (Long) -> Unit
+    onPersonClick: (Long) -> Unit,
+    onReportsClick: () -> Unit = {}
 ) {
 
     var searchQuery by remember {
@@ -91,6 +91,17 @@ fun HomeScreen(
                         text = "دفتر الحسابات",
                         fontWeight = FontWeight.Bold
                     )
+                },
+
+                actions = {
+                    TextButton(
+                        onClick = onReportsClick
+                    ) {
+                        Text(
+                            text = "التقارير",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             )
         },
@@ -229,7 +240,8 @@ private fun PersonCard(
 
         colors = CardDefaults.cardColors(
             containerColor =
-                MaterialTheme.colorScheme.surfaceVariant
+                androidx.compose.material3.MaterialTheme
+                    .colorScheme.surfaceVariant
         )
     ) {
 
@@ -245,7 +257,9 @@ private fun PersonCard(
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint =
+                        androidx.compose.material3.MaterialTheme
+                            .colorScheme.primary
                 )
 
                 Spacer(
@@ -354,6 +368,7 @@ private fun formatBalance(
 ): String {
 
     return when {
+
         balanceMinor > 0L ->
             "عليه ${formatAmount(balanceMinor)}"
 
@@ -440,7 +455,8 @@ private fun AddPersonDialog(
                     Text(
                         text = "اسم الشخص مطلوب",
                         color =
-                            MaterialTheme.colorScheme.error,
+                            androidx.compose.material3.MaterialTheme
+                                .colorScheme.error,
                         fontSize = 12.sp
                     )
                 }
