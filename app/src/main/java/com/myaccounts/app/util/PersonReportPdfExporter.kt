@@ -241,13 +241,13 @@ object PersonReportPdfExporter {
             )
 
             drawSummaryRow(
-                label = "إجمالي لك خلال الفترة",
+                label = "إجمالي عليه خلال الفترة",
                 amountMinor =
                     summary.periodReceivableMinor
             )
 
             drawSummaryRow(
-                label = "إجمالي عليك خلال الفترة",
+                label = "إجمالي له خلال الفترة",
                 amountMinor =
                     summary.periodPayableMinor
             )
@@ -532,8 +532,8 @@ object PersonReportPdfExporter {
         type: String
     ): String {
         return when (type) {
-            "RECEIVABLE" -> "لك"
-            "PAYABLE" -> "عليك"
+            "RECEIVABLE" -> "عليه"
+            "PAYABLE" -> "له"
             else -> type
         }
     }
