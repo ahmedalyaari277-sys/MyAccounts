@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -24,6 +25,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -46,152 +49,60 @@ import java.math.BigDecimal
 @Composable
 fun HomeScreen(
     personsList: List<PersonWithAccounts>,
-    onAddPerson: (
-        String,
-        String,
-        String,
-        String
-    ) -> Unit,
+    onAddPerson: (String, String, String, String) -> Unit,
     onPersonClick: (Long) -> Unit,
-    onReportsClick: () -> Unit = {}
+    onReportsClick: () -> Unit = {},
+    onArchiveClick: () -> Unit = {}
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    var showAddDialog by remember { mutableStateOf(false) }
 
-    var searchQuery by remember {
-        mutableStateOf("")
+    val filteredList = personsList.filter { item ->
+        item.person.name.contains(searchQuery, ignoreCase = true) ||
+            item.person.phone.contains(searchQuery) ||
+            item.person.address.contains(searchQuery, ignoreCase = true) ||
+            item.person.notes.contains(searchQuery, ignoreCase = true)
     }
-
-    var showAddDialog by remember {
-        mutableStateOf(false)
-    }
-
-    val filteredList =
-        personsList.filter { item ->
-
-            item.person.name.contains(
-                searchQuery,
-                ignoreCase = true
-            ) ||
-                item.person.phone.contains(searchQuery) ||
-                item.person.address.contains(
-                    searchQuery,
-                    ignoreCase = true
-                ) ||
-                item.person.notes.contains(
-                    searchQuery,
-                    ignoreCase = true
-                )
-        }
 
     Scaffold(
-
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "دفتر الحسابات",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-
+                title = { Text("دفتر الحسابات", fontWeight = FontWeight.Bold) },
                 actions = {
-                    TextButton(
-                        onClick = onReportsClick
-                    ) {
-                        Text(
-                            text = "التقارير",
-                            fontWeight = FontWeight.Bold
-                        )
+                    TextButton(onClick = onReportsClick) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                    IconButton(onClick = onArchiveClick) {
+                        Icon(Icons.Default.Archive, contentDescription = "الأرشيف")
                     }
                 }
             )
         },
-
         floatingActionButton = {
-
-            FloatingActionButton(
-                onClick = {
-                    showAddDialog = true
-                }
-            ) {
-
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "إضافة شخص"
-                )
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
             }
         }
-
     ) { paddingValues ->
-
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
         ) {
-
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                },
+                onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        "بحث بالاسم أو الهاتف أو العنوان أو الملاحظات"
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "بحث"
-                    )
-                },
+                placeholder = { Text("بحث بالاسم أو الهاتف أو العنوان أو الملاحظات") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
                 singleLine = true
             )
-
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+            Spacer(Modifier.height(16.dp))
 
             if (filteredList.isEmpty()) {
-
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-
-                    Text(
-                        text =
-                            if (searchQuery.isBlank()) {
-                                "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
-                            } else {
-                                "لا توجد نتائج للبحث"
-                            }
-                    )
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(if (searchQuery.isBlank()) "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص" else "لا توجد نتائج للبحث")
                 }
-
             } else {
-
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-
-                    items(
-                        items = filteredList,
-                        key = {
-                            it.person.id
-                        }
-                    ) { item ->
-
-                        PersonCard(
-                            personWithAccounts = item,
-                            onClick = {
-                                onPersonClick(
-                                    item.person.id
-                                )
-                            }
-                        )
+                LazyColumn(Modifier.fillMaxSize()) {
+                    items(filteredList, key = { it.person.id }) { item ->
+                        PersonCard(item) { onPersonClick(item.person.id) }
                     }
                 }
             }
@@ -199,26 +110,10 @@ fun HomeScreen(
     }
 
     if (showAddDialog) {
-
         AddPersonDialog(
-
-            onDismiss = {
-                showAddDialog = false
-            },
-
-            onSave = {
-                    name,
-                    phone,
-                    address,
-                    notes ->
-
-                onAddPerson(
-                    name,
-                    phone,
-                    address,
-                    notes
-                )
-
+            onDismiss = { showAddDialog = false },
+            onSave = { name, phone, address, notes ->
+                onAddPerson(name, phone, address, notes)
                 showAddDialog = false
             }
         )
@@ -226,321 +121,90 @@ fun HomeScreen(
 }
 
 @Composable
-private fun PersonCard(
-    personWithAccounts: PersonWithAccounts,
-    onClick: () -> Unit
-) {
-
+private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Unit) {
     Card(
-
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .clickable(onClick = onClick),
-
-        colors = CardDefaults.cardColors(
-            containerColor =
-                androidx.compose.material3.MaterialTheme
-                    .colorScheme.surfaceVariant
-        )
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint =
-                        androidx.compose.material3.MaterialTheme
-                            .colorScheme.primary
-                )
-
-                Spacer(
-                    modifier = Modifier.width(10.dp)
-                )
-
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
                 Column {
-
-                    Text(
-                        text =
-                            personWithAccounts.person.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp
-                    )
-
-                    if (
-                        personWithAccounts.person.phone
-                            .isNotBlank()
-                    ) {
-
-                        Text(
-                            text =
-                                personWithAccounts.person.phone,
-                            fontSize = 13.sp
-                        )
-                    }
+                    Text(personWithAccounts.person.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    if (personWithAccounts.person.phone.isNotBlank()) Text(personWithAccounts.person.phone, fontSize = 13.sp)
                 }
             }
-
-            if (
-                personWithAccounts.person.address
-                    .isNotBlank()
-            ) {
-
-                Spacer(
-                    modifier = Modifier.height(6.dp)
-                )
-
-                Text(
-                    text =
-                        "العنوان: ${personWithAccounts.person.address}",
-                    fontSize = 13.sp
-                )
+            if (personWithAccounts.person.address.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text("العنوان: ${personWithAccounts.person.address}", fontSize = 13.sp)
             }
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.SpaceBetween
-            ) {
-
-                CurrencyLabel(
-                    currency = "ريال يمني",
-                    balance =
-                        personWithAccounts.balance("YER")
-                )
-
-                CurrencyLabel(
-                    currency = "ريال سعودي",
-                    balance =
-                        personWithAccounts.balance("SAR")
-                )
-
-                CurrencyLabel(
-                    currency = "دولار",
-                    balance =
-                        personWithAccounts.balance("USD")
-                )
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                CurrencyLabel("ريال يمني", personWithAccounts.balance("YER"))
+                CurrencyLabel("ريال سعودي", personWithAccounts.balance("SAR"))
+                CurrencyLabel("دولار", personWithAccounts.balance("USD"))
             }
         }
     }
 }
 
-private fun PersonWithAccounts.balance(
-    currencyCode: String
-): Long {
-
-    return accounts
-        .firstOrNull {
-            it.currencyCode == currencyCode
-        }
-        ?.balanceMinor
-        ?: 0L
-}
+private fun PersonWithAccounts.balance(currencyCode: String): Long =
+    accounts.firstOrNull { it.currencyCode == currencyCode }?.balanceMinor ?: 0L
 
 @Composable
-private fun CurrencyLabel(
-    currency: String,
-    balance: Long
-) {
-
-    Text(
-        text =
-            "$currency\n${formatBalance(balance)}",
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold
-    )
+private fun CurrencyLabel(currency: String, balance: Long) {
+    Text("$currency\n${formatBalance(balance)}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
 }
 
-private fun formatBalance(
-    balanceMinor: Long
-): String {
-
-    return when {
-
-        balanceMinor > 0L ->
-            "عليه ${formatAmount(balanceMinor)}"
-
-        balanceMinor < 0L ->
-            "له ${formatAmount(-balanceMinor)}"
-
-        else ->
-            "متوازن 0"
-    }
+private fun formatBalance(balanceMinor: Long): String = when {
+    balanceMinor > 0L -> "عليه ${formatAmount(balanceMinor)}"
+    balanceMinor < 0L -> "له ${formatAmount(-balanceMinor)}"
+    else -> "متوازن 0"
 }
 
-private fun formatAmount(
-    amountMinor: Long
-): String {
-
-    return BigDecimal(amountMinor)
-        .movePointLeft(2)
-        .stripTrailingZeros()
-        .toPlainString()
-}
+private fun formatAmount(amountMinor: Long): String =
+    BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
 
 @Composable
 private fun AddPersonDialog(
     onDismiss: () -> Unit,
-    onSave: (
-        String,
-        String,
-        String,
-        String
-    ) -> Unit
+    onSave: (String, String, String, String) -> Unit
 ) {
-
-    var name by remember {
-        mutableStateOf("")
-    }
-
-    var phone by remember {
-        mutableStateOf("")
-    }
-
-    var address by remember {
-        mutableStateOf("")
-    }
-
-    var notes by remember {
-        mutableStateOf("")
-    }
-
-    var nameError by remember {
-        mutableStateOf(false)
-    }
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var nameError by remember { mutableStateOf(false) }
 
     AlertDialog(
-
         onDismissRequest = onDismiss,
-
-        title = {
-            Text(
-                text = "إضافة شخص جديد",
-                fontWeight = FontWeight.Bold
-            )
-        },
-
+        title = { Text("إضافة شخص جديد", fontWeight = FontWeight.Bold) },
         text = {
-
             Column {
-
                 OutlinedTextField(
                     value = name,
-                    onValueChange = {
-                        name = it
-                        nameError = false
-                    },
+                    onValueChange = { name = it; nameError = false },
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("اسم الشخص")
-                    },
+                    label = { Text("اسم الشخص") },
                     singleLine = true,
                     isError = nameError
                 )
-
-                if (nameError) {
-
-                    Text(
-                        text = "اسم الشخص مطلوب",
-                        color =
-                            androidx.compose.material3.MaterialTheme
-                                .colorScheme.error,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(
-                    modifier = Modifier.height(10.dp)
-                )
-
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = {
-                        phone = it
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("رقم الهاتف")
-                    },
-                    singleLine = true
-                )
-
-                Spacer(
-                    modifier = Modifier.height(10.dp)
-                )
-
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = {
-                        address = it
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("العنوان")
-                    },
-                    minLines = 2
-                )
-
-                Spacer(
-                    modifier = Modifier.height(10.dp)
-                )
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = {
-                        notes = it
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("الملاحظات")
-                    },
-                    minLines = 2
-                )
+                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = address, onValueChange = { address = it }, modifier = Modifier.fillMaxWidth(), label = { Text("العنوان") }, minLines = 2)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2)
             }
         },
-
         confirmButton = {
-
-            Button(
-                onClick = {
-
-                    if (name.isBlank()) {
-                        nameError = true
-                    } else {
-
-                        onSave(
-                            name.trim(),
-                            phone.trim(),
-                            address.trim(),
-                            notes.trim()
-                        )
-                    }
-                }
-            ) {
-
-                Text("حفظ")
-            }
+            Button(onClick = {
+                if (name.isBlank()) nameError = true
+                else onSave(name.trim(), phone.trim(), address.trim(), notes.trim())
+            }) { Text("حفظ") }
         },
-
-        dismissButton = {
-
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("إلغاء")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )
 }
