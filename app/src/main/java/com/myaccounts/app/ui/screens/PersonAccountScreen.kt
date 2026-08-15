@@ -102,7 +102,7 @@ fun PersonAccountScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "حذف"
+                            contentDescription = "أرشفة"
                         )
                     }
                 }
@@ -222,11 +222,11 @@ fun PersonAccountScreen(
                 showDeleteDialog = false
             },
             title = {
-                Text("حذف الحساب")
+                Text("أرشفة الشخص")
             },
             text = {
                 Text(
-                    "هل أنت متأكد من حذف هذا الشخص؟"
+                    "هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي."
                 )
             },
             confirmButton = {
@@ -236,7 +236,7 @@ fun PersonAccountScreen(
                         onDeletePerson()
                     }
                 ) {
-                    Text("حذف")
+                    Text("أرشفة")
                 }
             },
             dismissButton = {
