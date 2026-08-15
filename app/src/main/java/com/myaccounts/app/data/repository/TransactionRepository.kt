@@ -11,48 +11,22 @@ class TransactionRepository(
     override suspend fun addTransaction(
         transaction: TransactionEntity
     ): Long {
-
-        val transactionId =
-            transactionDao.insertTransaction(
-                transaction
-            )
-
-        val newBalance =
-            transactionDao.getBalance(
-                transaction.accountId
-            )
-
-        transactionDao.updateCurrencyBalance(
-            accountId = transaction.accountId,
-            balanceMinor = newBalance
+        return transactionDao.insertTransactionAndUpdateBalance(
+            transaction
         )
-
-        return transactionId
     }
 
     override suspend fun updateTransaction(
         transaction: TransactionEntity
     ) {
-
-        transactionDao.updateTransaction(
+        transactionDao.updateTransactionAndUpdateBalance(
             transaction
-        )
-
-        val newBalance =
-            transactionDao.getBalance(
-                transaction.accountId
-            )
-
-        transactionDao.updateCurrencyBalance(
-            accountId = transaction.accountId,
-            balanceMinor = newBalance
         )
     }
 
     override fun observeTransactions(
         accountId: Long
     ): Flow<List<TransactionEntity>> {
-
         return transactionDao.observeTransactions(
             accountId
         )
@@ -61,7 +35,6 @@ class TransactionRepository(
     override suspend fun getTransactions(
         accountId: Long
     ): List<TransactionEntity> {
-
         return transactionDao.getTransactions(
             accountId
         )
@@ -70,7 +43,6 @@ class TransactionRepository(
     override suspend fun getTransaction(
         transactionId: Long
     ): TransactionEntity? {
-
         return transactionDao.getTransaction(
             transactionId
         )
@@ -79,7 +51,6 @@ class TransactionRepository(
     override fun observeBalance(
         accountId: Long
     ): Flow<Long> {
-
         return transactionDao.observeBalance(
             accountId
         )
@@ -88,7 +59,6 @@ class TransactionRepository(
     override suspend fun getBalance(
         accountId: Long
     ): Long {
-
         return transactionDao.getBalance(
             accountId
         )
@@ -97,46 +67,16 @@ class TransactionRepository(
     override suspend fun deleteTransaction(
         transaction: TransactionEntity
     ) {
-
-        transactionDao.deleteTransaction(
+        transactionDao.deleteTransactionAndUpdateBalance(
             transaction
-        )
-
-        val newBalance =
-            transactionDao.getBalance(
-                transaction.accountId
-            )
-
-        transactionDao.updateCurrencyBalance(
-            accountId = transaction.accountId,
-            balanceMinor = newBalance
         )
     }
 
     override suspend fun deleteTransactionById(
         transactionId: Long
     ) {
-
-        val transaction =
-            transactionDao.getTransaction(
-                transactionId
-            )
-
-        transactionDao.deleteTransactionById(
+        transactionDao.deleteTransactionByIdAndUpdateBalance(
             transactionId
         )
-
-        if (transaction != null) {
-
-            val newBalance =
-                transactionDao.getBalance(
-                    transaction.accountId
-                )
-
-            transactionDao.updateCurrencyBalance(
-                accountId = transaction.accountId,
-                balanceMinor = newBalance
-            )
-        }
     }
 }
