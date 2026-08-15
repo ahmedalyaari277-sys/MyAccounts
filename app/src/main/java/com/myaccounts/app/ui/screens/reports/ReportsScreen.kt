@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -26,13 +28,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,7 +49,16 @@ import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.util.CurrencyReportExcelExporter
 import com.myaccounts.app.util.ReportPdfExporter
 import java.math.BigDecimal
+import java.util.Calendar
 import kotlinx.coroutines.launch
+
+private enum class ReportPeriod {
+    ALL_TIME,
+    TODAY,
+    THIS_WEEK,
+    THIS_MONTH,
+    CUSTOM
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,13 +72,84 @@ fun ReportsScreen(
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    var selectedPeriod by remember { mutableStateOf(ReportPeriod.ALL_TIME) }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    var customStartMillis by remember { mutableStateOf<Long?>(null) }
+    var customEndMillis by remember { mutableStateOf<Long?>(null) }
+
     LaunchedEffect(Unit) {
-        viewModel.loadCurrencyReport()
+        viewModel.setAllTime()
+    }
+
+    fun startOfDay(millis: Long): Long = Calendar.getInstance().apply {
+        timeInMillis = millis
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    fun endOfDayExclusive(millis: Long): Long = Calendar.getInstance().apply {
+        timeInMillis = startOfDay(millis)
+        add(Calendar.DAY_OF_MONTH, 1)
+    }.timeInMillis
+
+    fun applyPeriod(period: ReportPeriod) {
+        selectedPeriod = period
+        val now = System.currentTimeMillis()
+        when (period) {
+            ReportPeriod.ALL_TIME -> viewModel.setAllTime()
+            ReportPeriod.TODAY -> {
+                val start = startOfDay(now)
+                viewModel.setDateRange(start, endOfDayExclusive(now))
+            }
+            ReportPeriod.THIS_WEEK -> {
+                val start = Calendar.getInstance().apply {
+                    timeInMillis = now
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                }.timeInMillis
+                val end = Calendar.getInstance().apply {
+                    timeInMillis = start
+                    add(Calendar.DAY_OF_MONTH, 7)
+                }.timeInMillis
+                viewModel.setDateRange(start, end)
+            }
+            ReportPeriod.THIS_MONTH -> {
+                val start = Calendar.getInstance().apply {
+                    timeInMillis = now
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val end = Calendar.getInstance().apply {
+                    timeInMillis = start
+                    add(Calendar.MONTH, 1)
+                }.timeInMillis
+                viewModel.setDateRange(start, end)
+            }
+            ReportPeriod.CUSTOM -> {
+                if (customStartMillis != null && customEndMillis != null) {
+                    viewModel.setDateRange(
+                        startDateMillis = customStartMillis!!,
+                        endDateMillisExclusive = endOfDayExclusive(customEndMillis!!)
+                    )
+                } else {
+                    showStartDatePicker = true
+                }
+            }
+        }
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            androidx.compose.material3.TopAppBar(
                 title = { Text("التقارير", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -88,7 +172,7 @@ fun ReportsScreen(
                 Text("تقرير الحسابات", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "اختر العملة لعرض ملخص الحسابات والأشخاص والعمليات.",
+                    "يعرض التقرير جميع العمليات افتراضيًا، ويمكنك تحديد فترة زمنية.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -97,6 +181,42 @@ fun ReportsScreen(
                 CurrencySelector(
                     selectedCurrency = uiState.selectedCurrencyCode,
                     onCurrencySelected = viewModel::selectCurrency
+                )
+                Spacer(Modifier.height(12.dp))
+
+                Text("الفترة", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                ReportPeriodSelector(
+                    selectedPeriod = selectedPeriod,
+                    onSelected = ::applyPeriod
+                )
+
+                if (selectedPeriod == ReportPeriod.CUSTOM) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showStartDatePicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("من: ${formatDate(customStartMillis)}")
+                        }
+                        Button(
+                            onClick = { showEndDatePicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("إلى: ${formatDate(customEndMillis)}")
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    periodDescription(uiState.startDateMillis, uiState.endDateMillisExclusive),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
 
@@ -198,24 +318,110 @@ fun ReportsScreen(
                 }
             }
 
-            uiState.errorMessage?.let { message ->
-                item { ErrorReportCard(message) }
-            }
-
+            uiState.errorMessage?.let { message -> item { ErrorReportCard(message) } }
             item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+
+    if (showStartDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showStartDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = { showStartDatePicker = false }) { Text("تم") }
+            }
+        ) {
+            val pickerState = remember { androidx.compose.material3.DatePickerState(initialSelectedDateMillis = customStartMillis) }
+            DatePicker(state = pickerState)
+            LaunchedEffect(pickerState.selectedDateMillis) {
+                pickerState.selectedDateMillis?.let {
+                    customStartMillis = it
+                    if (customEndMillis != null) {
+                        selectedPeriod = ReportPeriod.CUSTOM
+                        viewModel.setDateRange(it, endOfDayExclusive(customEndMillis!!))
+                    }
+                }
+            }
+        }
+    }
+
+    if (showEndDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = { showEndDatePicker = false }) { Text("تم") }
+            }
+        ) {
+            val pickerState = remember { androidx.compose.material3.DatePickerState(initialSelectedDateMillis = customEndMillis) }
+            DatePicker(state = pickerState)
+            LaunchedEffect(pickerState.selectedDateMillis) {
+                pickerState.selectedDateMillis?.let {
+                    customEndMillis = it
+                    if (customStartMillis != null) {
+                        selectedPeriod = ReportPeriod.CUSTOM
+                        viewModel.setDateRange(customStartMillis!!, endOfDayExclusive(it))
+                    }
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CurrencySelector(
-    selectedCurrency: String,
-    onCurrencySelected: (String) -> Unit
+private fun ReportPeriodSelector(
+    selectedPeriod: ReportPeriod,
+    onSelected: (ReportPeriod) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PeriodChip("كل الحساب", ReportPeriod.ALL_TIME, selectedPeriod, onSelected)
+            PeriodChip("اليوم", ReportPeriod.TODAY, selectedPeriod, onSelected)
+            PeriodChip("هذا الأسبوع", ReportPeriod.THIS_WEEK, selectedPeriod, onSelected)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PeriodChip("هذا الشهر", ReportPeriod.THIS_MONTH, selectedPeriod, onSelected)
+            PeriodChip("فترة مخصصة", ReportPeriod.CUSTOM, selectedPeriod, onSelected)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PeriodChip(
+    label: String,
+    period: ReportPeriod,
+    selectedPeriod: ReportPeriod,
+    onSelected: (ReportPeriod) -> Unit
+) {
+    FilterChip(
+        selected = selectedPeriod == period,
+        onClick = { onSelected(period) },
+        label = { Text(label) }
+    )
+}
+
+private fun formatDate(millis: Long?): String {
+    if (millis == null) return "غير محدد"
+    val calendar = Calendar.getInstance().apply { timeInMillis = millis }
+    return "%02d/%02d/%04d".format(
+        calendar.get(Calendar.DAY_OF_MONTH),
+        calendar.get(Calendar.MONTH) + 1,
+        calendar.get(Calendar.YEAR)
+    )
+}
+
+private fun periodDescription(start: Long?, endExclusive: Long?): String {
+    return if (start == null && endExclusive == null) {
+        "الفترة الحالية: كل الحساب — جميع العمليات"
+    } else {
+        val end = endExclusive?.let { formatDate(it - 1L) } ?: "غير محدد"
+        "الفترة الحالية: ${formatDate(start)} - $end"
+    }
+}
+
+@Composable
+private fun CurrencySelector(selectedCurrency: String, onCurrencySelected: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CurrencyChip("الريال اليمني", "YER", selectedCurrency, onCurrencySelected)
         CurrencyChip("الريال السعودي", "SAR", selectedCurrency, onCurrencySelected)
         CurrencyChip("الدولار", "USD", selectedCurrency, onCurrencySelected)
@@ -223,80 +429,31 @@ private fun CurrencySelector(
 }
 
 @Composable
-private fun CurrencyChip(
-    label: String,
-    code: String,
-    selectedCurrency: String,
-    onSelected: (String) -> Unit
-) {
-    FilterChip(
-        selected = selectedCurrency == code,
-        onClick = { onSelected(code) },
-        label = { Text(label) }
-    )
+private fun CurrencyChip(label: String, code: String, selectedCurrency: String, onSelected: (String) -> Unit) {
+    FilterChip(selected = selectedCurrency == code, onClick = { onSelected(code) }, label = { Text(label) })
 }
 
 @Composable
-private fun CurrencySummaryCard(
-    currencyCode: String,
-    totalReceivableMinor: Long,
-    totalPayableMinor: Long,
-    balanceMinor: Long,
-    transactionCount: Int
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer)
-    ) {
+private fun CurrencySummaryCard(currencyCode: String, totalReceivableMinor: Long, totalPayableMinor: Long, balanceMinor: Long, transactionCount: Int) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.padding(16.dp)) {
-            Text(
-                "ملخص ${currencyName(currencyCode)}",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            Text("ملخص ${currencyName(currencyCode)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
             Spacer(Modifier.height(14.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ReportMetricCard(
-                    Modifier.weight(1f), "عليه", totalReceivableMinor,
-                    MaterialTheme.colorScheme.tertiaryContainer,
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                )
-                ReportMetricCard(
-                    Modifier.weight(1f), "له", totalPayableMinor,
-                    MaterialTheme.colorScheme.errorContainer,
-                    MaterialTheme.colorScheme.onErrorContainer
-                )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReportMetricCard(Modifier.weight(1f), "عليه", totalReceivableMinor, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                ReportMetricCard(Modifier.weight(1f), "له", totalPayableMinor, MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
             }
             Spacer(Modifier.height(8.dp))
-            ReportMetricCard(
-                Modifier.fillMaxWidth(), "الرصيد", balanceMinor,
-                balanceContainerColor(balanceMinor),
-                balanceContentColor(balanceMinor)
-            )
+            ReportMetricCard(Modifier.fillMaxWidth(), "الرصيد", balanceMinor, balanceContainerColor(balanceMinor), balanceContentColor(balanceMinor))
             Spacer(Modifier.height(10.dp))
-            Text(
-                "عدد العمليات: $transactionCount",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            Text("عدد العمليات: $transactionCount", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
 
 @Composable
-private fun ReportMetricCard(
-    modifier: Modifier,
-    title: String,
-    amountMinor: Long,
-    containerColor: Color,
-    contentColor: Color
-) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor)) {
+private fun ReportMetricCard(modifier: Modifier, title: String, amountMinor: Long, containerColor: Color, contentColor: Color) {
+    Card(modifier, colors = CardDefaults.cardColors(containerColor)) {
         Column(Modifier.padding(12.dp)) {
             Text(title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = contentColor)
             Spacer(Modifier.height(4.dp))
@@ -306,81 +463,33 @@ private fun ReportMetricCard(
 }
 
 @Composable
-private fun CurrencyReportPersonCard(
-    person: CurrencyReportPersonRow,
-    currencyCode: String,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+private fun CurrencyReportPersonCard(person: CurrencyReportPersonRow, currencyCode: String, onClick: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), onClick = onClick, colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(Modifier.padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(person.personName, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(3.dp))
-                    Text(
-                        currencyName(currencyCode),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(currencyName(currencyCode), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(
-                    formatAmount(person.balanceMinor),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = balanceTextColor(person.balanceMinor)
-                )
+                Text(formatAmount(person.balanceMinor), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = balanceTextColor(person.balanceMinor))
             }
             Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                PersonAmountItem(
-                    Modifier.weight(1f), "عليه", person.totalReceivableMinor,
-                    MaterialTheme.colorScheme.tertiary
-                )
-                PersonAmountItem(
-                    Modifier.weight(1f), "له", person.totalPayableMinor,
-                    MaterialTheme.colorScheme.error
-                )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PersonAmountItem(Modifier.weight(1f), "عليه", person.totalReceivableMinor, MaterialTheme.colorScheme.tertiary)
+                PersonAmountItem(Modifier.weight(1f), "له", person.totalPayableMinor, MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "عدد العمليات: ${person.transactionCount}",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "عرض التقرير",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("عدد العمليات: ${person.transactionCount}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("عرض التقرير", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
 }
 
 @Composable
-private fun PersonAmountItem(
-    modifier: Modifier,
-    label: String,
-    amountMinor: Long,
-    color: Color
-) {
+private fun PersonAmountItem(modifier: Modifier, label: String, amountMinor: Long, color: Color) {
     Column(modifier) {
         Text(label, fontSize = 12.sp, color = color, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(2.dp))
@@ -391,10 +500,7 @@ private fun PersonAmountItem(
 @Composable
 private fun LoadingReportCard() {
     Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.fillMaxWidth().padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("جاري تحميل التقرير...", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -402,37 +508,19 @@ private fun LoadingReportCard() {
 
 @Composable
 private fun EmptyReportCard() {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("لا توجد بيانات", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text(
-                "لا توجد حسابات أو عمليات لهذه العملة حاليًا.",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("لا توجد حسابات أو عمليات لهذه العملة حاليًا.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun ErrorReportCard(message: String) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.errorContainer)
-    ) {
-        Text(
-            message,
-            Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            fontSize = 14.sp
-        )
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.errorContainer)) {
+        Text(message, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 14.sp)
     }
 }
 
@@ -464,8 +552,4 @@ private fun currencyName(currencyCode: String): String = when (currencyCode) {
     else -> currencyCode
 }
 
-private fun formatAmount(amountMinor: Long): String =
-    BigDecimal(amountMinor)
-        .movePointLeft(2)
-        .stripTrailingZeros()
-        .toPlainString()
+private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
