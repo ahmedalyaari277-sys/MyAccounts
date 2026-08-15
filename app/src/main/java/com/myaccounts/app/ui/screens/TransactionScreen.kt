@@ -24,6 +24,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -86,7 +88,7 @@ fun TransactionScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "حركات $currencyCode"
+                        text = "عمليات $currencyCode"
                     )
                 },
                 navigationIcon = {
@@ -110,7 +112,7 @@ fun TransactionScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "إضافة حركة"
+                    contentDescription = "إضافة عملية"
                 )
             }
         }
@@ -156,7 +158,7 @@ fun TransactionScreen(
             if (transactions.isEmpty()) {
 
                 Text(
-                    text = "لا توجد حركات لهذا الحساب.",
+                    text = "لا توجد عمليات لهذا الحساب.",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
@@ -251,12 +253,12 @@ fun TransactionScreen(
             },
 
             title = {
-                Text("حذف الحركة")
+                Text("حذف العملية")
             },
 
             text = {
                 Text(
-                    "هل أنت متأكد من حذف هذه الحركة؟"
+                    "هل أنت متأكد من حذف هذه العملية؟"
                 )
             },
 
@@ -321,7 +323,7 @@ private fun AddTransactionDialog(
         onDismissRequest = onDismiss,
 
         title = {
-            Text("إضافة حركة")
+            Text("إضافة عملية")
         },
 
         text = {
@@ -435,7 +437,7 @@ private fun EditTransactionDialog(
         onDismissRequest = onDismiss,
 
         title = {
-            Text("تعديل الحركة")
+            Text("تعديل العملية")
         },
 
         text = {
@@ -542,44 +544,58 @@ private fun TransactionFormContent(
                 Arrangement.spacedBy(8.dp)
         ) {
 
-            Button(
-                onClick = {
-                    onTypeChange(
-                        TransactionType.RECEIVABLE
-                    )
-                },
-                modifier = Modifier.weight(1f)
+            if (
+                selectedType ==
+                TransactionType.RECEIVABLE
             ) {
-                Text(
-                    if (
-                        selectedType ==
-                        TransactionType.RECEIVABLE
-                    ) {
-                        "✓ عليه"
-                    } else {
-                        "عليه"
-                    }
-                )
+                Button(
+                    onClick = {
+                        onTypeChange(
+                            TransactionType.RECEIVABLE
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("✓ له")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        onTypeChange(
+                            TransactionType.RECEIVABLE
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("له")
+                }
             }
 
-            Button(
-                onClick = {
-                    onTypeChange(
-                        TransactionType.PAYABLE
-                    )
-                },
-                modifier = Modifier.weight(1f)
+            if (
+                selectedType ==
+                TransactionType.PAYABLE
             ) {
-                Text(
-                    if (
-                        selectedType ==
-                        TransactionType.PAYABLE
-                    ) {
-                        "✓ له"
-                    } else {
-                        "له"
-                    }
-                )
+                Button(
+                    onClick = {
+                        onTypeChange(
+                            TransactionType.PAYABLE
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("✓ عليه")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        onTypeChange(
+                            TransactionType.PAYABLE
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("عليه")
+                }
             }
         }
 
@@ -654,10 +670,10 @@ private fun TransactionItem(
         when (transaction.type) {
 
             TransactionType.RECEIVABLE ->
-                "عليه"
+                "له"
 
             TransactionType.PAYABLE ->
-                "له"
+                "عليه"
         }
 
     val formattedDate = remember(
@@ -728,7 +744,7 @@ private fun TransactionItem(
 
                 Column(
                     horizontalAlignment =
-                        androidx.compose.ui.Alignment.End
+                        Alignment.End
                 ) {
 
                     Text(
@@ -753,7 +769,7 @@ private fun TransactionItem(
                         imageVector =
                             Icons.Default.Edit,
                         contentDescription =
-                            "تعديل الحركة"
+                            "تعديل العملية"
                     )
                 }
 
@@ -764,7 +780,7 @@ private fun TransactionItem(
                         imageVector =
                             Icons.Default.Delete,
                         contentDescription =
-                            "حذف الحركة"
+                            "حذف العملية"
                     )
                 }
             }
@@ -837,10 +853,10 @@ private fun formatBalance(
 
     return when {
         balanceMinor > 0L ->
-            "عليه ${formatAmount(balanceMinor)}"
+            "له ${formatAmount(balanceMinor)}"
 
         balanceMinor < 0L ->
-            "له ${formatAmount(-balanceMinor)}"
+            "عليه ${formatAmount(-balanceMinor)}"
 
         else ->
             "متوازن 0"
