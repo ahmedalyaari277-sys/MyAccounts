@@ -93,6 +93,12 @@ fun AppNavHost(
                             personId
                         )
                     )
+                },
+
+                onReportsClick = {
+                    navController.navigate(
+                        Routes.REPORTS
+                    )
                 }
             )
         }
