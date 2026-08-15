@@ -19,6 +19,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -52,6 +53,14 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+private enum class PersonReportRangePreset {
+    ALL,
+    TODAY,
+    WEEK,
+    MONTH,
+    CUSTOM
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonReportScreen(
@@ -81,6 +90,10 @@ fun PersonReportScreen(
         mutableStateOf(false)
     }
 
+    var selectedRangePreset by remember {
+        mutableStateOf(PersonReportRangePreset.ALL)
+    }
+
     val todayStartMillis = remember {
         startOfDayMillis(
             System.currentTimeMillis()
@@ -91,23 +104,12 @@ fun PersonReportScreen(
         personId,
         currencyCode
     ) {
+        selectedRangePreset =
+            PersonReportRangePreset.ALL
+
         viewModel.selectCurrency(currencyCode)
         viewModel.selectPerson(personId)
-
-        val startDate = startOfDayMillis(
-            todayStartMillis
-        )
-
-        val endDateExclusive =
-            addDays(
-                startDate,
-                1
-            )
-
-        viewModel.setDateRange(
-            startDateMillis = startDate,
-            endDateMillisExclusive = endDateExclusive
-        )
+        viewModel.setAllTime()
     }
 
     val startDateMillis =
@@ -168,14 +170,78 @@ fun PersonReportScreen(
                 )
             }
 
+            PersonReportRangePresetSection(
+                selectedPreset = selectedRangePreset,
+                onAllTime = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.ALL
+                    viewModel.setAllTime()
+                },
+                onToday = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.TODAY
+
+                    val start = startOfDayMillis(
+                        System.currentTimeMillis()
+                    )
+
+                    viewModel.setDateRange(
+                        startDateMillis = start,
+                        endDateMillisExclusive =
+                            addDays(start, 1)
+                    )
+                },
+                onWeek = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.WEEK
+
+                    val start = startOfWeekMillis(
+                        System.currentTimeMillis()
+                    )
+
+                    viewModel.setDateRange(
+                        startDateMillis = start,
+                        endDateMillisExclusive =
+                            addDays(start, 7)
+                    )
+                },
+                onMonth = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.MONTH
+
+                    val start = startOfMonthMillis(
+                        System.currentTimeMillis()
+                    )
+
+                    viewModel.setDateRange(
+                        startDateMillis = start,
+                        endDateMillisExclusive =
+                            addMonths(start, 1)
+                    )
+                },
+                onCustom = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.CUSTOM
+                    showStartDatePicker = true
+                }
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
             DateRangeSection(
                 startDateMillis = startDateMillis,
                 endDateMillisExclusive =
                     endDateMillisExclusive,
                 onStartDateClick = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.CUSTOM
                     showStartDatePicker = true
                 },
                 onEndDateClick = {
+                    selectedRangePreset =
+                        PersonReportRangePreset.CUSTOM
                     showEndDatePicker = true
                 }
             )
@@ -565,6 +631,129 @@ fun PersonReportScreen(
 }
 
 @Composable
+private fun PersonReportRangePresetSection(
+    selectedPreset: PersonReportRangePreset,
+    onAllTime: () -> Unit,
+    onToday: () -> Unit,
+    onWeek: () -> Unit,
+    onMonth: () -> Unit,
+    onCustom: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme
+                    .colorScheme
+                    .surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Text(
+                text = "الفترة الزمنية",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                PresetButton(
+                    text = "كل الحساب",
+                    selected =
+                        selectedPreset ==
+                            PersonReportRangePreset.ALL,
+                    onClick = onAllTime,
+                    modifier = Modifier.weight(1f)
+                )
+
+                PresetButton(
+                    text = "اليوم",
+                    selected =
+                        selectedPreset ==
+                            PersonReportRangePreset.TODAY,
+                    onClick = onToday,
+                    modifier = Modifier.weight(1f)
+                )
+
+                PresetButton(
+                    text = "هذا الأسبوع",
+                    selected =
+                        selectedPreset ==
+                            PersonReportRangePreset.WEEK,
+                    onClick = onWeek,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(6.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                PresetButton(
+                    text = "هذا الشهر",
+                    selected =
+                        selectedPreset ==
+                            PersonReportRangePreset.MONTH,
+                    onClick = onMonth,
+                    modifier = Modifier.weight(1f)
+                )
+
+                PresetButton(
+                    text = "فترة مخصصة",
+                    selected =
+                        selectedPreset ==
+                            PersonReportRangePreset.CUSTOM,
+                    onClick = onCustom,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            modifier = modifier
+        ) {
+            Text(text)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier
+        ) {
+            Text(text)
+        }
+    }
+}
+
+@Composable
 private fun DateRangeSection(
     startDateMillis: Long?,
     endDateMillisExclusive: Long?,
@@ -586,43 +775,56 @@ private fun DateRangeSection(
         ) {
 
             Text(
-                text = "الفترة الزمنية",
-                fontSize = 18.sp,
+                text =
+                    if (
+                        startDateMillis == null &&
+                        endDateMillisExclusive == null
+                    ) {
+                        "الفترة: كل الحساب"
+                    } else {
+                        "الفترة المحددة"
+                    },
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(8.dp)
+            if (
+                startDateMillis != null ||
+                endDateMillisExclusive != null
             ) {
-
-                DateButton(
-                    label = "من",
-                    dateMillis = startDateMillis,
-                    onClick = onStartDateClick,
-                    modifier =
-                        Modifier.weight(1f)
+                Spacer(
+                    modifier = Modifier.height(10.dp)
                 )
 
-                DateButton(
-                    label = "إلى",
-                    dateMillis =
-                        endDateMillisExclusive
-                            ?.let {
-                                addDays(
-                                    it,
-                                    -1
-                                )
-                            },
-                    onClick = onEndDateClick,
-                    modifier =
-                        Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+
+                    DateButton(
+                        label = "من",
+                        dateMillis = startDateMillis,
+                        onClick = onStartDateClick,
+                        modifier =
+                            Modifier.weight(1f)
+                    )
+
+                    DateButton(
+                        label = "إلى",
+                        dateMillis =
+                            endDateMillisExclusive
+                                ?.let {
+                                    addDays(
+                                        it,
+                                        -1
+                                    )
+                                },
+                        onClick = onEndDateClick,
+                        modifier =
+                            Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -960,6 +1162,40 @@ private fun startOfDayMillis(
     return calendar.timeInMillis
 }
 
+private fun startOfWeekMillis(
+    millis: Long
+): Long {
+    val calendar =
+        Calendar.getInstance().apply {
+            timeInMillis = startOfDayMillis(millis)
+            set(
+                Calendar.DAY_OF_WEEK,
+                firstDayOfWeek
+            )
+        }
+
+    return startOfDayMillis(
+        calendar.timeInMillis
+    )
+}
+
+private fun startOfMonthMillis(
+    millis: Long
+): Long {
+    val calendar =
+        Calendar.getInstance().apply {
+            timeInMillis = startOfDayMillis(millis)
+            set(
+                Calendar.DAY_OF_MONTH,
+                1
+            )
+        }
+
+    return startOfDayMillis(
+        calendar.timeInMillis
+    )
+}
+
 private fun addDays(
     millis: Long,
     days: Int
@@ -969,6 +1205,19 @@ private fun addDays(
         add(
             Calendar.DAY_OF_MONTH,
             days
+        )
+    }.timeInMillis
+}
+
+private fun addMonths(
+    millis: Long,
+    months: Int
+): Long {
+    return Calendar.getInstance().apply {
+        timeInMillis = millis
+        add(
+            Calendar.MONTH,
+            months
         )
     }.timeInMillis
 }
