@@ -556,7 +556,7 @@ private fun TransactionFormContent(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("✓ له")
+                    Text("✓ عليه")
                 }
             } else {
                 OutlinedButton(
@@ -567,7 +567,7 @@ private fun TransactionFormContent(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("له")
+                    Text("عليه")
                 }
             }
 
@@ -583,7 +583,7 @@ private fun TransactionFormContent(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("✓ عليه")
+                    Text("✓ له")
                 }
             } else {
                 OutlinedButton(
@@ -594,7 +594,7 @@ private fun TransactionFormContent(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("عليه")
+                    Text("له")
                 }
             }
         }
@@ -670,10 +670,10 @@ private fun TransactionItem(
         when (transaction.type) {
 
             TransactionType.RECEIVABLE ->
-                "له"
+                "عليه"
 
             TransactionType.PAYABLE ->
-                "عليه"
+                "له"
         }
 
     val formattedDate = remember(
@@ -853,10 +853,10 @@ private fun formatBalance(
 
     return when {
         balanceMinor > 0L ->
-            "له ${formatAmount(balanceMinor)}"
+            "عليه ${formatAmount(balanceMinor)}"
 
         balanceMinor < 0L ->
-            "عليه ${formatAmount(-balanceMinor)}"
+            "له ${formatAmount(-balanceMinor)}"
 
         else ->
             "متوازن 0"
