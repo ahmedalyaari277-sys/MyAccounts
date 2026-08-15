@@ -134,7 +134,6 @@ abstract class AppDatabase : RoomDatabase() {
                             createdAt,
                             createdAt
                         FROM people
-                        WHERE isActive = 1
                         """.trimIndent()
                     )
 
@@ -155,7 +154,6 @@ abstract class AppDatabase : RoomDatabase() {
                             createdAt,
                             createdAt
                         FROM people
-                        WHERE isActive = 1
                         """.trimIndent()
                     )
 
@@ -176,7 +174,6 @@ abstract class AppDatabase : RoomDatabase() {
                             createdAt,
                             createdAt
                         FROM people
-                        WHERE isActive = 1
                         """.trimIndent()
                     )
                 }
