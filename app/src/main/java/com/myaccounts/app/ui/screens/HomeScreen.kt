@@ -342,7 +342,8 @@ private fun CurrencyLabel(
 ) {
 
     Text(
-        text = "$currency\n${formatBalance(balance)}",
+        text =
+            "$currency\n${formatBalance(balance)}",
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold
     )
@@ -352,7 +353,23 @@ private fun formatBalance(
     balanceMinor: Long
 ): String {
 
-    return BigDecimal(balanceMinor)
+    return when {
+        balanceMinor > 0L ->
+            "عليه ${formatAmount(balanceMinor)}"
+
+        balanceMinor < 0L ->
+            "له ${formatAmount(-balanceMinor)}"
+
+        else ->
+            "متوازن 0"
+    }
+}
+
+private fun formatAmount(
+    amountMinor: Long
+): String {
+
+    return BigDecimal(amountMinor)
         .movePointLeft(2)
         .stripTrailingZeros()
         .toPlainString()
