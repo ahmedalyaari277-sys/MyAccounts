@@ -13,42 +13,32 @@ interface ReportDao {
             p.id AS personId,
             p.name AS personName,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.type = 'RECEIVABLE'
-                        THEN t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS totalReceivableMinor,
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'RECEIVABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS totalReceivableMinor,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.type = 'PAYABLE'
-                        THEN t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS totalPayableMinor,
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'PAYABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS totalPayableMinor,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.type = 'RECEIVABLE'
-                        THEN t.amountMinor
-                        WHEN t.type = 'PAYABLE'
-                        THEN -t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS balanceMinor,
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN CASE
+                    WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                    WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                    ELSE 0
+                END
+                ELSE 0 END), 0) AS balanceMinor,
 
-            COUNT(t.id) AS transactionCount
+            COUNT(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN t.id ELSE NULL END) AS transactionCount
 
         FROM people p
 
@@ -61,16 +51,15 @@ interface ReportDao {
 
         WHERE p.isActive = 1
 
-        GROUP BY
-            p.id,
-            p.name
+        GROUP BY p.id, p.name
 
-        ORDER BY
-            p.name COLLATE NOCASE ASC
+        ORDER BY p.name COLLATE NOCASE ASC
         """
     )
     fun observeCurrencyReportPeople(
-        currencyCode: String
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
     ): Flow<List<CurrencyReportPersonRow>>
 
     @Query(
@@ -78,42 +67,32 @@ interface ReportDao {
         SELECT
             :currencyCode AS currencyCode,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.type = 'RECEIVABLE'
-                        THEN t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS totalReceivableMinor,
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'RECEIVABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS totalReceivableMinor,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.type = 'PAYABLE'
-                        THEN t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS totalPayableMinor,
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'PAYABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS totalPayableMinor,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.type = 'RECEIVABLE'
-                        THEN t.amountMinor
-                        WHEN t.type = 'PAYABLE'
-                        THEN -t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS balanceMinor,
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN CASE
+                    WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                    WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                    ELSE 0
+                END
+                ELSE 0 END), 0) AS balanceMinor,
 
-            COUNT(t.id) AS transactionCount
+            COUNT(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN t.id ELSE NULL END) AS transactionCount
 
         FROM people p
 
@@ -128,7 +107,9 @@ interface ReportDao {
         """
     )
     suspend fun getCurrencyReportSummary(
-        currencyCode: String
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
     ): CurrencyReportSummary
 
     @Query(
@@ -138,95 +119,50 @@ interface ReportDao {
             p.name AS personName,
             ca.currencyCode AS currencyCode,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.transactionDate < :startDateMillis
-                        THEN
-                            CASE
-                                WHEN t.type = 'RECEIVABLE'
-                                THEN t.amountMinor
-                                WHEN t.type = 'PAYABLE'
-                                THEN -t.amountMinor
-                                ELSE 0
-                            END
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS openingBalanceMinor,
-
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.transactionDate >= :startDateMillis
-                         AND t.transactionDate < :endDateMillisExclusive
-                         AND t.type = 'RECEIVABLE'
-                        THEN t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS periodReceivableMinor,
-
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.transactionDate >= :startDateMillis
-                         AND t.transactionDate < :endDateMillisExclusive
-                         AND t.type = 'PAYABLE'
-                        THEN t.amountMinor
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS periodPayableMinor,
-
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.transactionDate >= :startDateMillis
-                         AND t.transactionDate < :endDateMillisExclusive
-                        THEN
-                            CASE
-                                WHEN t.type = 'RECEIVABLE'
-                                THEN t.amountMinor
-                                WHEN t.type = 'PAYABLE'
-                                THEN -t.amountMinor
-                                ELSE 0
-                            END
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS periodBalanceMinor,
-
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN t.transactionDate < :endDateMillisExclusive
-                        THEN
-                            CASE
-                                WHEN t.type = 'RECEIVABLE'
-                                THEN t.amountMinor
-                                WHEN t.type = 'PAYABLE'
-                                THEN -t.amountMinor
-                                ELSE 0
-                            END
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS closingBalanceMinor,
-
-            COUNT(
-                CASE
-                    WHEN t.transactionDate >= :startDateMillis
-                     AND t.transactionDate < :endDateMillisExclusive
-                    THEN t.id
-                    ELSE NULL
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate < :startDateMillis
+                THEN CASE
+                    WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                    WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                    ELSE 0
                 END
-            ) AS transactionCount
+                ELSE 0 END), 0) AS openingBalanceMinor,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'RECEIVABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS periodReceivableMinor,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'PAYABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS periodPayableMinor,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN CASE
+                    WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                    WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                    ELSE 0
+                END
+                ELSE 0 END), 0) AS periodBalanceMinor,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate < :endDateMillisExclusive
+                THEN CASE
+                    WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                    WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                    ELSE 0
+                END
+                ELSE 0 END), 0) AS closingBalanceMinor,
+
+            COUNT(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN t.id ELSE NULL END) AS transactionCount
 
         FROM people p
 
@@ -240,10 +176,7 @@ interface ReportDao {
         WHERE p.id = :personId
           AND p.isActive = 1
 
-        GROUP BY
-            p.id,
-            p.name,
-            ca.currencyCode
+        GROUP BY p.id, p.name, ca.currencyCode
         """
     )
     suspend fun getPersonReportSummary(
@@ -264,11 +197,8 @@ interface ReportDao {
 
         FROM transactions t
 
-        INNER JOIN currency_accounts ca
-            ON ca.id = t.accountId
-
-        INNER JOIN people p
-            ON p.id = ca.personId
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
 
         WHERE ca.personId = :personId
           AND ca.currencyCode = :currencyCode
@@ -276,9 +206,7 @@ interface ReportDao {
           AND t.transactionDate >= :startDateMillis
           AND t.transactionDate < :endDateMillisExclusive
 
-        ORDER BY
-            t.transactionDate DESC,
-            t.id DESC
+        ORDER BY t.transactionDate DESC, t.id DESC
         """
     )
     suspend fun getPersonReportTransactions(
