@@ -16,67 +16,31 @@ import kotlinx.coroutines.launch
 class LedgerViewModel(
     private val repository: LedgerRepositoryContract
 ) : ViewModel() {
-
-    private val searchQuery =
-        MutableStateFlow("")
-
-    private val _people =
-        MutableStateFlow<List<PersonEntity>>(emptyList())
-
-    val people: StateFlow<List<PersonEntity>> =
-        _people.asStateFlow()
-
-    private val _personsWithAccounts =
-        MutableStateFlow<List<PersonWithAccounts>>(
-            emptyList()
-        )
-
-    val personsWithAccounts:
-        StateFlow<List<PersonWithAccounts>> =
-        _personsWithAccounts.asStateFlow()
+    private val searchQuery = MutableStateFlow("")
+    private val _people = MutableStateFlow<List<PersonEntity>>(emptyList())
+    val people: StateFlow<List<PersonEntity>> = _people.asStateFlow()
+    private val _personsWithAccounts = MutableStateFlow<List<PersonWithAccounts>>(emptyList())
+    val personsWithAccounts: StateFlow<List<PersonWithAccounts>> = _personsWithAccounts.asStateFlow()
+    private val _archivedPersonsWithAccounts = MutableStateFlow<List<PersonWithAccounts>>(emptyList())
+    val archivedPersonsWithAccounts: StateFlow<List<PersonWithAccounts>> = _archivedPersonsWithAccounts.asStateFlow()
 
     init {
-
         viewModelScope.launch {
-
-            searchQuery
-                .flatMapLatest { query ->
-                    repository.observePeople(query)
-                }
-                .collect { result ->
-                    _people.value = result
-                }
+            searchQuery.flatMapLatest { query -> repository.observePeople(query) }.collect { _people.value = it }
         }
-
         viewModelScope.launch {
-
-            repository
-                .observePersonsWithAccounts()
-                .collect { result ->
-                    _personsWithAccounts.value = result
-                }
+            repository.observePersonsWithAccounts().collect { _personsWithAccounts.value = it }
+        }
+        viewModelScope.launch {
+            repository.observeArchivedPersonsWithAccounts().collect { _archivedPersonsWithAccounts.value = it }
         }
     }
 
-    fun setSearchQuery(
-        query: String
-    ) {
-        searchQuery.value = query
-    }
+    fun setSearchQuery(query: String) { searchQuery.value = query }
 
-    fun addPerson(
-        name: String,
-        phone: String = "",
-        address: String = "",
-        notes: String = ""
-    ) {
-
-        if (name.isBlank()) {
-            return
-        }
-
+    fun addPerson(name: String, phone: String = "", address: String = "", notes: String = "") {
+        if (name.isBlank()) return
         viewModelScope.launch {
-
             repository.insertPerson(
                 PersonEntity(
                     name = name.trim(),
@@ -88,30 +52,11 @@ class LedgerViewModel(
         }
     }
 
-    fun updatePerson(
-        personId: Long,
-        name: String,
-        phone: String,
-        address: String,
-        notes: String
-    ) {
-
-        if (name.isBlank()) {
-            return
-        }
-
+    fun updatePerson(personId: Long, name: String, phone: String, address: String, notes: String) {
+        if (name.isBlank()) return
         viewModelScope.launch {
-
-            val currentPerson =
-                _personsWithAccounts
-                    .value
-                    .firstOrNull {
-                        it.person.id == personId
-                    }
-                    ?.person
-
+            val currentPerson = _personsWithAccounts.value.firstOrNull { it.person.id == personId }?.person
             if (currentPerson != null) {
-
                 repository.updatePerson(
                     currentPerson.copy(
                         name = name.trim(),
@@ -124,12 +69,15 @@ class LedgerViewModel(
         }
     }
 
-    fun deletePerson(
-        personId: Long
-    ) {
+    fun deletePerson(personId: Long) {
+        viewModelScope.launch { repository.deletePerson(personId) }
+    }
 
-        viewModelScope.launch {
-            repository.deletePerson(personId)
-        }
+    fun restorePerson(personId: Long) {
+        viewModelScope.launch { repository.restorePerson(personId) }
+    }
+
+    fun permanentlyDeletePerson(personId: Long) {
+        viewModelScope.launch { repository.permanentlyDeletePerson(personId) }
     }
 }
