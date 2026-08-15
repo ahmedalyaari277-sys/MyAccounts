@@ -398,7 +398,7 @@ private fun CurrencySummaryCard(
                 ReportMetricCard(
                     modifier =
                         Modifier.weight(1f),
-                    title = "لك",
+                    title = "عليه",
                     amountMinor =
                         totalReceivableMinor,
                     containerColor =
@@ -412,7 +412,7 @@ private fun CurrencySummaryCard(
                 ReportMetricCard(
                     modifier =
                         Modifier.weight(1f),
-                    title = "عليك",
+                    title = "له",
                     amountMinor =
                         totalPayableMinor,
                     containerColor =
@@ -578,7 +578,7 @@ private fun CurrencyReportPersonCard(
                 PersonAmountItem(
                     modifier =
                         Modifier.weight(1f),
-                    label = "لك",
+                    label = "عليه",
                     amountMinor =
                         person.totalReceivableMinor,
                     color =
@@ -589,7 +589,7 @@ private fun CurrencyReportPersonCard(
                 PersonAmountItem(
                     modifier =
                         Modifier.weight(1f),
-                    label = "عليك",
+                    label = "له",
                     amountMinor =
                         person.totalPayableMinor,
                     color =
