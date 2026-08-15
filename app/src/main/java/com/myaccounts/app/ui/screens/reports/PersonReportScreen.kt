@@ -689,13 +689,13 @@ private fun PersonReportSummaryCard(
             )
 
             ReportSummaryRow(
-                label = "إجمالي لك خلال الفترة",
+                label = "إجمالي عليه خلال الفترة",
                 amountMinor =
                     summary.periodReceivableMinor
             )
 
             ReportSummaryRow(
-                label = "إجمالي عليك خلال الفترة",
+                label = "إجمالي له خلال الفترة",
                 amountMinor =
                     summary.periodPayableMinor
             )
@@ -892,8 +892,8 @@ private fun transactionTypeName(
     type: String
 ): String {
     return when (type) {
-        "RECEIVABLE" -> "لك"
-        "PAYABLE" -> "عليك"
+        "RECEIVABLE" -> "عليه"
+        "PAYABLE" -> "له"
         else -> type
     }
 }
