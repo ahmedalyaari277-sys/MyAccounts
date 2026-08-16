@@ -11,9 +11,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.ui.screens.ArchiveScreen
 import com.myaccounts.app.ui.screens.ArchivedPersonDetailScreen
+import com.myaccounts.app.ui.screens.BackupRestoreScreen
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
@@ -40,7 +40,8 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 onAddPerson = { name, phone, address, notes -> viewModel.addPerson(name, phone, address, notes) },
                 onPersonClick = { navController.navigate(Routes.personAccount(it)) },
                 onReportsClick = { navController.navigate(Routes.REPORTS) },
-                onArchiveClick = { navController.navigate(Routes.ARCHIVE) }
+                onArchiveClick = { navController.navigate(Routes.ARCHIVE) },
+                onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) }
             )
         }
 
@@ -136,8 +137,9 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 )
             }
         }
+
+        composable(Routes.BACKUP_RESTORE) {
+            BackupRestoreScreen(onBack = { navController.popBackStack() })
+        }
     }
 }
-
-private fun personWithAccountsAccount(accounts: List<CurrencyAccountEntity>, accountId: Long): CurrencyAccountEntity? =
-    accounts.firstOrNull { it.id == accountId }
