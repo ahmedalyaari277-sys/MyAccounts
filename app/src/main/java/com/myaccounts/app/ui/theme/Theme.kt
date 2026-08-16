@@ -6,7 +6,57 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.LayoutDirection
+
+private val NavyPrimary = Color(0xFF173A5E)
+private val White = Color(0xFFFFFFFF)
+private val NavyPrimaryContainer = Color(0xFFD5E3F4)
+private val NavyOnPrimaryContainer = Color(0xFF001C33)
+
+private val GreenSecondary = Color(0xFF2E7D5B)
+private val GreenSecondaryContainer = Color(0xFFBCECCF)
+private val GreenOnSecondaryContainer = Color(0xFF002113)
+private val GreenTertiary = Color(0xFF3F7D4A)
+private val GreenTertiaryContainer = Color(0xFFC2EAC1)
+private val GreenOnTertiaryContainer = Color(0xFF002109)
+
+private val RedError = Color(0xFFB3261E)
+private val RedErrorContainer = Color(0xFFF9DEDC)
+private val RedOnErrorContainer = Color(0xFF410E0B)
+
+private val LightBackground = Color(0xFFF8F9FC)
+private val LightOnBackground = Color(0xFF191C20)
+private val LightSurface = Color(0xFFF8F9FC)
+private val LightOnSurface = Color(0xFF191C20)
+private val LightSurfaceVariant = Color(0xFFE1E5EC)
+private val LightOnSurfaceVariant = Color(0xFF43474E)
+
+private val NavyPrimaryDark = Color(0xFFA8C7E8)
+private val NavyOnPrimaryDark = Color(0xFF073353)
+private val NavyPrimaryContainerDark = Color(0xFF164A72)
+private val NavyOnPrimaryContainerDark = Color(0xFFD5E3F4)
+
+private val GreenSecondaryDark = Color(0xFFA0D6B7)
+private val GreenOnSecondaryDark = Color(0xFF083821)
+private val GreenSecondaryContainerDark = Color(0xFF155C3E)
+private val GreenOnSecondaryContainerDark = Color(0xFFBCECCF)
+private val GreenTertiaryDark = Color(0xFFA6D6A4)
+private val GreenOnTertiaryDark = Color(0xFF113716)
+private val GreenTertiaryContainerDark = Color(0xFF285E2D)
+private val GreenOnTertiaryContainerDark = Color(0xFFC2EAC1)
+
+private val RedErrorDark = Color(0xFFFFB4AB)
+private val RedOnErrorDark = Color(0xFF690005)
+private val RedErrorContainerDark = Color(0xFF93000A)
+private val RedOnErrorContainerDark = Color(0xFFFFDAD6)
+
+private val DarkBackground = Color(0xFF101418)
+private val DarkOnBackground = Color(0xFFE1E2E6)
+private val DarkSurface = Color(0xFF101418)
+private val DarkOnSurface = Color(0xFFE1E2E6)
+private val DarkSurfaceVariant = Color(0xFF43474E)
+private val DarkOnSurfaceVariant = Color(0xFFC3C7CF)
 
 private val LightColorScheme = lightColorScheme(
     primary = NavyPrimary,
@@ -79,58 +129,3 @@ fun MyAccountsTheme(
         )
     }
 }
-
-private const val NavyPrimary = 0xFF173A5E.toInt()
-private const val NavyOnPrimary = 0xFFFFFFFF.toInt()
-private const val NavyPrimaryContainer = 0xFFD5E3F4.toInt()
-private const val NavyOnPrimaryContainer = 0xFF001C33.toInt()
-
-private const val GreenSecondary = 0xFF2E7D5B.toInt()
-private const val GreenOnSecondary = 0xFFFFFFFF.toInt()
-private const val GreenSecondaryContainer = 0xFFBCECCF.toInt()
-private const val GreenOnSecondaryContainer = 0xFF002113.toInt()
-
-private const val GreenTertiary = 0xFF3F7D4A.toInt()
-private const val GreenOnTertiary = 0xFFFFFFFF.toInt()
-private const val GreenTertiaryContainer = 0xFFC2EAC1.toInt()
-private const val GreenOnTertiaryContainer = 0xFF002109.toInt()
-
-private const val RedError = 0xFFB3261E.toInt()
-private const val RedOnError = 0xFFFFFFFF.toInt()
-private const val RedErrorContainer = 0xFFF9DEDC.toInt()
-private const val RedOnErrorContainer = 0xFF410E0B.toInt()
-
-private const val White = 0xFFFFFFFF.toInt()
-private const val LightBackground = 0xFFF8F9FC.toInt()
-private const val LightOnBackground = 0xFF191C20.toInt()
-private const val LightSurface = 0xFFF8F9FC.toInt()
-private const val LightOnSurface = 0xFF191C20.toInt()
-private const val LightSurfaceVariant = 0xFFE1E5EC.toInt()
-private const val LightOnSurfaceVariant = 0xFF43474E.toInt()
-
-private const val NavyPrimaryDark = 0xFFA8C7E8.toInt()
-private const val NavyOnPrimaryDark = 0xFF073353.toInt()
-private const val NavyPrimaryContainerDark = 0xFF164A72.toInt()
-private const val NavyOnPrimaryContainerDark = 0xFFD5E3F4.toInt()
-
-private const val GreenSecondaryDark = 0xFFA0D6B7.toInt()
-private const val GreenOnSecondaryDark = 0xFF083821.toInt()
-private const val GreenSecondaryContainerDark = 0xFF155C3E.toInt()
-private const val GreenOnSecondaryContainerDark = 0xFFBCECCF.toInt()
-
-private const val GreenTertiaryDark = 0xFFA6D6A4.toInt()
-private const val GreenOnTertiaryDark = 0xFF113716.toInt()
-private const val GreenTertiaryContainerDark = 0xFF285E2D.toInt()
-private const val GreenOnTertiaryContainerDark = 0xFFC2EAC1.toInt()
-
-private const val RedErrorDark = 0xFFFFB4AB.toInt()
-private const val RedOnErrorDark = 0xFF690005.toInt()
-private const val RedErrorContainerDark = 0xFF93000A.toInt()
-private const val RedOnErrorContainerDark = 0xFFFFDAD6.toInt()
-
-private const val DarkBackground = 0xFF101418.toInt()
-private const val DarkOnBackground = 0xFFE1E2E6.toInt()
-private const val DarkSurface = 0xFF101418.toInt()
-private const val DarkOnSurface = 0xFFE1E2E6.toInt()
-private const val DarkSurfaceVariant = 0xFF43474E.toInt()
-private const val DarkOnSurfaceVariant = 0xFFC3C7CF.toInt()
