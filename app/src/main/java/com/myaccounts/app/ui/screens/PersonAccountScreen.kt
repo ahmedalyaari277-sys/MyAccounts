@@ -270,6 +270,15 @@ private fun CurrencyAccountCard(
     val balanceMinor =
         account?.balanceMinor ?: 0L
 
+    val balanceColor = when {
+        balanceMinor > 0L ->
+            MaterialTheme.colorScheme.error
+        balanceMinor < 0L ->
+            MaterialTheme.colorScheme.secondary
+        else ->
+            MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -314,6 +323,7 @@ private fun CurrencyAccountCard(
 
             Text(
                 text = formatBalance(balanceMinor),
+                color = balanceColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
