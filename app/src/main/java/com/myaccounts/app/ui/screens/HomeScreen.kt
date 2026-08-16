@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -52,7 +53,8 @@ fun HomeScreen(
     onAddPerson: (String, String, String, String) -> Unit,
     onPersonClick: (Long) -> Unit,
     onReportsClick: () -> Unit = {},
-    onArchiveClick: () -> Unit = {}
+    onArchiveClick: () -> Unit = {},
+    onBackupRestoreClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -70,6 +72,9 @@ fun HomeScreen(
                 title = { Text("دفتر الحسابات", fontWeight = FontWeight.Bold) },
                 actions = {
                     TextButton(onClick = onReportsClick) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                    IconButton(onClick = onBackupRestoreClick) {
+                        Icon(Icons.Default.Backup, contentDescription = "النسخ الاحتياطي والاستعادة")
+                    }
                     IconButton(onClick = onArchiveClick) {
                         Icon(Icons.Default.Archive, contentDescription = "الأرشيف")
                     }
