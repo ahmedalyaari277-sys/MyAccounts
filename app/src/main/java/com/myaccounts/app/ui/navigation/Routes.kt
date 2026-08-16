@@ -8,6 +8,7 @@ object Routes {
     const val PERSON_REPORT = "person_report/{personId}/{currencyCode}"
     const val ARCHIVE = "archive"
     const val ARCHIVED_PERSON = "archived_person/{personId}"
+    const val BACKUP_RESTORE = "backup_restore"
 
     fun personAccount(personId: Long): String = "person_account/$personId"
     fun transactions(accountId: Long, currencyCode: String): String = "transactions/$accountId/$currencyCode"
@@ -15,4 +16,5 @@ object Routes {
     fun personReport(personId: Long, currencyCode: String): String = "person_report/$personId/$currencyCode"
     fun archive(): String = ARCHIVE
     fun archivedPerson(personId: Long): String = "archived_person/$personId"
+    fun backupRestore(): String = BACKUP_RESTORE
 }
