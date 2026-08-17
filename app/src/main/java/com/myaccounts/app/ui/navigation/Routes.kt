@@ -4,6 +4,7 @@ object Routes {
     const val HOME = "home"
     const val PERSON_ACCOUNT = "person_account/{personId}"
     const val TRANSACTIONS = "transactions/{accountId}/{currencyCode}"
+    const val QUICK_TRANSACTION = "quick_transaction/{personId}"
     const val REPORTS = "reports"
     const val PERSON_REPORT = "person_report/{personId}/{currencyCode}"
     const val ARCHIVE = "archive"
@@ -12,9 +13,10 @@ object Routes {
 
     fun personAccount(personId: Long): String = "person_account/$personId"
     fun transactions(accountId: Long, currencyCode: String): String = "transactions/$accountId/$currencyCode"
+    fun quickTransaction(personId: Long): String = "quick_transaction/$personId"
     fun reports(): String = REPORTS
     fun personReport(personId: Long, currencyCode: String): String = "person_report/$personId/$currencyCode"
     fun archive(): String = ARCHIVE
     fun archivedPerson(personId: Long): String = "archived_person/$personId"
-    fun backupRestore(): String = BACKUP_RESTORE
+    fun backupRestore(): String = "backup_restore"
 }
