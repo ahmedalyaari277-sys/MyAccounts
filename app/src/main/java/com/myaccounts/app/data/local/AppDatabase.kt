@@ -9,6 +9,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.myaccounts.app.data.local.converter.TransactionConverters
 import com.myaccounts.app.data.local.dao.LedgerDao
+import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
 import com.myaccounts.app.data.reports.ReportDao
 
@@ -16,9 +17,10 @@ import com.myaccounts.app.data.reports.ReportDao
     entities = [
         PersonEntity::class,
         CurrencyAccountEntity::class,
-        TransactionEntity::class
+        TransactionEntity::class,
+        TransactionAttachmentEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(
@@ -29,6 +31,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
 
     abstract fun transactionDao(): TransactionDao
+
+    abstract fun transactionAttachmentDao(): TransactionAttachmentDao
 
     abstract fun reportDao(): ReportDao
 
@@ -47,7 +51,8 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2,
                         MIGRATION_2_3,
-                        MIGRATION_3_4
+                        MIGRATION_3_4,
+                        MIGRATION_4_5
                     )
                     .build()
                     .also {
@@ -224,6 +229,40 @@ abstract class AppDatabase : RoomDatabase() {
                         CREATE INDEX IF NOT EXISTS
                         index_transactions_type
                         ON transactions(type)
+                        """.trimIndent()
+                    )
+                }
+            }
+
+        private val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+
+                override fun migrate(
+                    db: SupportSQLiteDatabase
+                ) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS transaction_attachments (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            transactionId INTEGER NOT NULL,
+                            fileName TEXT NOT NULL,
+                            mimeType TEXT NOT NULL,
+                            relativePath TEXT NOT NULL,
+                            sizeBytes INTEGER NOT NULL,
+                            createdAt INTEGER NOT NULL,
+                            FOREIGN KEY(transactionId)
+                                REFERENCES transactions(id)
+                                ON UPDATE CASCADE
+                                ON DELETE CASCADE
+                        )
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        index_transaction_attachments_transactionId
+                        ON transaction_attachments(transactionId)
                         """.trimIndent()
                     )
                 }
