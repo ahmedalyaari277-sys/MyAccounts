@@ -83,4 +83,28 @@ class ReportRepository(
             endDateMillisExclusive = endDateMillisExclusive
         )
     }
+
+    suspend fun getPersonCurrencySummary(
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ): List<PersonCurrencySummaryRow> {
+        return reportDao.getPersonCurrencySummary(
+            currencyCode = currencyCode,
+            startDateMillis = startDateMillis,
+            endDateMillisExclusive = endDateMillisExclusive
+        )
+    }
+
+    suspend fun getGeneralReportTransactions(
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ): List<GeneralReportTransactionRow> {
+        return reportDao.getGeneralReportTransactions(
+            currencyCode = currencyCode,
+            startDateMillis = startDateMillis,
+            endDateMillisExclusive = endDateMillisExclusive
+        )
+    }
 }
