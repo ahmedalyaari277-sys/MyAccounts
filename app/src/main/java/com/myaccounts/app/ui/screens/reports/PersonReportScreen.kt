@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens.reports
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,10 +39,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.reports.PersonReportSummary
-import com.myaccounts.app.data.reports.PersonReportTransaction
+import com.myaccounts.app.data.reports.PersonReportTransactionRow
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.util.PersonReportExcelExporter
@@ -53,13 +55,7 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 
-private enum class PersonReportRangePreset {
-    ALL,
-    TODAY,
-    WEEK,
-    MONTH,
-    CUSTOM
-}
+private enum class PersonReportRangePreset { ALL, TODAY, WEEK, MONTH, CUSTOM }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,407 +68,148 @@ fun PersonReportScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
     val context = LocalContext.current
-
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    var selectedRangePreset by remember { mutableStateOf(PersonReportRangePreset.ALL) }
+    val todayStartMillis = remember { startOfDayMillis(System.currentTimeMillis()) }
 
-    val snackbarHostState =
-        remember {
-            SnackbarHostState()
-        }
-
-    var showStartDatePicker by remember {
-        mutableStateOf(false)
-    }
-
-    var showEndDatePicker by remember {
-        mutableStateOf(false)
-    }
-
-    var selectedRangePreset by remember {
-        mutableStateOf(PersonReportRangePreset.ALL)
-    }
-
-    val todayStartMillis = remember {
-        startOfDayMillis(
-            System.currentTimeMillis()
-        )
-    }
-
-    LaunchedEffect(
-        personId,
-        currencyCode
-    ) {
-        selectedRangePreset =
-            PersonReportRangePreset.ALL
-
+    LaunchedEffect(personId, currencyCode) {
+        selectedRangePreset = PersonReportRangePreset.ALL
         viewModel.selectCurrency(currencyCode)
         viewModel.selectPerson(personId)
         viewModel.setAllTime()
     }
 
-    val startDateMillis =
-        uiState.startDateMillis
-
-    val endDateMillisExclusive =
-        uiState.endDateMillisExclusive
+    val startDateMillis = uiState.startDateMillis
+    val endDateMillisExclusive = uiState.endDateMillisExclusive
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "تقرير الشخص",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
-        },
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState
-            )
-        }
+        topBar = { TopAppBar(title = { Text("تقرير حساب", fontWeight = FontWeight.Bold) }) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
-
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
         ) {
-
             uiState.selectedPersonSummary?.let { summary ->
-
-                Text(
-                    text = summary.personName,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier = Modifier.height(4.dp)
-                )
-
-                Text(
-                    text = currencyName(
-                        summary.currencyCode
-                    ),
-                    fontSize = 14.sp,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-
-                Spacer(
-                    modifier = Modifier.height(16.dp)
-                )
+                PersonReportHeader(summary, startDateMillis, endDateMillisExclusive)
+                Spacer(Modifier.height(12.dp))
             }
 
             PersonReportRangePresetSection(
                 selectedPreset = selectedRangePreset,
-                onAllTime = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.ALL
-                    viewModel.setAllTime()
-                },
+                onAllTime = { selectedRangePreset = PersonReportRangePreset.ALL; viewModel.setAllTime() },
                 onToday = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.TODAY
-
-                    val start = startOfDayMillis(
-                        System.currentTimeMillis()
-                    )
-
-                    viewModel.setDateRange(
-                        startDateMillis = start,
-                        endDateMillisExclusive =
-                            addDays(start, 1)
-                    )
+                    selectedRangePreset = PersonReportRangePreset.TODAY
+                    val start = startOfDayMillis(System.currentTimeMillis())
+                    viewModel.setDateRange(start, addDays(start, 1))
                 },
                 onWeek = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.WEEK
-
-                    val start = startOfWeekMillis(
-                        System.currentTimeMillis()
-                    )
-
-                    viewModel.setDateRange(
-                        startDateMillis = start,
-                        endDateMillisExclusive =
-                            addDays(start, 7)
-                    )
+                    selectedRangePreset = PersonReportRangePreset.WEEK
+                    val start = startOfWeekMillis(System.currentTimeMillis())
+                    viewModel.setDateRange(start, addDays(start, 7))
                 },
                 onMonth = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.MONTH
-
-                    val start = startOfMonthMillis(
-                        System.currentTimeMillis()
-                    )
-
-                    viewModel.setDateRange(
-                        startDateMillis = start,
-                        endDateMillisExclusive =
-                            addMonths(start, 1)
-                    )
+                    selectedRangePreset = PersonReportRangePreset.MONTH
+                    val start = startOfMonthMillis(System.currentTimeMillis())
+                    viewModel.setDateRange(start, addMonths(start, 1))
                 },
-                onCustom = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.CUSTOM
-                    showStartDatePicker = true
-                }
+                onCustom = { selectedRangePreset = PersonReportRangePreset.CUSTOM; showStartDatePicker = true }
             )
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
+            Spacer(Modifier.height(10.dp))
             DateRangeSection(
-                startDateMillis = startDateMillis,
-                endDateMillisExclusive =
-                    endDateMillisExclusive,
-                onStartDateClick = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.CUSTOM
-                    showStartDatePicker = true
-                },
-                onEndDateClick = {
-                    selectedRangePreset =
-                        PersonReportRangePreset.CUSTOM
-                    showEndDatePicker = true
-                }
+                startDateMillis,
+                endDateMillisExclusive,
+                onStartDateClick = { selectedRangePreset = PersonReportRangePreset.CUSTOM; showStartDatePicker = true },
+                onEndDateClick = { selectedRangePreset = PersonReportRangePreset.CUSTOM; showEndDatePicker = true }
             )
+            Spacer(Modifier.height(10.dp))
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            Button(
-                onClick = {
-
-                    val summary =
-                        uiState.selectedPersonSummary
-
-                    if (summary == null) {
-
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(
-                                "لا توجد بيانات كافية لإنشاء التقرير."
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        val summary = uiState.selectedPersonSummary
+                        if (summary == null) {
+                            coroutineScope.launch { snackbarHostState.showSnackbar("لا توجد بيانات كافية لإنشاء التقرير.") }
+                        } else {
+                            val result = PersonReportPdfExporter.exportPersonReport(
+                                context = context,
+                                summary = summary,
+                                transactions = uiState.selectedPersonTransactions,
+                                startDateMillis = startDateMillis,
+                                endDateMillisExclusive = endDateMillisExclusive
                             )
-                        }
-
-                    } else {
-
-                        val result =
-                            PersonReportPdfExporter
-                                .exportPersonReport(
-                                    context = context,
-                                    summary = summary,
-                                    transactions =
-                                        uiState
-                                            .selectedPersonTransactions,
-                                    startDateMillis =
-                                        startDateMillis,
-                                    endDateMillisExclusive =
-                                        endDateMillisExclusive
+                            coroutineScope.launch {
+                                result.fold(
+                                    onSuccess = { snackbarHostState.showSnackbar(it) },
+                                    onFailure = { snackbarHostState.showSnackbar(it.message ?: "حدث خطأ أثناء إنشاء تقرير PDF.") }
                                 )
-
-                        coroutineScope.launch {
-
-                            result.fold(
-                                onSuccess = { message ->
-                                    snackbarHostState
-                                        .showSnackbar(
-                                            message
-                                        )
-                                },
-                                onFailure = { exception ->
-                                    snackbarHostState
-                                        .showSnackbar(
-                                            exception.message
-                                                ?: "حدث خطأ أثناء إنشاء تقرير PDF."
-                                        )
-                                }
-                            )
+                            }
                         }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled =
-                    !uiState.isLoading &&
-                        uiState.selectedPersonSummary != null
-            ) {
-                Text(
-                    text = "تصدير تقرير الشخص إلى PDF"
-                )
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
+                ) { Text("PDF") }
+
+                Button(
+                    onClick = {
+                        val summary = uiState.selectedPersonSummary
+                        if (summary == null) {
+                            coroutineScope.launch { snackbarHostState.showSnackbar("لا توجد بيانات كافية لإنشاء التقرير.") }
+                        } else {
+                            val result = PersonReportExcelExporter.exportPersonReport(
+                                context = context,
+                                summary = summary,
+                                transactions = uiState.selectedPersonTransactions,
+                                startDateMillis = startDateMillis,
+                                endDateMillisExclusive = endDateMillisExclusive
+                            )
+                            coroutineScope.launch {
+                                result.fold(
+                                    onSuccess = { snackbarHostState.showSnackbar(it) },
+                                    onFailure = { snackbarHostState.showSnackbar(it.message ?: "حدث خطأ أثناء إنشاء تقرير Excel.") }
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
+                ) { Text("Excel") }
             }
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            Button(
-                onClick = {
-
-                    val summary =
-                        uiState.selectedPersonSummary
-
-                    if (summary == null) {
-
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(
-                                "لا توجد بيانات كافية لإنشاء التقرير."
-                            )
-                        }
-
-                    } else {
-
-                        val result =
-                            PersonReportExcelExporter
-                                .exportPersonReport(
-                                    context = context,
-                                    summary = summary,
-                                    transactions =
-                                        uiState
-                                            .selectedPersonTransactions,
-                                    startDateMillis =
-                                        startDateMillis,
-                                    endDateMillisExclusive =
-                                        endDateMillisExclusive
-                                )
-
-                        coroutineScope.launch {
-
-                            result.fold(
-                                onSuccess = { message ->
-                                    snackbarHostState
-                                        .showSnackbar(
-                                            message
-                                        )
-                                },
-                                onFailure = { exception ->
-                                    snackbarHostState
-                                        .showSnackbar(
-                                            exception.message
-                                                ?: "حدث خطأ أثناء إنشاء تقرير Excel."
-                                        )
-                                }
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled =
-                    !uiState.isLoading &&
-                        uiState.selectedPersonSummary != null
-            ) {
-                Text(
-                    text = "تصدير تقرير الشخص إلى Excel"
-                )
-            }
-
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+            Spacer(Modifier.height(12.dp))
 
             if (uiState.isLoading) {
-
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment =
-                        Alignment.Center
-                ) {
-                    Text(
-                        text = "جاري تحميل التقرير..."
-                    )
-                }
-
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("جاري تحميل التقرير...") }
             } else {
-
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement =
-                        Arrangement.spacedBy(10.dp)
-                ) {
-
-                    uiState.selectedPersonSummary?.let {
-                        summary ->
-
-                        item {
-
-                            PersonReportSummaryCard(
-                                summary = summary
-                            )
-                        }
-                    }
-
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    uiState.selectedPersonSummary?.let { summary -> item { PersonReportSummaryCard(summary) } }
                     item {
-
-                        Text(
-                            text = "العمليات",
-                            fontSize = 20.sp,
-                            fontWeight =
-                                FontWeight.Bold,
-                            modifier =
-                                Modifier.padding(
-                                    top = 8.dp
-                                )
-                        )
+                        Text("كشف الحساب", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
                     }
+                    item { PersonReportTableHeader() }
 
-                    if (
-                        uiState
-                            .selectedPersonTransactions
-                            .isEmpty()
-                    ) {
-
+                    if (uiState.selectedPersonTransactionRows.isEmpty()) {
                         item {
-
                             Text(
-                                text =
-                                    "لا توجد عمليات خلال الفترة المحددة.",
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
+                                "لا توجد عمليات خلال الفترة المحددة.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                textAlign = TextAlign.Center
                             )
                         }
-
                     } else {
-
-                        items(
-                            items =
-                                uiState
-                                    .selectedPersonTransactions,
-                            key = {
-                                it.transactionId
-                            }
-                        ) { transaction ->
-
-                            PersonReportTransactionCard(
-                                transaction =
-                                    transaction,
-                                currencyCode =
-                                    currencyCode,
+                        items(uiState.selectedPersonTransactionRows, key = { it.transactionId }) { row ->
+                            PersonReportTransactionRowCard(
+                                row = row,
+                                currencyCode = currencyCode,
                                 onClick = {
-
                                     coroutineScope.launch {
-
-                                        val selectedTransaction =
-                                            transactionViewModel
-                                                ?.getTransaction(
-                                                    transaction.transactionId
-                                                )
-
-                                        selectedTransaction?.let {
-
-                                            onTransactionClick(
-                                                it.accountId,
-                                                currencyCode
-                                            )
+                                        transactionViewModel?.getTransaction(row.transactionId)?.let {
+                                            onTransactionClick(it.accountId, currencyCode)
                                         }
                                     }
                                 }
@@ -480,47 +217,12 @@ fun PersonReportScreen(
                         }
                     }
 
-                    item {
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(8.dp)
-                        )
-
-                        Row(
-                            modifier =
-                                Modifier.fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.SpaceBetween
-                        ) {
-
-                            Text(
-                                text = "رجوع",
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
-
-                            Button(
-                                onClick = onBack
-                            ) {
-                                Text("إغلاق التقرير")
-                            }
-                        }
+                    uiState.errorMessage?.let { message ->
+                        item { Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
                     }
-
-                    uiState.errorMessage?.let {
-                        message ->
-
-                        item {
-
-                            Text(
-                                text = message,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .error
-                            )
-                        }
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("إغلاق التقرير") }
                     }
                 }
             }
@@ -528,105 +230,50 @@ fun PersonReportScreen(
     }
 
     if (showStartDatePicker) {
-
         ReportDatePickerDialog(
-            initialDateMillis =
-                startDateMillis
-                    ?: todayStartMillis,
-
+            initialDateMillis = startDateMillis ?: todayStartMillis,
             title = "اختر تاريخ البداية",
-
-            onDismiss = {
-                showStartDatePicker = false
-            },
-
+            onDismiss = { showStartDatePicker = false },
             onDateSelected = { selectedMillis ->
-
-                val selectedStart =
-                    startOfDayMillis(
-                        selectedMillis
-                    )
-
-                val currentEnd =
-                    endDateMillisExclusive
-                        ?: addDays(
-                            selectedStart,
-                            1
-                        )
-
-                val safeEnd =
-                    if (currentEnd <= selectedStart) {
-                        addDays(
-                            selectedStart,
-                            1
-                        )
-                    } else {
-                        currentEnd
-                    }
-
-                viewModel.setDateRange(
-                    startDateMillis =
-                        selectedStart,
-                    endDateMillisExclusive =
-                        safeEnd
-                )
-
+                val selectedStart = startOfDayMillis(selectedMillis)
+                val currentEnd = endDateMillisExclusive ?: addDays(selectedStart, 1)
+                val safeEnd = if (currentEnd <= selectedStart) addDays(selectedStart, 1) else currentEnd
+                viewModel.setDateRange(selectedStart, safeEnd)
                 showStartDatePicker = false
             }
         )
     }
 
     if (showEndDatePicker) {
-
-        val currentStart =
-            startDateMillis
-                ?: todayStartMillis
-
+        val currentStart = startDateMillis ?: todayStartMillis
         ReportDatePickerDialog(
-            initialDateMillis =
-                endDateMillisExclusive
-                    ?.let {
-                        addDays(
-                            it,
-                            -1
-                        )
-                    }
-                    ?: currentStart,
-
+            initialDateMillis = endDateMillisExclusive?.let { addDays(it, -1) } ?: currentStart,
             title = "اختر تاريخ النهاية",
-
-            onDismiss = {
-                showEndDatePicker = false
-            },
-
+            onDismiss = { showEndDatePicker = false },
             onDateSelected = { selectedMillis ->
-
-                val selectedEndDate =
-                    startOfDayMillis(
-                        selectedMillis
-                    )
-
-                val endExclusive =
-                    addDays(
-                        selectedEndDate,
-                        1
-                    )
-
-                if (
-                    endExclusive > currentStart
-                ) {
-
-                    viewModel.setDateRange(
-                        startDateMillis =
-                            currentStart,
-                        endDateMillisExclusive =
-                            endExclusive
-                    )
-
+                val endExclusive = addDays(startOfDayMillis(selectedMillis), 1)
+                if (endExclusive > currentStart) {
+                    viewModel.setDateRange(currentStart, endExclusive)
                     showEndDatePicker = false
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun PersonReportHeader(summary: PersonReportSummary, startDateMillis: Long?, endDateMillisExclusive: Long?) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("تقرير حساب", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            Text(summary.personName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text("العملة: ${currencyName(summary.currencyCode)}")
+            Text("الفترة: ${if (startDateMillis == null && endDateMillisExclusive == null) "كل الحساب" else "${formatDate(startDateMillis ?: 0L)} إلى ${formatDate(addDays(endDateMillisExclusive ?: 0L, -1))}"}")
+            Text("تاريخ إصدار التقرير: ${formatDate(System.currentTimeMillis())}")
+            Text("عدد العمليات: ${summary.transactionCount}")
+        }
     }
 }
 
@@ -639,191 +286,41 @@ private fun PersonReportRangePresetSection(
     onMonth: () -> Unit,
     onCustom: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme
-                    .colorScheme
-                    .surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Text(
-                text = "الفترة الزمنية",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(6.dp)
-            ) {
-                PresetButton(
-                    text = "كل الحساب",
-                    selected =
-                        selectedPreset ==
-                            PersonReportRangePreset.ALL,
-                    onClick = onAllTime,
-                    modifier = Modifier.weight(1f)
-                )
-
-                PresetButton(
-                    text = "اليوم",
-                    selected =
-                        selectedPreset ==
-                            PersonReportRangePreset.TODAY,
-                    onClick = onToday,
-                    modifier = Modifier.weight(1f)
-                )
-
-                PresetButton(
-                    text = "هذا الأسبوع",
-                    selected =
-                        selectedPreset ==
-                            PersonReportRangePreset.WEEK,
-                    onClick = onWeek,
-                    modifier = Modifier.weight(1f)
-                )
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(12.dp)) {
+            Text("الفترة الزمنية", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PresetButton("كل الحساب", selectedPreset == PersonReportRangePreset.ALL, onAllTime, Modifier.weight(1f))
+                PresetButton("اليوم", selectedPreset == PersonReportRangePreset.TODAY, onToday, Modifier.weight(1f))
+                PresetButton("هذا الأسبوع", selectedPreset == PersonReportRangePreset.WEEK, onWeek, Modifier.weight(1f))
             }
-
-            Spacer(
-                modifier = Modifier.height(6.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(6.dp)
-            ) {
-                PresetButton(
-                    text = "هذا الشهر",
-                    selected =
-                        selectedPreset ==
-                            PersonReportRangePreset.MONTH,
-                    onClick = onMonth,
-                    modifier = Modifier.weight(1f)
-                )
-
-                PresetButton(
-                    text = "فترة مخصصة",
-                    selected =
-                        selectedPreset ==
-                            PersonReportRangePreset.CUSTOM,
-                    onClick = onCustom,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Spacer(
-                    modifier = Modifier.weight(1f)
-                )
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PresetButton("هذا الشهر", selectedPreset == PersonReportRangePreset.MONTH, onMonth, Modifier.weight(1f))
+                PresetButton("فترة مخصصة", selectedPreset == PersonReportRangePreset.CUSTOM, onCustom, Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun PresetButton(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier
-) {
-    if (selected) {
-        Button(
-            onClick = onClick,
-            modifier = modifier
-        ) {
-            Text(text)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier
-        ) {
-            Text(text)
-        }
-    }
+private fun PresetButton(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    if (selected) Button(onClick = onClick, modifier = modifier) { Text(text) }
+    else OutlinedButton(onClick = onClick, modifier = modifier) { Text(text) }
 }
 
 @Composable
-private fun DateRangeSection(
-    startDateMillis: Long?,
-    endDateMillisExclusive: Long?,
-    onStartDateClick: () -> Unit,
-    onEndDateClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme
-                    .colorScheme
-                    .surfaceVariant
-        )
-    ) {
-
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-
-            Text(
-                text =
-                    if (
-                        startDateMillis == null &&
-                        endDateMillisExclusive == null
-                    ) {
-                        "الفترة: كل الحساب"
-                    } else {
-                        "الفترة المحددة"
-                    },
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            if (
-                startDateMillis != null ||
-                endDateMillisExclusive != null
-            ) {
-                Spacer(
-                    modifier = Modifier.height(10.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(8.dp)
-                ) {
-
-                    DateButton(
-                        label = "من",
-                        dateMillis = startDateMillis,
-                        onClick = onStartDateClick,
-                        modifier =
-                            Modifier.weight(1f)
-                    )
-
-                    DateButton(
-                        label = "إلى",
-                        dateMillis =
-                            endDateMillisExclusive
-                                ?.let {
-                                    addDays(
-                                        it,
-                                        -1
-                                    )
-                                },
-                        onClick = onEndDateClick,
-                        modifier =
-                            Modifier.weight(1f)
-                    )
+private fun DateRangeSection(startDateMillis: Long?, endDateMillisExclusive: Long?, onStartDateClick: () -> Unit, onEndDateClick: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(if (startDateMillis == null && endDateMillisExclusive == null) "الفترة: كل الحساب" else "الفترة المحددة", fontWeight = FontWeight.Bold)
+            if (startDateMillis != null || endDateMillisExclusive != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DateButton("من", startDateMillis, onStartDateClick, Modifier.weight(1f))
+                    DateButton("إلى", endDateMillisExclusive?.let { addDays(it, -1) }, onEndDateClick, Modifier.weight(1f))
                 }
             }
         }
@@ -831,393 +328,146 @@ private fun DateRangeSection(
 }
 
 @Composable
-private fun DateButton(
-    label: String,
-    dateMillis: Long?,
-    onClick: () -> Unit,
-    modifier: Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier
-    ) {
-
-        Column(
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-
-            Text(
-                text = label,
-                fontSize = 12.sp
-            )
-
-            Text(
-                text =
-                    dateMillis?.let {
-                        formatDate(it)
-                    } ?: "اختيار التاريخ"
-            )
+private fun DateButton(label: String, dateMillis: Long?, onClick: () -> Unit, modifier: Modifier) {
+    Button(onClick = onClick, modifier = modifier) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, fontSize = 12.sp)
+            Text(dateMillis?.let(::formatDate) ?: "اختيار التاريخ")
         }
     }
 }
 
 @Composable
-private fun PersonReportSummaryCard(
-    summary: PersonReportSummary
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-
-            Text(
-                text = "ملخص الحساب",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            ReportSummaryRow(
-                label = "الرصيد الافتتاحي",
-                amountMinor =
-                    summary.openingBalanceMinor
-            )
-
-            ReportSummaryRow(
-                label = "إجمالي عليه خلال الفترة",
-                amountMinor =
-                    summary.periodReceivableMinor
-            )
-
-            ReportSummaryRow(
-                label = "إجمالي له خلال الفترة",
-                amountMinor =
-                    summary.periodPayableMinor
-            )
-
-            ReportSummaryRow(
-                label = "صافي حركة الفترة",
-                amountMinor =
-                    summary.periodBalanceMinor
-            )
-
-            ReportSummaryRow(
-                label = "الرصيد الختامي",
-                amountMinor =
-                    summary.closingBalanceMinor
-            )
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            Text(
-                text =
-                    "عدد العمليات: ${summary.transactionCount}",
-                fontSize = 14.sp
-            )
+private fun PersonReportSummaryCard(summary: PersonReportSummary) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("ملخص الحساب", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            ReportSummaryRow("الرصيد الافتتاحي", summary.openingBalanceMinor)
+            ReportSummaryRow("إجمالي عليه خلال الفترة", summary.periodReceivableMinor, true)
+            ReportSummaryRow("إجمالي له خلال الفترة", summary.periodPayableMinor, false)
+            ReportSummaryRow("الرصيد الختامي", summary.closingBalanceMinor, amountIsPositive = summary.closingBalanceMinor > 0L, neutralWhenZero = true)
+            Text("عدد العمليات: ${summary.transactionCount}", fontSize = 14.sp)
         }
     }
 }
 
 @Composable
-private fun ReportSummaryRow(
-    label: String,
-    amountMinor: Long
-) {
+private fun ReportSummaryRow(label: String, amountMinor: Long, amountIsPositive: Boolean? = null, neutralWhenZero: Boolean = false) {
+    val color = when {
+        amountMinor == 0L && neutralWhenZero -> MaterialTheme.colorScheme.onSurface
+        amountIsPositive == true -> MaterialTheme.colorScheme.error
+        amountIsPositive == false -> MaterialTheme.colorScheme.primary
+        amountMinor > 0L -> MaterialTheme.colorScheme.error
+        amountMinor < 0L -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 14.sp)
+        Text(formatAmount(amountMinor), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = color)
+    }
+}
+
+@Composable
+private fun PersonReportTableHeader() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement =
-            Arrangement.SpaceBetween
+        Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-
-        Text(
-            text = label,
-            fontSize = 14.sp
-        )
-
-        Text(
-            text = formatAmount(amountMinor),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
+        ReportCell("التاريخ", 1.2f, true)
+        ReportCell("البيان", 2.1f, true)
+        ReportCell("عليه", 1.1f, true, MaterialTheme.colorScheme.error)
+        ReportCell("له", 1.1f, true, MaterialTheme.colorScheme.primary)
+        ReportCell("الرصيد", 1.2f, true)
     }
 }
 
 @Composable
-private fun PersonReportTransactionCard(
-    transaction: PersonReportTransaction,
-    currencyCode: String,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                onClick = onClick
-            )
-    ) {
-
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.SpaceBetween
-            ) {
-
-                Text(
-                    text =
-                        formatDate(
-                            transaction.transactionDate
-                        ),
-                    fontSize = 13.sp,
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
-                )
-
-                Text(
-                    text =
-                        transactionTypeName(
-                            transaction.type
-                        ),
-                    fontSize = 14.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                )
-            }
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            Text(
-                text =
-                    "${formatAmount(transaction.amountMinor)} ${currencyName(currencyCode)}",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            if (
-                transaction.description.isNotBlank()
-            ) {
-
-                Spacer(
-                    modifier = Modifier.height(6.dp)
-                )
-
-                Text(
-                    text =
-                        transaction.description,
-                    fontSize = 14.sp
-                )
-            }
-        }
+private fun PersonReportTransactionRowCard(row: PersonReportTransactionRow, currencyCode: String, onClick: () -> Unit) {
+    val typeColor = when (row.type) {
+        "RECEIVABLE" -> MaterialTheme.colorScheme.error
+        "PAYABLE" -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface
     }
+    Row(
+        Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline).clickable(onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ReportCell(formatDate(row.transactionDate), 1.2f)
+        ReportCell(row.description.ifBlank { "—" }, 2.1f)
+        ReportCell(if (row.type == "RECEIVABLE") formatAmount(row.amountMinor) else "—", 1.1f, color = if (row.type == "RECEIVABLE") typeColor else MaterialTheme.colorScheme.onSurface)
+        ReportCell(if (row.type == "PAYABLE") formatAmount(row.amountMinor) else "—", 1.1f, color = if (row.type == "PAYABLE") typeColor else MaterialTheme.colorScheme.onSurface)
+        val balanceColor = when {
+            row.balanceMinor > 0L -> MaterialTheme.colorScheme.error
+            row.balanceMinor < 0L -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurface
+        }
+        ReportCell("${formatAmount(row.balanceMinor)} ${currencyName(currencyCode)}", 1.2f, color = balanceColor)
+    }
+}
+
+@Composable
+private fun ReportCell(text: String, weight: Float, header: Boolean = false, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
+    Text(
+        text = text,
+        modifier = Modifier.weight(weight).padding(horizontal = 4.dp),
+        textAlign = TextAlign.Center,
+        fontSize = if (header) 12.sp else 11.sp,
+        fontWeight = if (header) FontWeight.Bold else FontWeight.Normal,
+        color = color
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReportDatePickerDialog(
-    initialDateMillis: Long,
-    title: String,
-    onDismiss: () -> Unit,
-    onDateSelected: (Long) -> Unit
-) {
-    val datePickerState =
-        androidx.compose.material3.rememberDatePickerState(
-            initialSelectedDateMillis =
-                initialDateMillis
-        )
-
+private fun ReportDatePickerDialog(initialDateMillis: Long, title: String, onDismiss: () -> Unit, onDateSelected: (Long) -> Unit) {
+    val datePickerState = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
     DatePickerDialog(
         onDismissRequest = onDismiss,
-
-        confirmButton = {
-
-            TextButton(
-                onClick = {
-
-                    datePickerState
-                        .selectedDateMillis
-                        ?.let(onDateSelected)
-                }
-            ) {
-                Text("اختيار")
-            }
-        },
-
-        dismissButton = {
-
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("إلغاء")
-            }
-        }
+        confirmButton = { TextButton(onClick = { datePickerState.selectedDateMillis?.let(onDateSelected) }) { Text("اختيار") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     ) {
-
         Column {
-
-            Text(
-                text = title,
-                modifier = Modifier.padding(
-                    start = 24.dp,
-                    end = 24.dp,
-                    top = 16.dp
-                ),
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-            DatePicker(
-                state = datePickerState
-            )
+            Text(title, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp), fontWeight = FontWeight.Bold)
+            DatePicker(state = datePickerState)
         }
     }
 }
 
-private fun transactionTypeName(
-    type: String
-): String {
-    return when (type) {
-        "RECEIVABLE" -> "عليه"
-        "PAYABLE" -> "له"
-        else -> type
-    }
+private fun currencyName(currencyCode: String): String = when (currencyCode) {
+    "YER" -> "الريال اليمني"
+    "SAR" -> "الريال السعودي"
+    "USD" -> "الدولار الأمريكي"
+    else -> currencyCode
 }
 
-private fun currencyName(
-    currencyCode: String
-): String {
-    return when (currencyCode) {
-        "YER" -> "الريال اليمني"
-        "SAR" -> "الريال السعودي"
-        "USD" -> "الدولار الأمريكي"
-        else -> currencyCode
-    }
-}
+private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
+private fun formatDate(millis: Long): String = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(millis))
 
-private fun formatAmount(
-    amountMinor: Long
-): String {
-    return BigDecimal(amountMinor)
-        .movePointLeft(2)
-        .stripTrailingZeros()
-        .toPlainString()
-}
+private fun startOfDayMillis(millis: Long): Long = Calendar.getInstance().apply {
+    timeInMillis = millis
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
 
-private fun formatDate(
-    millis: Long
-): String {
-    return SimpleDateFormat(
-        "dd/MM/yyyy",
-        Locale("ar")
-    ).format(
-        Date(millis)
-    )
-}
+private fun startOfWeekMillis(millis: Long): Long = Calendar.getInstance().apply {
+    timeInMillis = startOfDayMillis(millis)
+    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+}.timeInMillis
 
-private fun startOfDayMillis(
-    millis: Long
-): Long {
-    val calendar =
-        Calendar.getInstance().apply {
-            timeInMillis = millis
+private fun startOfMonthMillis(millis: Long): Long = Calendar.getInstance().apply {
+    timeInMillis = startOfDayMillis(millis)
+    set(Calendar.DAY_OF_MONTH, 1)
+}.timeInMillis
 
-            set(
-                Calendar.HOUR_OF_DAY,
-                0
-            )
+private fun addDays(millis: Long, days: Int): Long = Calendar.getInstance().apply {
+    timeInMillis = millis
+    add(Calendar.DAY_OF_MONTH, days)
+}.timeInMillis
 
-            set(
-                Calendar.MINUTE,
-                0
-            )
-
-            set(
-                Calendar.SECOND,
-                0
-            )
-
-            set(
-                Calendar.MILLISECOND,
-                0
-            )
-        }
-
-    return calendar.timeInMillis
-}
-
-private fun startOfWeekMillis(
-    millis: Long
-): Long {
-    val calendar =
-        Calendar.getInstance().apply {
-            timeInMillis = startOfDayMillis(millis)
-            set(
-                Calendar.DAY_OF_WEEK,
-                firstDayOfWeek
-            )
-        }
-
-    return startOfDayMillis(
-        calendar.timeInMillis
-    )
-}
-
-private fun startOfMonthMillis(
-    millis: Long
-): Long {
-    val calendar =
-        Calendar.getInstance().apply {
-            timeInMillis = startOfDayMillis(millis)
-            set(
-                Calendar.DAY_OF_MONTH,
-                1
-            )
-        }
-
-    return startOfDayMillis(
-        calendar.timeInMillis
-    )
-}
-
-private fun addDays(
-    millis: Long,
-    days: Int
-): Long {
-    return Calendar.getInstance().apply {
-        timeInMillis = millis
-        add(
-            Calendar.DAY_OF_MONTH,
-            days
-        )
-    }.timeInMillis
-}
-
-private fun addMonths(
-    millis: Long,
-    months: Int
-): Long {
-    return Calendar.getInstance().apply {
-        timeInMillis = millis
-        add(
-            Calendar.MONTH,
-            months
-        )
-    }.timeInMillis
-}
+private fun addMonths(millis: Long, months: Int): Long = Calendar.getInstance().apply {
+    timeInMillis = millis
+    add(Calendar.MONTH, months)
+}.timeInMillis
