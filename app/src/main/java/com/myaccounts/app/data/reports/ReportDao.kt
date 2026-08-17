@@ -239,4 +239,53 @@ interface ReportDao {
         startDateMillis: Long,
         endDateMillisExclusive: Long
     ): List<PersonReportTransaction>
+
+    @Query(
+        """
+        SELECT
+            t.id AS transactionId,
+            t.transactionDate AS transactionDate,
+            t.type AS type,
+            t.amountMinor AS amountMinor,
+            t.description AS description,
+
+            COALESCE((
+                SELECT SUM(
+                    CASE
+                        WHEN t2.type = 'RECEIVABLE' THEN t2.amountMinor
+                        WHEN t2.type = 'PAYABLE' THEN -t2.amountMinor
+                        ELSE 0
+                    END
+                )
+                FROM transactions t2
+                WHERE t2.accountId = t.accountId
+                  AND (
+                      t2.transactionDate < t.transactionDate
+                      OR (
+                          t2.transactionDate = t.transactionDate
+                          AND t2.id <= t.id
+                      )
+                  )
+            ), 0) AS balanceMinor
+
+        FROM transactions t
+
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
+
+        WHERE ca.personId = :personId
+          AND ca.currencyCode = :currencyCode
+          AND p.isActive = 1
+          AND t.transactionDate >= :startDateMillis
+          AND t.transactionDate < :endDateMillisExclusive
+
+        ORDER BY t.transactionDate DESC, t.id DESC
+        """
+    )
+    suspend fun getPersonReportTransactionRows(
+        personId: Long,
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ): List<PersonReportTransactionRow>
 }
