@@ -2,6 +2,7 @@ package com.myaccounts.app.ui.screens
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -42,14 +43,15 @@ fun TransactionAttachmentPicker(
     selectedAttachments: List<TransactionAttachmentStorage.SelectedAttachment>,
     onAttachmentsChanged: (List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit
 ) {
+    val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
         if (uris.isNotEmpty()) {
             val current = selectedAttachments.toMutableList()
             uris.forEach { uri ->
-                val fileName = queryDisplayName(uri)
-                val mimeType = LocalContext.current.contentResolver
+                val fileName = queryDisplayName(context, uri)
+                val mimeType = context.contentResolver
                     .getType(uri)
                     .orEmpty()
                     .ifBlank { "application/octet-stream" }
@@ -194,9 +196,7 @@ fun TransactionAttachmentsDialog(
                                                         "${context.packageName}.fileprovider",
                                                         file
                                                     )
-                                                    val intent = Intent(
-                                                        Intent.ACTION_VIEW
-                                                    ).apply {
+                                                    val intent = Intent(Intent.ACTION_VIEW).apply {
                                                         setDataAndType(uri, attachment.mimeType)
                                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -253,6 +253,20 @@ fun TransactionAttachmentsDialog(
     )
 }
 
-private fun queryDisplayName(uri: android.net.Uri): String {
-    return "مرفق ${System.currentTimeMillis()}"
+private fun queryDisplayName(
+    context: android.content.Context,
+    uri: android.net.Uri
+): String {
+    val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
+    return runCatching {
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) {
+                cursor.getString(index)
+            } else {
+                null
+            }
+        }
+    }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: "مرفق"
 }
