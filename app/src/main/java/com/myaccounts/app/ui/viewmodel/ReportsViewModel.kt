@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.reports.CurrencyReportPersonRow
 import com.myaccounts.app.data.reports.CurrencyReportSummary
+import com.myaccounts.app.data.reports.GeneralReportTransactionRow
+import com.myaccounts.app.data.reports.PersonCurrencySummaryRow
 import com.myaccounts.app.data.reports.PersonReportSummary
 import com.myaccounts.app.data.reports.PersonReportTransaction
 import com.myaccounts.app.data.reports.PersonReportTransactionRow
@@ -23,6 +25,8 @@ data class ReportsUiState(
     val selectedPersonTransactionRows: List<PersonReportTransactionRow> = emptyList(),
     val selectedPersonOpeningBalanceMinor: Long = 0L,
     val selectedPersonId: Long? = null,
+    val personCurrencySummaries: List<PersonCurrencySummaryRow> = emptyList(),
+    val generalTransactions: List<GeneralReportTransactionRow> = emptyList(),
     val startDateMillis: Long? = null,
     val endDateMillisExclusive: Long? = null,
     val isLoading: Boolean = false,
@@ -50,6 +54,8 @@ class ReportsViewModel(
             selectedPersonTransactions = emptyList(),
             selectedPersonTransactionRows = emptyList(),
             selectedPersonOpeningBalanceMinor = 0L,
+            personCurrencySummaries = emptyList(),
+            generalTransactions = emptyList(),
             errorMessage = null
         )
         loadCurrencyReport()
@@ -70,8 +76,22 @@ class ReportsViewModel(
                     endDateMillisExclusive = endDateMillisExclusive
                 )
 
+                val personSummaries = repository.getPersonCurrencySummary(
+                    currencyCode = currencyCode,
+                    startDateMillis = startDateMillis,
+                    endDateMillisExclusive = endDateMillisExclusive
+                )
+
+                val detailedTransactions = repository.getGeneralReportTransactions(
+                    currencyCode = currencyCode,
+                    startDateMillis = startDateMillis,
+                    endDateMillisExclusive = endDateMillisExclusive
+                )
+
                 _uiState.value = _uiState.value.copy(
                     currencySummary = summary,
+                    personCurrencySummaries = personSummaries,
+                    generalTransactions = detailedTransactions,
                     isLoading = false
                 )
                 observePeople(currencyCode, startDateMillis, endDateMillisExclusive)
