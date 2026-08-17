@@ -151,6 +151,8 @@ object PersonReportExcelExporter {
         var rowNumber = 1
         rows += row(rowNumber++, listOf(cell("تقرير حساب شخصي", 3)))
         rows += row(rowNumber++, listOf(cell("اسم الشخص", 3), cell(summary.personName, 2)))
+        rows += row(rowNumber++, listOf(cell("الهاتف", 3), cell(summary.phone.ifBlank { "غير مسجل" }, 2)))
+        rows += row(rowNumber++, listOf(cell("العنوان", 3), cell(summary.address.ifBlank { "غير مسجل" }, 2)))
         rows += row(rowNumber++, listOf(cell("العملة", 3), cell(currencyName(summary.currencyCode), 2)))
         rows += row(rowNumber++, listOf(cell("الفترة", 3), cell(formatDateRange(startDateMillis, endDateMillisExclusive), 2)))
         rows += row(rowNumber++, listOf(cell("تاريخ إصدار التقرير", 3), cell(formatDate(System.currentTimeMillis()), 2)))
