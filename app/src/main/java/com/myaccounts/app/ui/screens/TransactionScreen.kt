@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -45,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import com.myaccounts.app.util.TransactionAttachmentStorage
+import kotlinx.coroutines.flow.flowOf
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
@@ -63,41 +68,22 @@ fun TransactionScreen(
         transactionViewModel.selectAccount(accountId)
     }
 
-    val transactions by transactionViewModel
-        .transactions
-        .collectAsState()
+    val transactions by transactionViewModel.transactions.collectAsState()
+    val balance by transactionViewModel.balance.collectAsState()
 
-    val balance by transactionViewModel
-        .balance
-        .collectAsState()
-
-    var transactionToDelete by remember {
-        mutableStateOf<TransactionEntity?>(null)
-    }
-
-    var transactionToEdit by remember {
-        mutableStateOf<TransactionEntity?>(null)
-    }
-
-    var showAddTransactionDialog by remember {
-        mutableStateOf(false)
-    }
+    var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
+    var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
+    var transactionForAttachments by remember { mutableStateOf<TransactionEntity?>(null) }
+    var showAddTransactionDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "عمليات $currencyCode"
-                    )
-                },
+                title = { Text("عمليات $currencyCode") },
                 navigationIcon = {
-                    IconButton(
-                        onClick = onBack
-                    ) {
+                    IconButton(onClick = onBack) {
                         Icon(
-                            imageVector =
-                                Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "رجوع"
                         )
                     }
@@ -105,11 +91,7 @@ fun TransactionScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    showAddTransactionDialog = true
-                }
-            ) {
+            FloatingActionButton(onClick = { showAddTransactionDialog = true }) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "إضافة عملية"
@@ -117,32 +99,20 @@ fun TransactionScreen(
             }
         }
     ) { paddingValues ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-
-                    Text(
-                        text = "الرصيد",
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(6.dp)
-                    )
-
+                    Text("الرصيد", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = formatBalance(balance),
                         style = MaterialTheme.typography.headlineSmall,
@@ -151,42 +121,27 @@ fun TransactionScreen(
                 }
             }
 
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+            Spacer(Modifier.height(16.dp))
 
             if (transactions.isEmpty()) {
-
                 Text(
                     text = "لا توجد عمليات لهذا الحساب.",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                 )
-
             } else {
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement =
-                        Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-
-                    items(
-                        items = transactions,
-                        key = {
-                            it.id
-                        }
-                    ) { transaction ->
-
+                    items(transactions, key = { it.id }) { transaction ->
                         TransactionItem(
                             transaction = transaction,
-                            onEdit = {
-                                transactionToEdit = transaction
-                            },
-                            onDelete = {
-                                transactionToDelete = transaction
-                            }
+                            transactionViewModel = transactionViewModel,
+                            onEdit = { transactionToEdit = transaction },
+                            onDelete = { transactionToDelete = transaction },
+                            onAttachments = { transactionForAttachments = transaction }
                         )
                     }
                 }
@@ -195,95 +150,67 @@ fun TransactionScreen(
     }
 
     if (showAddTransactionDialog) {
-
         AddTransactionDialog(
             currencyCode = currencyCode,
-
-            onDismiss = {
-                showAddTransactionDialog = false
-            },
-
-            onSave = {
-                    type,
-                    amountMinor,
-                    description ->
-
+            onDismiss = { showAddTransactionDialog = false },
+            onSave = { type, amountMinor, description, attachments ->
                 transactionViewModel.addTransaction(
                     TransactionEntity(
                         accountId = accountId,
                         type = type,
                         amountMinor = amountMinor,
                         description = description,
-                        transactionDate =
-                            System.currentTimeMillis()
-                    )
+                        transactionDate = System.currentTimeMillis()
+                    ),
+                    attachments
                 )
-
                 showAddTransactionDialog = false
             }
         )
     }
 
     transactionToEdit?.let { transaction ->
-
         EditTransactionDialog(
             currencyCode = currencyCode,
             transaction = transaction,
-
-            onDismiss = {
-                transactionToEdit = null
-            },
-
+            onDismiss = { transactionToEdit = null },
             onSave = { updatedTransaction ->
-
-                transactionViewModel.updateTransaction(
-                    updatedTransaction
-                )
-
+                transactionViewModel.updateTransaction(updatedTransaction)
                 transactionToEdit = null
             }
         )
     }
 
+    transactionForAttachments?.let { transaction ->
+        val attachments by transactionViewModel
+            .observeAttachments(transaction.id)
+            .collectAsState(initial = emptyList())
+
+        TransactionAttachmentsDialog(
+            transactionId = transaction.id,
+            attachments = attachments,
+            onDismiss = { transactionForAttachments = null },
+            onDelete = { attachment ->
+                transactionViewModel.deleteAttachment(attachment)
+            }
+        )
+    }
+
     transactionToDelete?.let { transaction ->
-
         AlertDialog(
-            onDismissRequest = {
-                transactionToDelete = null
-            },
-
-            title = {
-                Text("حذف العملية")
-            },
-
-            text = {
-                Text(
-                    "هل أنت متأكد من حذف هذه العملية؟"
-                )
-            },
-
+            onDismissRequest = { transactionToDelete = null },
+            title = { Text("حذف العملية") },
+            text = { Text("هل أنت متأكد من حذف هذه العملية ومرفقاتها؟") },
             confirmButton = {
                 TextButton(
                     onClick = {
-
-                        transactionViewModel
-                            .deleteTransactionById(
-                                transaction.id
-                            )
-
+                        transactionViewModel.deleteTransactionById(transaction.id)
                         transactionToDelete = null
                     }
-                ) {
-                    Text("حذف")
-                }
+                ) { Text("حذف") }
             },
-
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        transactionToDelete = null
-                    }
-                ) {
+                TextButton(onClick = { transactionToDelete = null }) {
                     Text("إلغاء")
                 }
             }
@@ -298,96 +225,65 @@ private fun AddTransactionDialog(
     onSave: (
         TransactionType,
         Long,
-        String
+        String,
+        List<TransactionAttachmentStorage.SelectedAttachment>
     ) -> Unit
 ) {
-    var selectedType by remember {
-        mutableStateOf(
-            TransactionType.RECEIVABLE
-        )
-    }
-
-    var amountText by remember {
-        mutableStateOf("")
-    }
-
-    var description by remember {
-        mutableStateOf("")
-    }
-
-    var amountError by remember {
-        mutableStateOf(false)
+    var selectedType by remember { mutableStateOf(TransactionType.RECEIVABLE) }
+    var amountText by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var amountError by remember { mutableStateOf(false) }
+    var attachments by remember {
+        mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList())
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-
-        title = {
-            Text("إضافة عملية")
-        },
-
+        title = { Text("إضافة عملية") },
         text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TransactionFormContent(
+                    currencyCode = currencyCode,
+                    selectedType = selectedType,
+                    amountText = amountText,
+                    description = description,
+                    amountError = amountError,
+                    onTypeChange = { selectedType = it },
+                    onAmountChange = {
+                        amountText = it
+                        amountError = false
+                    },
+                    onDescriptionChange = { description = it }
+                )
 
-            TransactionFormContent(
-                currencyCode = currencyCode,
-                selectedType = selectedType,
-                amountText = amountText,
-                description = description,
-                amountError = amountError,
-
-                onTypeChange = {
-                    selectedType = it
-                },
-
-                onAmountChange = {
-                    amountText = it
-                    amountError = false
-                },
-
-                onDescriptionChange = {
-                    description = it
-                }
-            )
+                TransactionAttachmentPicker(
+                    selectedAttachments = attachments,
+                    onAttachmentsChanged = { attachments = it }
+                )
+            }
         },
-
         confirmButton = {
-
             TextButton(
                 onClick = {
-
-                    val amountMinor =
-                        parseAmountToMinor(
-                            amountText
-                        )
-
-                    if (
-                        amountMinor == null ||
-                        amountMinor <= 0L
-                    ) {
-
+                    val amountMinor = parseAmountToMinor(amountText)
+                    if (amountMinor == null || amountMinor <= 0L) {
                         amountError = true
-
                     } else {
-
                         onSave(
                             selectedType,
                             amountMinor,
-                            description.trim()
+                            description.trim(),
+                            attachments
                         )
                     }
                 }
-            ) {
-                Text("حفظ")
-            }
+            ) { Text("حفظ") }
         },
-
         dismissButton = {
-
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("إلغاء")
-            }
+            TextButton(onClick = onDismiss) { Text("إلغاء") }
         }
     )
 }
@@ -397,114 +293,56 @@ private fun EditTransactionDialog(
     currencyCode: String,
     transaction: TransactionEntity,
     onDismiss: () -> Unit,
-    onSave: (
-        TransactionEntity
-    ) -> Unit
+    onSave: (TransactionEntity) -> Unit
 ) {
-    var selectedType by remember(
-        transaction.id
-    ) {
-        mutableStateOf(
-            transaction.type
-        )
-    }
-
-    var amountText by remember(
-        transaction.id
-    ) {
-        mutableStateOf(
-            formatAmount(
-                transaction.amountMinor
-            )
-        )
-    }
-
-    var description by remember(
-        transaction.id
-    ) {
-        mutableStateOf(
-            transaction.description
-        )
-    }
-
-    var amountError by remember(
-        transaction.id
-    ) {
-        mutableStateOf(false)
-    }
+    var selectedType by remember(transaction.id) { mutableStateOf(transaction.type) }
+    var amountText by remember(transaction.id) { mutableStateOf(formatAmount(transaction.amountMinor)) }
+    var description by remember(transaction.id) { mutableStateOf(transaction.description) }
+    var amountError by remember(transaction.id) { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-
-        title = {
-            Text("تعديل العملية")
-        },
-
+        title = { Text("تعديل العملية") },
         text = {
-
-            TransactionFormContent(
-                currencyCode = currencyCode,
-                selectedType = selectedType,
-                amountText = amountText,
-                description = description,
-                amountError = amountError,
-
-                onTypeChange = {
-                    selectedType = it
-                },
-
-                onAmountChange = {
-                    amountText = it
-                    amountError = false
-                },
-
-                onDescriptionChange = {
-                    description = it
-                }
-            )
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TransactionFormContent(
+                    currencyCode = currencyCode,
+                    selectedType = selectedType,
+                    amountText = amountText,
+                    description = description,
+                    amountError = amountError,
+                    onTypeChange = { selectedType = it },
+                    onAmountChange = {
+                        amountText = it
+                        amountError = false
+                    },
+                    onDescriptionChange = { description = it }
+                )
+            }
         },
-
         confirmButton = {
-
             TextButton(
                 onClick = {
-
-                    val amountMinor =
-                        parseAmountToMinor(
-                            amountText
-                        )
-
-                    if (
-                        amountMinor == null ||
-                        amountMinor <= 0L
-                    ) {
-
+                    val amountMinor = parseAmountToMinor(amountText)
+                    if (amountMinor == null || amountMinor <= 0L) {
                         amountError = true
-
                     } else {
-
                         onSave(
                             transaction.copy(
                                 type = selectedType,
                                 amountMinor = amountMinor,
-                                description =
-                                    description.trim()
+                                description = description.trim()
                             )
                         )
                     }
                 }
-            ) {
-                Text("حفظ")
-            }
+            ) { Text("حفظ") }
         },
-
         dismissButton = {
-
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("إلغاء")
-            }
+            TextButton(onClick = onDismiss) { Text("إلغاء") }
         }
     )
 }
@@ -516,145 +354,71 @@ private fun TransactionFormContent(
     amountText: String,
     description: String,
     amountError: Boolean,
-    onTypeChange: (
-        TransactionType
-    ) -> Unit,
-    onAmountChange: (
-        String
-    ) -> Unit,
-    onDescriptionChange: (
-        String
-    ) -> Unit
+    onTypeChange: (TransactionType) -> Unit,
+    onAmountChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit
 ) {
-
     Column {
-
-        Text(
-            text = "نوع العملية",
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
+        Text("نوع العملية", fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
-            if (
-                selectedType ==
-                TransactionType.RECEIVABLE
-            ) {
+            if (selectedType == TransactionType.RECEIVABLE) {
                 Button(
-                    onClick = {
-                        onTypeChange(
-                            TransactionType.RECEIVABLE
-                        )
-                    },
+                    onClick = { onTypeChange(TransactionType.RECEIVABLE) },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("✓ عليه")
-                }
+                ) { Text("✓ عليه") }
             } else {
                 OutlinedButton(
-                    onClick = {
-                        onTypeChange(
-                            TransactionType.RECEIVABLE
-                        )
-                    },
+                    onClick = { onTypeChange(TransactionType.RECEIVABLE) },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("عليه")
-                }
+                ) { Text("عليه") }
             }
 
-            if (
-                selectedType ==
-                TransactionType.PAYABLE
-            ) {
+            if (selectedType == TransactionType.PAYABLE) {
                 Button(
-                    onClick = {
-                        onTypeChange(
-                            TransactionType.PAYABLE
-                        )
-                    },
+                    onClick = { onTypeChange(TransactionType.PAYABLE) },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("✓ له")
-                }
+                ) { Text("✓ له") }
             } else {
                 OutlinedButton(
-                    onClick = {
-                        onTypeChange(
-                            TransactionType.PAYABLE
-                        )
-                    },
+                    onClick = { onTypeChange(TransactionType.PAYABLE) },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("له")
-                }
+                ) { Text("له") }
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
+        Spacer(Modifier.height(12.dp))
 
         OutlinedTextField(
             value = amountText,
-
             onValueChange = onAmountChange,
-
             modifier = Modifier.fillMaxWidth(),
-
-            label = {
-                Text("المبلغ $currencyCode")
-            },
-
+            label = { Text("المبلغ $currencyCode") },
             singleLine = true,
-
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType =
-                        KeyboardType.Decimal
-                ),
-
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             isError = amountError
         )
 
         if (amountError) {
-
             Text(
-                text =
-                    "أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.",
-                color =
-                    MaterialTheme.colorScheme.error,
-                style =
-                    MaterialTheme.typography.bodySmall
+                text = "أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
+        Spacer(Modifier.height(12.dp))
 
         OutlinedTextField(
             value = description,
-
-            onValueChange =
-                onDescriptionChange,
-
+            onValueChange = onDescriptionChange,
             modifier = Modifier.fillMaxWidth(),
-
-            label = {
-                Text("الوصف")
-            },
-
+            label = { Text("الوصف") },
             minLines = 2,
-
             maxLines = 3
         )
     }
@@ -663,124 +427,84 @@ private fun TransactionFormContent(
 @Composable
 private fun TransactionItem(
     transaction: TransactionEntity,
+    transactionViewModel: TransactionViewModel,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAttachments: () -> Unit
 ) {
-    val typeText =
-        when (transaction.type) {
+    val typeText = when (transaction.type) {
+        TransactionType.RECEIVABLE -> "عليه"
+        TransactionType.PAYABLE -> "له"
+    }
 
-            TransactionType.RECEIVABLE ->
-                "عليه"
-
-            TransactionType.PAYABLE ->
-                "له"
-        }
-
-    val formattedDate = remember(
-        transaction.transactionDate
-    ) {
+    val formattedDate = remember(transaction.transactionDate) {
         SimpleDateFormat(
             "yyyy-MM-dd HH:mm",
             Locale.getDefault()
-        ).format(
-            Date(
-                transaction.transactionDate
-            )
-        )
+        ).format(Date(transaction.transactionDate))
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    val attachmentCount by transactionViewModel
+        .observeAttachmentCount(transaction.id)
+        .collectAsState(initial = 0)
 
+    Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-
-            horizontalArrangement =
-                Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
-                Text(
-                    text = typeText,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier = Modifier.height(4.dp)
-                )
-
-                if (
-                    transaction.description
-                        .isNotBlank()
-                ) {
-
+            Column(modifier = Modifier.weight(1f)) {
+                Text(typeText, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                if (transaction.description.isNotBlank()) {
                     Text(
-                        text =
-                            transaction.description,
-
-                        style =
-                            MaterialTheme.typography.bodyMedium
+                        transaction.description,
+                        style = MaterialTheme.typography.bodyMedium
                     )
-
-                    Spacer(
-                        modifier = Modifier.height(4.dp)
-                    )
+                    Spacer(Modifier.height(4.dp))
                 }
-
                 Text(
-                    text = formattedDate,
-                    style =
-                        MaterialTheme.typography.bodySmall
+                    formattedDate,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            Row {
-
-                Column(
-                    horizontalAlignment =
-                        Alignment.End
-                ) {
-
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = typeText,
-                        style =
-                            MaterialTheme.typography.bodySmall
+                        typeText,
+                        style = MaterialTheme.typography.bodySmall
                     )
-
                     Text(
-                        text =
-                            formatAmount(
-                                transaction.amountMinor
-                            ),
+                        formatAmount(transaction.amountMinor),
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                IconButton(
-                    onClick = onEdit
-                ) {
+                IconButton(onClick = onAttachments) {
                     Icon(
-                        imageVector =
-                            Icons.Default.Edit,
-                        contentDescription =
-                            "تعديل العملية"
+                        imageVector = Icons.Default.AttachFile,
+                        contentDescription = if (attachmentCount == 0) {
+                            "إضافة أو عرض المرفقات"
+                        } else {
+                            "عرض المرفقات ($attachmentCount)"
+                        }
                     )
                 }
 
-                IconButton(
-                    onClick = onDelete
-                ) {
+                IconButton(onClick = onEdit) {
                     Icon(
-                        imageVector =
-                            Icons.Default.Delete,
-                        contentDescription =
-                            "حذف العملية"
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "تعديل العملية"
+                    )
+                }
+
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "حذف العملية"
                     )
                 }
             }
@@ -788,77 +512,34 @@ private fun TransactionItem(
     }
 }
 
-private fun parseAmountToMinor(
-    input: String
-): Long? {
-
-    val normalized =
-        input
-            .trim()
-            .replace(',', '.')
-
-    if (normalized.isEmpty()) {
-        return null
-    }
-
-    return try {
-
-        val decimal =
-            BigDecimal(normalized)
-
-        if (
-            decimal <=
-            BigDecimal.ZERO
-        ) {
-            return null
-        }
-
-        decimal
-            .setScale(
-                2,
-                RoundingMode.UNNECESSARY
-            )
+private fun parseAmountToMinor(value: String): Long? {
+    return runCatching {
+        BigDecimal(value.trim())
+            .setScale(2, RoundingMode.UNNECESSARY)
             .movePointRight(2)
             .longValueExact()
-
-    } catch (
-        exception: NumberFormatException
-    ) {
-
-        null
-
-    } catch (
-        exception: ArithmeticException
-    ) {
-
-        null
-    }
+    }.getOrNull()
 }
 
-private fun formatAmount(
-    amountMinor: Long
-): String {
-
-    val decimal =
-        BigDecimal(amountMinor)
-            .movePointLeft(2)
-            .stripTrailingZeros()
-
-    return decimal.toPlainString()
+private fun formatAmount(amountMinor: Long): String {
+    return BigDecimal(amountMinor)
+        .movePointLeft(2)
+        .setScale(2, RoundingMode.UNNECESSARY)
+        .stripTrailingZeros()
+        .toPlainString()
 }
 
-private fun formatBalance(
-    balanceMinor: Long
-): String {
-
-    return when {
-        balanceMinor > 0L ->
-            "عليه ${formatAmount(balanceMinor)}"
-
-        balanceMinor < 0L ->
-            "له ${formatAmount(-balanceMinor)}"
-
-        else ->
-            "متوازن 0"
+private fun formatBalance(balanceMinor: Long): String {
+    val amount = BigDecimal(balanceMinor)
+        .movePointLeft(2)
+        .setScale(2, RoundingMode.UNNECESSARY)
+        .stripTrailingZeros()
+        .toPlainString()
+    return if (balanceMinor > 0L) {
+        "عليه: $amount"
+    } else if (balanceMinor < 0L) {
+        "له: ${amount.removePrefix("-")}"
+    } else {
+        "متوازن: 0"
     }
 }
