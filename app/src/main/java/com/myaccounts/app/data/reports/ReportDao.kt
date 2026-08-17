@@ -230,7 +230,7 @@ interface ReportDao {
           AND t.transactionDate >= :startDateMillis
           AND t.transactionDate < :endDateMillisExclusive
 
-        ORDER BY t.transactionDate DESC, t.id DESC
+        ORDER BY t.transactionDate ASC, t.id ASC
         """
     )
     suspend fun getPersonReportTransactions(
@@ -279,7 +279,7 @@ interface ReportDao {
           AND t.transactionDate >= :startDateMillis
           AND t.transactionDate < :endDateMillisExclusive
 
-        ORDER BY t.transactionDate DESC, t.id DESC
+        ORDER BY t.transactionDate ASC, t.id ASC
         """
     )
     suspend fun getPersonReportTransactionRows(
@@ -288,4 +288,105 @@ interface ReportDao {
         startDateMillis: Long,
         endDateMillisExclusive: Long
     ): List<PersonReportTransactionRow>
+
+    @Query(
+        """
+        SELECT
+            p.id AS personId,
+            p.name AS personName,
+            ca.currencyCode AS currencyCode,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'RECEIVABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS totalReceivableMinor,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'PAYABLE'
+                THEN t.amountMinor ELSE 0 END), 0) AS totalPayableMinor,
+
+            COALESCE(SUM(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN CASE
+                    WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                    WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                    ELSE 0
+                END
+                ELSE 0 END), 0) AS balanceMinor,
+
+            MIN(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'RECEIVABLE'
+                THEN t.transactionDate ELSE NULL END) AS firstReceivableDate,
+
+            MAX(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'RECEIVABLE'
+                THEN t.transactionDate ELSE NULL END) AS lastReceivableDate,
+
+            MIN(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'PAYABLE'
+                THEN t.transactionDate ELSE NULL END) AS firstPayableDate,
+
+            MAX(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                 AND t.type = 'PAYABLE'
+                THEN t.transactionDate ELSE NULL END) AS lastPayableDate,
+
+            COUNT(CASE
+                WHEN t.transactionDate >= :startDateMillis
+                 AND t.transactionDate < :endDateMillisExclusive
+                THEN t.id ELSE NULL END) AS transactionCount
+
+        FROM people p
+        INNER JOIN currency_accounts ca
+            ON ca.personId = p.id
+        LEFT JOIN transactions t
+            ON t.accountId = ca.id
+        WHERE p.isActive = 1
+          AND ca.currencyCode = :currencyCode
+        GROUP BY p.id, p.name, ca.currencyCode
+        ORDER BY p.name COLLATE NOCASE ASC
+        """
+    )
+    suspend fun getPersonCurrencySummary(
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ): List<PersonCurrencySummaryRow>
+
+    @Query(
+        """
+        SELECT
+            t.id AS transactionId,
+            t.transactionDate AS transactionDate,
+            p.name AS personName,
+            ca.currencyCode AS currencyCode,
+            t.description AS description,
+            t.type AS type,
+            t.amountMinor AS amountMinor
+        FROM transactions t
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
+        WHERE p.isActive = 1
+          AND ca.currencyCode = :currencyCode
+          AND t.transactionDate >= :startDateMillis
+          AND t.transactionDate < :endDateMillisExclusive
+        ORDER BY t.transactionDate ASC, t.id ASC
+        """
+    )
+    suspend fun getGeneralReportTransactions(
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ): List<GeneralReportTransactionRow>
 }
