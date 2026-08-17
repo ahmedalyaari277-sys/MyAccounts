@@ -70,23 +70,9 @@ class ReportsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                val summary = repository.getCurrencyReportSummary(
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis,
-                    endDateMillisExclusive = endDateMillisExclusive
-                )
-
-                val personSummaries = repository.getPersonCurrencySummary(
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis,
-                    endDateMillisExclusive = endDateMillisExclusive
-                )
-
-                val detailedTransactions = repository.getGeneralReportTransactions(
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis,
-                    endDateMillisExclusive = endDateMillisExclusive
-                )
+                val summary = repository.getCurrencyReportSummary(currencyCode, startDateMillis, endDateMillisExclusive)
+                val personSummaries = repository.getPersonCurrencySummary(currencyCode, startDateMillis, endDateMillisExclusive)
+                val detailedTransactions = repository.getGeneralReportTransactions(currencyCode, startDateMillis, endDateMillisExclusive)
 
                 _uiState.value = _uiState.value.copy(
                     currencySummary = summary,
@@ -105,19 +91,11 @@ class ReportsViewModel(
         }
     }
 
-    private fun observePeople(
-        currencyCode: String,
-        startDateMillis: Long,
-        endDateMillisExclusive: Long
-    ) {
+    private fun observePeople(currencyCode: String, startDateMillis: Long, endDateMillisExclusive: Long) {
         peopleObservationJob?.cancel()
         peopleObservationJob = viewModelScope.launch {
             try {
-                repository.observeCurrencyReportPeople(
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis,
-                    endDateMillisExclusive = endDateMillisExclusive
-                ).collect { people ->
+                repository.observeCurrencyReportPeople(currencyCode, startDateMillis, endDateMillisExclusive).collect { people ->
                     _uiState.value = _uiState.value.copy(people = people)
                 }
             } catch (exception: Exception) {
@@ -142,19 +120,13 @@ class ReportsViewModel(
     }
 
     fun setAllTime() {
-        _uiState.value = _uiState.value.copy(
-            startDateMillis = null,
-            endDateMillisExclusive = null,
-            errorMessage = null
-        )
+        _uiState.value = _uiState.value.copy(startDateMillis = null, endDateMillisExclusive = null, errorMessage = null)
         loadCurrencyReport()
         if (_uiState.value.selectedPersonId != null) loadPersonReport()
     }
 
     fun setDateRange(startDateMillis: Long, endDateMillisExclusive: Long) {
-        require(endDateMillisExclusive > startDateMillis) {
-            "يجب أن يكون تاريخ النهاية بعد تاريخ البداية"
-        }
+        require(endDateMillisExclusive > startDateMillis) { "يجب أن يكون تاريخ النهاية بعد تاريخ البداية" }
         _uiState.value = _uiState.value.copy(
             startDateMillis = startDateMillis,
             endDateMillisExclusive = endDateMillisExclusive,
@@ -176,30 +148,17 @@ class ReportsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                val summary = repository.getPersonReportSummary(
-                    personId = personId,
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis,
-                    endDateMillisExclusive = endDateMillisExclusive
-                )
-                val openingBalance = repository.getPersonOpeningBalance(
-                    personId = personId,
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis
-                )
-                val transactionRows = repository.getPersonReportTransactionRows(
-                    personId = personId,
-                    currencyCode = currencyCode,
-                    startDateMillis = startDateMillis,
-                    endDateMillisExclusive = endDateMillisExclusive
-                )
+                val summary = repository.getPersonReportSummary(personId, currencyCode, startDateMillis, endDateMillisExclusive)
+                val openingBalance = repository.getPersonOpeningBalance(personId, currencyCode, startDateMillis)
+                val transactionRows = repository.getPersonReportTransactionRows(personId, currencyCode, startDateMillis, endDateMillisExclusive)
                 val transactions = transactionRows.map { row ->
                     PersonReportTransaction(
                         transactionId = row.transactionId,
                         transactionDate = row.transactionDate,
                         type = row.type,
                         amountMinor = row.amountMinor,
-                        description = row.description
+                        description = row.description,
+                        balanceMinor = row.balanceMinor
                     )
                 }
                 _uiState.value = _uiState.value.copy(
@@ -219,10 +178,7 @@ class ReportsViewModel(
         }
     }
 
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
-    }
-
+    fun clearError() { _uiState.value = _uiState.value.copy(errorMessage = null) }
     fun refresh() = loadCurrencyReport()
 
     override fun onCleared() {
