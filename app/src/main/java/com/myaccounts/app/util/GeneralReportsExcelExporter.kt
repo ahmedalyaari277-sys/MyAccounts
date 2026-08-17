@@ -25,10 +25,10 @@ object GeneralReportsExcelExporter {
         export(context, "تقرير الأشخاص", currency, worksheetPeople(summary, people, start, end))
 
     fun exportDetailedReport(context: Context, currency: String, transactions: List<GeneralReportTransactionRow>, start: Long?, end: Long?): Result<String> =
-        export(context, "التقرير التفصيلي", currency, worksheetDetailed(transactions, start, end))
+        export(context, "التقرير التفصيلي", currency, worksheetDetailed(currency, transactions, start, end))
 
     fun exportSummaryReport(context: Context, currency: String, rows: List<PersonCurrencySummaryRow>, start: Long?, end: Long?): Result<String> =
-        export(context, "ملخص تقرير الأشخاص", currency, worksheetSummary(rows, start, end))
+        export(context, "ملخص تقرير الأشخاص", currency, worksheetSummary(currency, rows, start, end))
 
     private fun export(context: Context, title: String, currency: String, worksheet: String): Result<String> {
         return try {
@@ -126,12 +126,12 @@ object GeneralReportsExcelExporter {
         return worksheet(rows, "A$header:E${n - 1}", "32,18,18,18,18")
     }
 
-    private fun worksheetDetailed(transactions: List<GeneralReportTransactionRow>, start: Long?, end: Long?): String {
-        val currency = transactions.firstOrNull()?.currencyCode ?: "YER"
+    private fun worksheetDetailed(currency: String, transactions: List<GeneralReportTransactionRow>, start: Long?, end: Long?): String {
         val rows = mutableListOf<String>(); var n = 1
         rows += row(n++, listOf(cell("التقرير التفصيلي للعمليات", 3)))
         rows += row(n++, listOf(cell("العملة", 3), cell(currencyName(currency), 2)))
         rows += row(n++, listOf(cell("الفترة", 3), cell(formatDateRange(start, end), 2)))
+        rows += row(n++, listOf(cell("تاريخ إصدار التقرير", 3), cell(formatDate(System.currentTimeMillis()), 2)))
         rows += row(n++, listOf(cell("التاريخ", 3), cell("الشخص", 3), cell("العملة", 3), cell("البيان", 3), cell("عليه", 3), cell("له", 3)))
         val header = n - 1
         transactions.forEach { t -> rows += row(n++, listOf(cell(formatDate(t.transactionDate), 2), cell(t.personName, 2), cell(currencyName(t.currencyCode), 2), cell(t.description.ifBlank { "—" }, 2), if (t.type == "RECEIVABLE") numeric(t.amountMinor, 2) else cell("—", 2), if (t.type == "PAYABLE") numeric(t.amountMinor, 2) else cell("—", 2))) }
@@ -139,17 +139,17 @@ object GeneralReportsExcelExporter {
         return worksheet(rows, "A$header:F${n - 1}", "16,28,18,42,18,18")
     }
 
-    private fun worksheetSummary(rowsData: List<PersonCurrencySummaryRow>, start: Long?, end: Long?): String {
-        val currency = rowsData.firstOrNull()?.currencyCode ?: "YER"
+    private fun worksheetSummary(currency: String, rowsData: List<PersonCurrencySummaryRow>, start: Long?, end: Long?): String {
         val rows = mutableListOf<String>(); var n = 1
         rows += row(n++, listOf(cell("ملخص تقرير الأشخاص", 3)))
         rows += row(n++, listOf(cell("العملة", 3), cell(currencyName(currency), 2)))
         rows += row(n++, listOf(cell("الفترة", 3), cell(formatDateRange(start, end), 2)))
-        rows += row(n++, listOf(cell("الشخص", 3), cell("العملة", 3), cell("عليه", 3), cell("له", 3), cell("الرصيد", 3), cell("فترة عليه", 3), cell("فترة له", 3)))
+        rows += row(n++, listOf(cell("تاريخ إصدار التقرير", 3), cell(formatDate(System.currentTimeMillis()), 2)))
+        rows += row(n++, listOf(cell("الشخص", 3), cell("العملة", 3), cell("عليه", 3), cell("له", 3), cell("الرصيد", 3), cell("الفترة الأولى: له ← عليه", 3), cell("الفترة الأخيرة: له ← عليه", 3)))
         val header = n - 1
-        rowsData.forEach { r -> rows += row(n++, listOf(cell(r.personName, 2), cell(currencyName(r.currencyCode), 2), numeric(r.totalReceivableMinor, 2), numeric(r.totalPayableMinor, 2), numeric(r.balanceMinor, 2), cell(dateRange(r.firstReceivableDate, r.lastReceivableDate), 2), cell(dateRange(r.firstPayableDate, r.lastPayableDate), 2))) }
+        rowsData.forEach { r -> rows += row(n++, listOf(cell(r.personName, 2), cell(currencyName(r.currencyCode), 2), numeric(r.totalReceivableMinor, 2), numeric(r.totalPayableMinor, 2), numeric(r.balanceMinor, 2), cell(firstToFirstRange(r.firstPayableDate, r.firstReceivableDate), 2), cell(lastToLastRange(r.lastPayableDate, r.lastReceivableDate), 2))) }
         if (rowsData.isEmpty()) rows += row(n++, listOf(cell("لا توجد بيانات.", 2)))
-        return worksheet(rows, "A$header:G${n - 1}", "28,18,18,18,18,28,28")
+        return worksheet(rows, "A$header:G${n - 1}", "28,18,18,18,18,32,32")
     }
 
     private fun worksheet(rows: List<String>, filter: String, widths: String): String {
@@ -171,10 +171,10 @@ object GeneralReportsExcelExporter {
     private fun cell(value: String, style: Int = 0) = "<c t=\"inlineStr\" s=\"$style\"><is><t xml:space=\"preserve\">${escape(value)}</t></is></c>"
     private fun numeric(value: Long, style: Int = 0) = "<c t=\"n\" s=\"$style\"><v>${BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()}</v></c>"
     private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
-    private fun formatAmount(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun formatDate(millis: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(millis))
     private fun formatDateRange(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(it - 1) } ?: "غير محدد"}"
-    private fun dateRange(first: Long?, last: Long?) = if (first == null) "—" else "${formatDate(first)} - ${formatDate(last ?: first)}"
+    private fun firstToFirstRange(firstPayable: Long?, firstReceivable: Long?) = if (firstPayable == null && firstReceivable == null) "—" else "${firstPayable?.let(::formatDate) ?: "—"} - ${firstReceivable?.let(::formatDate) ?: "—"}"
+    private fun lastToLastRange(lastPayable: Long?, lastReceivable: Long?) = if (lastPayable == null && lastReceivable == null) "—" else "${lastPayable?.let(::formatDate) ?: "—"} - ${lastReceivable?.let(::formatDate) ?: "—"}"
     private fun safeFileName(value: String) = value.replace(Regex("[^A-Za-z0-9_-]+"), "_").take(50)
     private fun escape(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;").filter { it == '\n' || it == '\r' || it == '\t' || it >= ' ' }
     private const val XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
