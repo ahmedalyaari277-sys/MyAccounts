@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens.reports
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,6 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -40,8 +40,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.reports.CurrencyReportPersonRow
@@ -57,164 +59,135 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 
-private enum class GeneralReportType { PEOPLE, DETAILED, SUMMARY }
-private enum class ReportPeriod { ALL, TODAY, WEEK, MONTH, CUSTOM }
+private enum class ReportType { PEOPLE, DETAILED, SUMMARY }
+private enum class Period { ALL, TODAY, WEEK, MONTH, CUSTOM }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportsScreen(
-    viewModel: ReportsViewModel,
-    onBack: () -> Unit,
-    onPersonClick: (Long, String) -> Unit
-) {
+fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick: (Long, String) -> Unit) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    var reportType by remember { mutableStateOf(GeneralReportType.PEOPLE) }
-    var period by remember { mutableStateOf(ReportPeriod.ALL) }
-    var showStartPicker by remember { mutableStateOf(false) }
-    var showEndPicker by remember { mutableStateOf(false) }
+    var reportType by remember { mutableStateOf(ReportType.PEOPLE) }
+    var period by remember { mutableStateOf(Period.ALL) }
     var customStart by remember { mutableStateOf<Long?>(null) }
     var customEnd by remember { mutableStateOf<Long?>(null) }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.setAllTime() }
 
-    fun startOfDay(value: Long): Long = Calendar.getInstance().apply {
+    fun startOfDay(value: Long) = Calendar.getInstance().apply {
         timeInMillis = value
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
-
-    fun endOfDay(value: Long): Long = Calendar.getInstance().apply {
-        timeInMillis = startOfDay(value); add(Calendar.DAY_OF_MONTH, 1)
-    }.timeInMillis
-
-    fun choosePeriod(selected: ReportPeriod) {
-        period = selected
+    fun endOfDay(value: Long) = Calendar.getInstance().apply { timeInMillis = startOfDay(value); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+    fun selectPeriod(value: Period) {
+        period = value
         val now = System.currentTimeMillis()
-        when (selected) {
-            ReportPeriod.ALL -> viewModel.setAllTime()
-            ReportPeriod.TODAY -> viewModel.setDateRange(startOfDay(now), endOfDay(now))
-            ReportPeriod.WEEK -> {
-                val start = Calendar.getInstance().apply {
-                    timeInMillis = startOfDay(now)
-                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
-                }.timeInMillis
+        when (value) {
+            Period.ALL -> viewModel.setAllTime()
+            Period.TODAY -> viewModel.setDateRange(startOfDay(now), endOfDay(now))
+            Period.WEEK -> {
+                val start = Calendar.getInstance().apply { timeInMillis = startOfDay(now); set(Calendar.DAY_OF_WEEK, firstDayOfWeek) }.timeInMillis
                 viewModel.setDateRange(start, addDays(start, 7))
             }
-            ReportPeriod.MONTH -> {
-                val start = Calendar.getInstance().apply {
-                    timeInMillis = startOfDay(now); set(Calendar.DAY_OF_MONTH, 1)
-                }.timeInMillis
+            Period.MONTH -> {
+                val start = Calendar.getInstance().apply { timeInMillis = startOfDay(now); set(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
                 viewModel.setDateRange(start, addMonths(start, 1))
             }
-            ReportPeriod.CUSTOM -> showStartPicker = true
+            Period.CUSTOM -> showStartPicker = true
         }
     }
 
-    fun exportCurrent(pdf: Boolean) {
+    fun export(pdf: Boolean) {
         val start = state.startDateMillis
         val end = state.endDateMillisExclusive
         val currency = state.selectedCurrencyCode
         scope.launch {
             val result = when (reportType) {
-                GeneralReportType.PEOPLE -> {
-                    val summary = state.currencySummary
-                    if (summary == null) Result.failure<String>(IllegalStateException("لا توجد بيانات كافية لإنشاء التقرير."))
-                    else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(LocalContextHolder.context, currency, summary, state.people, start, end)
-                    else GeneralReportsExcelExporter.exportPeopleReport(LocalContextHolder.context, currency, summary, state.people, start, end)
-                }
-                GeneralReportType.DETAILED -> {
-                    if (pdf) GeneralReportsPdfExporter.exportDetailedReport(LocalContextHolder.context, currency, state.generalTransactions, start, end)
-                    else GeneralReportsExcelExporter.exportDetailedReport(LocalContextHolder.context, currency, state.generalTransactions, start, end)
-                }
-                GeneralReportType.SUMMARY -> {
-                    if (pdf) GeneralReportsPdfExporter.exportSummaryReport(LocalContextHolder.context, currency, state.personCurrencySummaries, start, end)
-                    else GeneralReportsExcelExporter.exportSummaryReport(LocalContextHolder.context, currency, state.personCurrencySummaries, start, end)
-                }
+                ReportType.PEOPLE -> state.currencySummary?.let { summary ->
+                    if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, start, end)
+                    else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, start, end)
+                } ?: Result.failure(IllegalStateException("لا توجد بيانات كافية لإنشاء التقرير."))
+                ReportType.DETAILED -> if (pdf) GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, start, end) else GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, start, end)
+                ReportType.SUMMARY -> if (pdf) GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, start, end) else GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, start, end)
             }
             result.fold({ snackbar.showSnackbar(it) }, { snackbar.showSnackbar(it.message ?: "حدث خطأ أثناء التصدير.") })
         }
     }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-    LocalContextHolder.context = context
-
     Scaffold(
-        topBar = { TopAppBar(title = { Text("التقارير", fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } }) },
+        topBar = { TopAppBar(title = { Text("التقارير العامة", fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } }) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             item {
                 Text("التقارير العامة", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("كل تقرير منفصل حسب العملة، والافتراضي هو كل الحساب.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("كل تقرير مستقل حسب العملة، والافتراضي: كل الحساب.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
-                CurrencySelector(state.selectedCurrencyCode) { viewModel.selectCurrency(it) }
-                Spacer(Modifier.height(8.dp))
-                PeriodSelector(period, ::choosePeriod)
-                if (period == ReportPeriod.CUSTOM) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    CurrencyChip("محلي / ريال يمني", "YER", state.selectedCurrencyCode) { viewModel.selectCurrency(it) }
+                    CurrencyChip("سعودي / ريال سعودي", "SAR", state.selectedCurrencyCode) { viewModel.selectCurrency(it) }
+                    CurrencyChip("دولار", "USD", state.selectedCurrencyCode) { viewModel.selectCurrency(it) }
+                }
+                Spacer(Modifier.height(6.dp))
+                PeriodSelector(period, ::selectPeriod)
+                if (period == Period.CUSTOM) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { showStartPicker = true }, modifier = Modifier.weight(1f)) { Text("من: ${formatDate(customStart)}") }
-                        OutlinedButton(onClick = { showEndPicker = true }, modifier = Modifier.weight(1f)) { Text("إلى: ${formatDate(customEnd)}") }
+                        OutlinedButton(onClick = { showStartPicker = true }, Modifier.weight(1f)) { Text("من: ${formatDate(customStart)}") }
+                        OutlinedButton(onClick = { showEndPicker = true }, Modifier.weight(1f)) { Text("إلى: ${formatDate(customEnd)}") }
                     }
                 }
                 Text(periodDescription(state.startDateMillis, state.endDateMillisExclusive), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
-                ReportTypeSelector(reportType) { reportType = it }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") })
+                    FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التفصيلي") })
+                    FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("الملخص") })
+                }
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { exportCurrent(false) }, modifier = Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }
-                    Button(onClick = { exportCurrent(true) }, modifier = Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") }
+                    Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }
+                    Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") }
                 }
             }
-
-            item { GeneralSummaryCard(state.selectedCurrencyCode, state.currencySummary) }
+            state.currencySummary?.let { summary -> item { SummaryCard(summary) } }
 
             when (reportType) {
-                GeneralReportType.PEOPLE -> {
+                ReportType.PEOPLE -> {
                     item { Text("تقرير الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                    item { PeopleTableHeader() }
+                    item { PeopleHeader() }
                     if (state.people.isEmpty()) item { EmptyReport() }
-                    else items(state.people, key = { it.personId }) { person -> PeopleTableRow(person, state.selectedCurrencyCode) { onPersonClick(person.personId, state.selectedCurrencyCode) } }
+                    else items(state.people, key = { it.personId }) { person -> PeopleRow(person, state.selectedCurrencyCode) { onPersonClick(person.personId, state.selectedCurrencyCode) } }
                 }
-                GeneralReportType.DETAILED -> {
+                ReportType.DETAILED -> {
                     item { Text("التقرير التفصيلي للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                    item { DetailedTableHeader() }
+                    item { DetailedHeader() }
                     if (state.generalTransactions.isEmpty()) item { EmptyReport() }
-                    else items(state.generalTransactions, key = { it.transactionId }) { DetailedTableRow(it) }
+                    else items(state.generalTransactions, key = { it.transactionId }) { DetailedRow(it) }
                 }
-                GeneralReportType.SUMMARY -> {
+                ReportType.SUMMARY -> {
                     item { Text("ملخص تقرير الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                    item { SummaryTableHeader() }
+                    item { SummaryHeader() }
                     if (state.personCurrencySummaries.isEmpty()) item { EmptyReport() }
-                    else items(state.personCurrencySummaries, key = { "${it.personId}_${it.currencyCode}" }) { SummaryTableRow(it) }
+                    else items(state.personCurrencySummaries, key = { "${it.personId}_${it.currencyCode}" }) { SummaryRow(it) }
                 }
             }
-
             state.errorMessage?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            item { Spacer(Modifier.height(16.dp)) }
         }
     }
 
     if (showStartPicker) {
-        DatePickerDialog(
-            onDismissRequest = { showStartPicker = false },
-            confirmButton = { TextButton(onClick = { showStartPicker = false }) { Text("تم") } },
-            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text("إلغاء") } }
-        ) {
+        DatePickerDialog(onDismissRequest = { showStartPicker = false }, confirmButton = { TextButton({ showStartPicker = false }) { Text("إلغاء") } }) {
             val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customStart)
             DatePicker(picker)
             LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customStart = it; if (customEnd != null) viewModel.setDateRange(startOfDay(it), endOfDay(customEnd!!)) } }
         }
     }
     if (showEndPicker) {
-        DatePickerDialog(
-            onDismissRequest = { showEndPicker = false },
-            confirmButton = { TextButton(onClick = { showEndPicker = false }) { Text("تم") } },
-            dismissButton = { TextButton(onClick = { showEndPicker = false }) { Text("إلغاء") } }
-        ) {
+        DatePickerDialog(onDismissRequest = { showEndPicker = false }, confirmButton = { TextButton({ showEndPicker = false }) { Text("إلغاء") } }) {
             val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customEnd)
             DatePicker(picker)
             LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customEnd = it; if (customStart != null) viewModel.setDateRange(startOfDay(customStart!!), endOfDay(it)) } }
@@ -222,54 +195,23 @@ fun ReportsScreen(
     }
 }
 
-private object LocalContextHolder { lateinit var context: android.content.Context }
+@Composable private fun CurrencyChip(label: String, code: String, selected: String, onSelect: (String) -> Unit) = FilterChip(selected == code, { onSelect(code) }, label = { Text(label) })
 
-@Composable
-private fun CurrencySelector(selected: String, onSelect: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        CurrencyChip("محلي / ريال يمني", "YER", selected, onSelect)
-        CurrencyChip("سعودي / ريال سعودي", "SAR", selected, onSelect)
-        CurrencyChip("دولار", "USD", selected, onSelect)
-    }
-}
-
-@Composable
-private fun CurrencyChip(label: String, code: String, selected: String, onSelect: (String) -> Unit) {
-    FilterChip(selected = selected == code, onClick = { onSelect(code) }, label = { Text(label) })
-}
-
-@Composable
-private fun PeriodSelector(selected: ReportPeriod, onSelect: (ReportPeriod) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+@Composable private fun PeriodSelector(selected: Period, onSelect: (Period) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            PeriodChip("كل الحساب", ReportPeriod.ALL, selected, onSelect)
-            PeriodChip("اليوم", ReportPeriod.TODAY, selected, onSelect)
-            PeriodChip("هذا الأسبوع", ReportPeriod.WEEK, selected, onSelect)
+            FilterChip(selected == Period.ALL, { onSelect(Period.ALL) }, label = { Text("كل الحساب") })
+            FilterChip(selected == Period.TODAY, { onSelect(Period.TODAY) }, label = { Text("اليوم") })
+            FilterChip(selected == Period.WEEK, { onSelect(Period.WEEK) }, label = { Text("هذا الأسبوع") })
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            PeriodChip("هذا الشهر", ReportPeriod.MONTH, selected, onSelect)
-            PeriodChip("فترة مخصصة", ReportPeriod.CUSTOM, selected, onSelect)
+            FilterChip(selected == Period.MONTH, { onSelect(Period.MONTH) }, label = { Text("هذا الشهر") })
+            FilterChip(selected == Period.CUSTOM, { onSelect(Period.CUSTOM) }, label = { Text("فترة مخصصة") })
         }
     }
 }
 
-@Composable
-private fun PeriodChip(label: String, period: ReportPeriod, selected: ReportPeriod, onSelect: (ReportPeriod) -> Unit) {
-    FilterChip(selected = selected == period, onClick = { onSelect(period) }, label = { Text(label) })
-}
-
-@Composable
-private fun ReportTypeSelector(selected: GeneralReportType, onSelect: (GeneralReportType) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        FilterChip(selected == GeneralReportType.PEOPLE, { onSelect(GeneralReportType.PEOPLE) }, label = { Text("الأشخاص") })
-        FilterChip(selected == GeneralReportType.DETAILED, { onSelect(GeneralReportType.DETAILED) }, label = { Text("التفصيلي") })
-        FilterChip(selected == GeneralReportType.SUMMARY, { onSelect(GeneralReportType.SUMMARY) }, label = { Text("الملخص") })
-    }
-}
-
-@Composable
-private fun GeneralSummaryCard(currency: String, summary: com.myaccounts.app.data.reports.CurrencyReportSummary?) {
-    if (summary == null) return
+@Composable private fun SummaryCard(summary: com.myaccounts.app.data.reports.CurrencyReportSummary) {
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Metric("عليه", summary.totalReceivableMinor, MaterialTheme.colorScheme.error)
@@ -280,53 +222,27 @@ private fun GeneralSummaryCard(currency: String, summary: com.myaccounts.app.dat
     }
 }
 
-@Composable
-private fun Metric(label: String, amount: Long, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 12.sp, color = color, fontWeight = FontWeight.Bold)
-        Text(formatAmount(amount), fontWeight = FontWeight.Bold)
-    }
-}
+@Composable private fun Metric(label: String, value: Long, color: Color) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(label, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold); Text(formatAmount(value), fontWeight = FontWeight.Bold) } }
 
-@Composable
-private fun PeopleTableHeader() = TableRow(Modifier.width(760.dp), listOf("الشخص", "العملة", "عليه", "له", "الرصيد"), header = true, widths = listOf(2.2f, 1.5f, 1.3f, 1.3f, 1.5f))
+@Composable private fun PeopleHeader() = TableRow(760.dp, listOf("الشخص", "العملة", "عليه", "له", "الرصيد"), listOf(2.2f, 1.5f, 1.3f, 1.3f, 1.5f), true)
+@Composable private fun PeopleRow(p: CurrencyReportPersonRow, currency: String, onClick: () -> Unit) = TableRow(760.dp, listOf(p.personName, currencyName(currency), formatAmount(p.totalReceivableMinor), formatAmount(p.totalPayableMinor), formatAmount(p.balanceMinor)), listOf(2.2f, 1.5f, 1.3f, 1.3f, 1.5f), false, listOf(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.error, Color(0xFF00854A), balanceColor(p.balanceMinor)), onClick)
+@Composable private fun DetailedHeader() = TableRow(1000.dp, listOf("التاريخ", "الشخص", "العملة", "البيان", "عليه", "له"), listOf(1.2f, 1.8f, 1.5f, 3f, 1.2f, 1.2f), true)
+@Composable private fun DetailedRow(t: GeneralReportTransactionRow) = TableRow(1000.dp, listOf(formatDate(t.transactionDate), t.personName, currencyName(t.currencyCode), t.description.ifBlank { "—" }, if (t.type == "RECEIVABLE") formatAmount(t.amountMinor) else "—", if (t.type == "PAYABLE") formatAmount(t.amountMinor) else "—"), listOf(1.2f, 1.8f, 1.5f, 3f, 1.2f, 1.2f), false, listOf(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurface, if (t.type == "RECEIVABLE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, if (t.type == "PAYABLE") Color(0xFF00854A) else MaterialTheme.colorScheme.onSurface))
+@Composable private fun SummaryHeader() = TableRow(1250.dp, listOf("الشخص", "العملة", "عليه", "له", "الرصيد", "فترة عليه", "فترة له"), listOf(2.1f, 1.4f, 1.2f, 1.2f, 1.3f, 2f, 2f), true)
+@Composable private fun SummaryRow(r: PersonCurrencySummaryRow) = TableRow(1250.dp, listOf(r.personName, currencyName(r.currencyCode), formatAmount(r.totalReceivableMinor), formatAmount(r.totalPayableMinor), formatAmount(r.balanceMinor), dateRange(r.firstReceivableDate, r.lastReceivableDate), dateRange(r.firstPayableDate, r.lastPayableDate)), listOf(2.1f, 1.4f, 1.2f, 1.2f, 1.3f, 2f, 2f), false, listOf(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.error, Color(0xFF00854A), balanceColor(r.balanceMinor), MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant))
 
-@Composable
-private fun PeopleTableRow(person: CurrencyReportPersonRow, currency: String, onClick: () -> Unit) {
-    TableRow(Modifier.width(760.dp), listOf(person.personName, currencyName(currency), formatAmount(person.totalReceivableMinor), formatAmount(person.totalPayableMinor), formatAmount(person.balanceMinor)), colors = listOf(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.error, Color(0xFF00854A), balanceColor(person.balanceMinor)), widths = listOf(2.2f, 1.5f, 1.3f, 1.3f, 1.5f), onClick = onClick)
-}
-
-@Composable
-private fun DetailedTableHeader() = TableRow(Modifier.width(1000.dp), listOf("التاريخ", "الشخص", "العملة", "البيان", "عليه", "له"), header = true, widths = listOf(1.2f, 1.8f, 1.5f, 3f, 1.2f, 1.2f))
-
-@Composable
-private fun DetailedTableRow(t: GeneralReportTransactionRow) = TableRow(Modifier.width(1000.dp), listOf(formatDate(t.transactionDate), t.personName, currencyName(t.currencyCode), t.description.ifBlank { "—" }, if (t.type == "RECEIVABLE") formatAmount(t.amountMinor) else "—", if (t.type == "PAYABLE") formatAmount(t.amountMinor) else "—"), colors = listOf(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurface, if (t.type == "RECEIVABLE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, if (t.type == "PAYABLE") Color(0xFF00854A) else MaterialTheme.colorScheme.onSurface), widths = listOf(1.2f, 1.8f, 1.5f, 3f, 1.2f, 1.2f))
-
-@Composable
-private fun SummaryTableHeader() = TableRow(Modifier.width(1250.dp), listOf("الشخص", "العملة", "عليه", "له", "الرصيد", "فترة عليه", "فترة له"), header = true, widths = listOf(2.1f, 1.4f, 1.2f, 1.2f, 1.3f, 2.0f, 2.0f))
-
-@Composable
-private fun SummaryTableRow(r: PersonCurrencySummaryRow) = TableRow(Modifier.width(1250.dp), listOf(r.personName, currencyName(r.currencyCode), formatAmount(r.totalReceivableMinor), formatAmount(r.totalPayableMinor), formatAmount(r.balanceMinor), dateRange(r.firstReceivableDate, r.lastReceivableDate), dateRange(r.firstPayableDate, r.lastPayableDate)), colors = listOf(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.error, Color(0xFF00854A), balanceColor(r.balanceMinor), MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant), widths = listOf(2.1f, 1.4f, 1.2f, 1.2f, 1.3f, 2.0f, 2.0f))
-
-@Composable
-private fun TableRow(modifier: Modifier, values: List<String>, header: Boolean = false, colors: List<Color> = emptyList(), widths: List<Float>, onClick: (() -> Unit)? = null) {
-    Row(modifier = modifier.then(if (onClick != null) Modifier else Modifier), verticalAlignment = Alignment.CenterVertically) {
-        values.forEachIndexed { index, value ->
-            Text(
-                text = value,
-                modifier = Modifier.weight(widths[index]).padding(horizontal = 6.dp, vertical = 8.dp),
-                textAlign = TextAlign.Center,
-                fontSize = if (header) 12.sp else 11.sp,
-                fontWeight = if (header) FontWeight.Bold else FontWeight.Normal,
-                color = colors.getOrNull(index) ?: MaterialTheme.colorScheme.onSurface
-            )
+@Composable private fun TableRow(totalWidth: Dp, values: List<String>, widths: List<Float>, header: Boolean, colors: List<Color> = emptyList(), onClick: (() -> Unit)? = null) {
+    val scroll = rememberScrollState()
+    Row(Modifier.fillMaxWidth().horizontalScroll(scroll).then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)) {
+        Row(Modifier.width(totalWidth)) {
+            values.forEachIndexed { i, value ->
+                Text(value, Modifier.weight(widths[i]).padding(horizontal = 5.dp, vertical = 8.dp), textAlign = TextAlign.Center, fontSize = if (header) 12.sp else 11.sp, fontWeight = if (header) FontWeight.Bold else FontWeight.Normal, color = colors.getOrNull(i) ?: MaterialTheme.colorScheme.onSurface)
+            }
         }
     }
 }
 
-@Composable
-private fun EmptyReport() = Text("لا توجد بيانات ضمن الفترة المحددة.", modifier = Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
+@Composable private fun EmptyReport() = Text("لا توجد بيانات ضمن الفترة المحددة.", Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
 private fun formatAmount(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
 private fun balanceColor(value: Long) = when { value > 0 -> Color(0xFFB02323); value < 0 -> Color(0xFF00854A); else -> Color.Gray }
