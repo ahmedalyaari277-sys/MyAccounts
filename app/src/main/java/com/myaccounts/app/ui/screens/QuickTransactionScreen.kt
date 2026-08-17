@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
+import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -37,17 +38,25 @@ import java.util.Locale
 fun QuickTransactionScreen(
     personName: String,
     accounts: List<CurrencyAccountEntity>,
-    onSave: (TransactionEntity) -> Unit,
+    onSave: (
+        TransactionEntity,
+        List<TransactionAttachmentStorage.SelectedAttachment>
+    ) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
     val today = remember { Calendar.getInstance() }
-    var selectedCurrency by remember { mutableStateOf(accounts.firstOrNull()?.currencyCode ?: "YER") }
+    var selectedCurrency by remember {
+        mutableStateOf(accounts.firstOrNull()?.currencyCode ?: "YER")
+    }
     var selectedType by remember { mutableStateOf(TransactionType.RECEIVABLE) }
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var transactionDate by remember { mutableStateOf(today.timeInMillis) }
     var amountError by remember { mutableStateOf(false) }
+    var attachments by remember {
+        mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList())
+    }
 
     val currencyLabels = mapOf(
         "YER" to "محلي / ريال يمني",
@@ -74,7 +83,9 @@ fun QuickTransactionScreen(
             FilterChip(
                 selected = selectedCurrency == account.currencyCode,
                 onClick = { selectedCurrency = account.currencyCode },
-                label = { Text(currencyLabels[account.currencyCode] ?: account.currencyCode) },
+                label = {
+                    Text(currencyLabels[account.currencyCode] ?: account.currencyCode)
+                },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -135,7 +146,9 @@ fun QuickTransactionScreen(
             readOnly = true,
             trailingIcon = {
                 Button(onClick = {
-                    val selected = Calendar.getInstance().apply { timeInMillis = transactionDate }
+                    val selected = Calendar.getInstance().apply {
+                        timeInMillis = transactionDate
+                    }
                     DatePickerDialog(
                         context,
                         { _, year, month, day ->
@@ -151,6 +164,11 @@ fun QuickTransactionScreen(
             }
         )
 
+        TransactionAttachmentPicker(
+            selectedAttachments = attachments,
+            onAttachmentsChanged = { attachments = it }
+        )
+
         Spacer(Modifier.height(4.dp))
 
         Row(
@@ -160,7 +178,9 @@ fun QuickTransactionScreen(
             Button(
                 onClick = {
                     val parsedAmount = runCatching {
-                        BigDecimal(amount.trim()).movePointRight(2).longValueExact()
+                        BigDecimal(amount.trim())
+                            .movePointRight(2)
+                            .longValueExact()
                     }.getOrNull()
 
                     if (parsedAmount == null || parsedAmount <= 0L) {
@@ -168,7 +188,9 @@ fun QuickTransactionScreen(
                         return@Button
                     }
 
-                    val account = accounts.firstOrNull { it.currencyCode == selectedCurrency }
+                    val account = accounts.firstOrNull {
+                        it.currencyCode == selectedCurrency
+                    }
                     if (account == null) {
                         amountError = true
                         return@Button
@@ -181,7 +203,8 @@ fun QuickTransactionScreen(
                             amountMinor = parsedAmount,
                             description = description.trim(),
                             transactionDate = transactionDate
-                        )
+                        ),
+                        attachments
                     )
                 },
                 modifier = Modifier.weight(1f)
