@@ -11,13 +11,14 @@ import java.io.File
 
 object ReportShareUtil {
     fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> = try {
+        val expectedExtension = extensionForMime(mimeType)
         val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            findLatestDownloadUri(context, fileNamePrefix)
+            findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
         } else {
-            findLatestLegacyFile(context, fileNamePrefix)?.let {
+            findLatestLegacyFile(context, fileNamePrefix, expectedExtension)?.let {
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it)
             }
-        } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير. قم بتصدير التقرير أولاً.")
+        } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
@@ -32,52 +33,42 @@ object ReportShareUtil {
         Result.failure(exception)
     }
 
+    private fun extensionForMime(mimeType: String): String = when (mimeType.lowercase()) {
+        "application/pdf" -> ".pdf"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> ".xlsx"
+        else -> throw IllegalArgumentException("نوع ملف التقرير غير مدعوم للمشاركة.")
+    }
+
     private fun candidatePrefixes(prefix: String): List<String> = buildList {
         add(prefix)
         val normalized = prefix.replace(" ", "_")
         if (normalized != prefix) add(normalized)
-        if (normalized.contains("ملخص_تقرير_الأشخاص")) {
-            add(normalized.replace("ملخص_تقرير_الأشخاص", "ملخص_الأشخاص"))
-        }
+        if (normalized.contains("ملخص_تقرير_الأشخاص")) add(normalized.replace("ملخص_تقرير_الأشخاص", "ملخص_الأشخاص"))
     }.distinct()
 
-    private fun findLatestDownloadUri(context: Context, prefix: String): Uri? {
+    private fun findLatestDownloadUri(context: Context, prefix: String, extension: String): Uri? {
         val resolver = context.contentResolver
-        val projection = arrayOf(
-            MediaStore.Downloads._ID,
-            MediaStore.Downloads.DISPLAY_NAME,
-            MediaStore.Downloads.DATE_ADDED
-        )
+        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED)
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
         val downloadPath = "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%"
 
         candidatePrefixes(prefix).forEach { candidate ->
-            val selectionArgs = arrayOf(downloadPath, "$candidate%")
-            resolver.query(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                projection,
-                selection,
-                selectionArgs,
-                "${MediaStore.Downloads.DATE_ADDED} DESC"
-            )?.use { cursor ->
+            val selectionArgs = arrayOf(downloadPath, "$candidate%$extension")
+            resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                    return ContentUrisCompat.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+                    return Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id.toString())
                 }
             }
         }
         return null
     }
 
-    private fun findLatestLegacyFile(context: Context, prefix: String): File? {
+    private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
         val candidates = candidatePrefixes(prefix)
         return directory.listFiles()
-            ?.filter { file -> file.isFile && candidates.any { file.name.startsWith(it) } }
+            ?.filter { file -> file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } }
             ?.maxByOrNull { it.lastModified() }
-    }
-
-    private object ContentUrisCompat {
-        fun withAppendedId(baseUri: Uri, id: Long): Uri = Uri.withAppendedPath(baseUri, id.toString())
     }
 }
