@@ -57,8 +57,8 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 QuickTransactionScreen(
                     personName = person.person.name,
                     accounts = person.accounts,
-                    onSave = { transaction ->
-                        transactionViewModel.addTransaction(transaction)
+                    onSave = { transaction, attachments ->
+                        transactionViewModel.addTransaction(transaction, attachments)
                         navController.popBackStack()
                     },
                     onCancel = { navController.popBackStack() }
@@ -100,7 +100,12 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
             val accountId = entry.arguments?.getLong("accountId")
             val currencyCode = entry.arguments?.getString("currencyCode")
             if (accountId != null && currencyCode != null) {
-                TransactionScreen(accountId, currencyCode, { navController.popBackStack() }, transactionViewModel)
+                TransactionScreen(
+                    accountId,
+                    currencyCode,
+                    { navController.popBackStack() },
+                    transactionViewModel
+                )
             }
         }
 
