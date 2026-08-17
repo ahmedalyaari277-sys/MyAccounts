@@ -39,9 +39,9 @@ object ReportShareUtil {
             MediaStore.Downloads.DISPLAY_NAME,
             MediaStore.Downloads.DATE_ADDED
         )
-        val selection = "${MediaStore.Downloads.RELATIVE_PATH} = ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
+        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
         val selectionArgs = arrayOf(
-            "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts/",
+            "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%",
             "$prefix%"
         )
         resolver.query(
