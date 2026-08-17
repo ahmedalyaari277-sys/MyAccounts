@@ -105,11 +105,11 @@ object GeneralReportsExcelExporter {
     private fun styles() = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-          <fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts>
+          <fonts count="4"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><color rgb="FFC02323"/><sz val="11"/><name val="Arial"/></font><font><color rgb="FF007D46"/><sz val="11"/><name val="Arial"/></font></fonts>
           <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
           <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders>
           <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-          <cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"/></cellXfs>
+          <cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0"/></cellXfs>
         </styleSheet>
     """.trimIndent()
 
@@ -121,7 +121,7 @@ object GeneralReportsExcelExporter {
         rows += row(n++, listOf(cell("تاريخ إصدار التقرير", 3), cell(formatDate(System.currentTimeMillis()), 2)))
         rows += row(n++, listOf(cell("الشخص", 3), cell("العملة", 3), cell("عليه", 3), cell("له", 3), cell("الرصيد", 3)))
         val header = n - 1
-        people.forEach { p -> rows += row(n++, listOf(cell(p.personName, 2), cell(currencyName(summary.currencyCode), 2), numeric(p.totalReceivableMinor, 2), numeric(p.totalPayableMinor, 2), numeric(p.balanceMinor, 2))) }
+        people.forEach { p -> rows += row(n++, listOf(cell(p.personName, 2), cell(currencyName(summary.currencyCode), 2), numeric(p.totalReceivableMinor, 4), numeric(p.totalPayableMinor, 5), balanceNumeric(p.balanceMinor))) }
         if (people.isEmpty()) rows += row(n++, listOf(cell("لا توجد بيانات.", 2)))
         return worksheet(rows, "A$header:E${n - 1}", "32,18,18,18,18")
     }
@@ -134,7 +134,7 @@ object GeneralReportsExcelExporter {
         rows += row(n++, listOf(cell("تاريخ إصدار التقرير", 3), cell(formatDate(System.currentTimeMillis()), 2)))
         rows += row(n++, listOf(cell("التاريخ", 3), cell("الشخص", 3), cell("العملة", 3), cell("البيان", 3), cell("عليه", 3), cell("له", 3)))
         val header = n - 1
-        transactions.forEach { t -> rows += row(n++, listOf(cell(formatDate(t.transactionDate), 2), cell(t.personName, 2), cell(currencyName(t.currencyCode), 2), cell(t.description.ifBlank { "—" }, 2), if (t.type == "RECEIVABLE") numeric(t.amountMinor, 2) else cell("—", 2), if (t.type == "PAYABLE") numeric(t.amountMinor, 2) else cell("—", 2))) }
+        transactions.forEach { t -> rows += row(n++, listOf(cell(formatDate(t.transactionDate), 2), cell(t.personName, 2), cell(currencyName(t.currencyCode), 2), cell(t.description.ifBlank { "—" }, 2), if (t.type == "RECEIVABLE") numeric(t.amountMinor, 4) else cell("—", 2), if (t.type == "PAYABLE") numeric(t.amountMinor, 5) else cell("—", 2))) }
         if (transactions.isEmpty()) rows += row(n++, listOf(cell("لا توجد عمليات.", 2)))
         return worksheet(rows, "A$header:F${n - 1}", "16,28,18,42,18,18")
     }
@@ -147,7 +147,7 @@ object GeneralReportsExcelExporter {
         rows += row(n++, listOf(cell("تاريخ إصدار التقرير", 3), cell(formatDate(System.currentTimeMillis()), 2)))
         rows += row(n++, listOf(cell("الشخص", 3), cell("العملة", 3), cell("عليه", 3), cell("له", 3), cell("الرصيد", 3), cell("الفترة الأولى: له ← عليه", 3), cell("الفترة الأخيرة: له ← عليه", 3)))
         val header = n - 1
-        rowsData.forEach { r -> rows += row(n++, listOf(cell(r.personName, 2), cell(currencyName(r.currencyCode), 2), numeric(r.totalReceivableMinor, 2), numeric(r.totalPayableMinor, 2), numeric(r.balanceMinor, 2), cell(firstToFirstRange(r.firstPayableDate, r.firstReceivableDate), 2), cell(lastToLastRange(r.lastPayableDate, r.lastReceivableDate), 2))) }
+        rowsData.forEach { r -> rows += row(n++, listOf(cell(r.personName, 2), cell(currencyName(r.currencyCode), 2), numeric(r.totalReceivableMinor, 4), numeric(r.totalPayableMinor, 5), balanceNumeric(r.balanceMinor), cell(firstToFirstRange(r.firstPayableDate, r.firstReceivableDate), 2), cell(lastToLastRange(r.lastPayableDate, r.lastReceivableDate), 2))) }
         if (rowsData.isEmpty()) rows += row(n++, listOf(cell("لا توجد بيانات.", 2)))
         return worksheet(rows, "A$header:G${n - 1}", "28,18,18,18,18,32,32")
     }
@@ -170,6 +170,7 @@ object GeneralReportsExcelExporter {
     private fun row(n: Int, cells: List<String>) = "<row r=\"$n\">${cells.joinToString("\n")}</row>"
     private fun cell(value: String, style: Int = 0) = "<c t=\"inlineStr\" s=\"$style\"><is><t xml:space=\"preserve\">${escape(value)}</t></is></c>"
     private fun numeric(value: Long, style: Int = 0) = "<c t=\"n\" s=\"$style\"><v>${BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()}</v></c>"
+    private fun balanceNumeric(value: Long) = numeric(value, when { value > 0L -> 4; value < 0L -> 5; else -> 3 })
     private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
     private fun formatDate(millis: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(millis))
     private fun formatDateRange(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(it - 1) } ?: "غير محدد"}"
