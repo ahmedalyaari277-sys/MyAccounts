@@ -188,6 +188,30 @@ interface ReportDao {
 
     @Query(
         """
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN t.type = 'RECEIVABLE' THEN t.amountMinor
+                WHEN t.type = 'PAYABLE' THEN -t.amountMinor
+                ELSE 0
+            END
+        ), 0)
+        FROM transactions t
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
+        WHERE ca.personId = :personId
+          AND ca.currencyCode = :currencyCode
+          AND p.isActive = 1
+          AND t.transactionDate < :startDateMillis
+        """
+    )
+    suspend fun getPersonOpeningBalance(
+        personId: Long,
+        currencyCode: String,
+        startDateMillis: Long
+    ): Long
+
+    @Query(
+        """
         SELECT
             t.id AS transactionId,
             t.transactionDate AS transactionDate,
