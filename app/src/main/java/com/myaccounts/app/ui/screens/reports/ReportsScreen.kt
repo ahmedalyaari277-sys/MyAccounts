@@ -128,7 +128,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
         val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         scope.launch {
-            ReportShareUtil.shareLatestReport(context, "MyAccounts_${title}_$currency_", mime).fold(
+            ReportShareUtil.shareLatestReport(context, "MyAccounts_${title}_${currency}_", mime).fold(
                 onSuccess = { snackbar.showSnackbar("تم فتح خيارات مشاركة ${if (pdf) "PDF" else "Excel"}.") },
                 onFailure = { snackbar.showSnackbar("لم يتم العثور على ملف ${if (pdf) "PDF" else "Excel"}. صدّر الملف أولاً.") }
             )
