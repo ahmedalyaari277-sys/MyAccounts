@@ -3,4 +3,7 @@
     <external-files-path
         name="report_documents"
         path="Documents/MyAccounts/" />
+    <files-path
+        name="transaction_attachments"
+        path="transaction_attachments/" />
 </paths>
