@@ -88,18 +88,15 @@ fun PersonReportScreen(
     val startDateMillis = uiState.startDateMillis
     val endDateMillisExclusive = uiState.endDateMillisExclusive
 
-    fun sharePersonReport() {
+    fun sharePersonReport(pdf: Boolean) {
         val summary = uiState.selectedPersonSummary ?: return
         val prefix = "MyAccounts_Person_Report_${safeFileName(summary.personName)}_"
+        val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         coroutineScope.launch {
-            val pdfResult = ReportShareUtil.shareLatestReport(context, prefix, "application/pdf")
-            if (pdfResult.isFailure) {
-                val excelResult = ReportShareUtil.shareLatestReport(context, prefix, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                excelResult.fold(
-                    onSuccess = { snackbarHostState.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
-                    onFailure = { snackbarHostState.showSnackbar("لم يتم العثور على تقرير صادر. صدّر التقرير PDF أو Excel أولاً.") }
-                )
-            }
+            ReportShareUtil.shareLatestReport(context, prefix, mime).fold(
+                onSuccess = { snackbarHostState.showSnackbar("تم فتح خيارات مشاركة ${if (pdf) "PDF" else "Excel"}.") },
+                onFailure = { snackbarHostState.showSnackbar("لم يتم العثور على ملف ${if (pdf) "PDF" else "Excel"}. صدّر الملف أولاً.") }
+            )
         }
     }
 
@@ -195,12 +192,18 @@ fun PersonReportScreen(
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
                 ) { Text("Excel") }
-
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { sharePersonReport() },
+                    onClick = { sharePersonReport(false) },
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
-                ) { Text("مشاركة") }
+                ) { Text("مشاركة Excel") }
+                OutlinedButton(
+                    onClick = { sharePersonReport(true) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
+                ) { Text("مشاركة PDF") }
             }
 
             Spacer(Modifier.height(12.dp))
