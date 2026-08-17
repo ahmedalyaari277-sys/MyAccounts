@@ -119,22 +119,19 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
     }
 
-    fun share() {
+    fun shareReport(pdf: Boolean) {
         val currency = state.selectedCurrencyCode
         val title = when (reportType) {
             ReportType.PEOPLE -> "تقرير الأشخاص"
             ReportType.DETAILED -> "التقرير التفصيلي"
             ReportType.SUMMARY -> "ملخص تقرير الأشخاص"
         }
+        val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         scope.launch {
-            val pdfResult = ReportShareUtil.shareLatestReport(context, "MyAccounts_${title}_$currency_", "application/pdf")
-            if (pdfResult.isFailure) {
-                val excelResult = ReportShareUtil.shareLatestReport(context, "MyAccounts_${title}_$currency_", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                excelResult.fold(
-                    onSuccess = { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
-                    onFailure = { snackbar.showSnackbar("لم يتم العثور على تقرير صادر. صدّر التقرير PDF أو Excel أولاً.") }
-                )
-            }
+            ReportShareUtil.shareLatestReport(context, "MyAccounts_${title}_$currency_", mime).fold(
+                onSuccess = { snackbar.showSnackbar("تم فتح خيارات مشاركة ${if (pdf) "PDF" else "Excel"}.") },
+                onFailure = { snackbar.showSnackbar("لم يتم العثور على ملف ${if (pdf) "PDF" else "Excel"}. صدّر الملف أولاً.") }
+            )
         }
     }
 
@@ -171,7 +168,10 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }
                     Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") }
-                    OutlinedButton(onClick = { share() }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { shareReport(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة Excel") }
+                    OutlinedButton(onClick = { shareReport(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة PDF") }
                 }
             }
             state.currencySummary?.let { summary -> item { SummaryCard(summary) } }
