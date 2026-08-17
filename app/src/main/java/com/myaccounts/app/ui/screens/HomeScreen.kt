@@ -59,7 +59,6 @@ fun HomeScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
-    var quickTransactionPerson by remember { mutableStateOf<PersonWithAccounts?>(null) }
 
     val filteredList = personsList.filter { item ->
         item.person.name.contains(searchQuery, ignoreCase = true) ||
@@ -112,7 +111,7 @@ fun HomeScreen(
                         PersonCard(
                             item,
                             onClick = { onPersonClick(item.person.id) },
-                            onQuickTransaction = { quickTransactionPerson = item }
+                            onQuickTransaction = { onQuickTransactionClick(item.person.id, "") }
                         )
                     }
                 }
@@ -126,18 +125,6 @@ fun HomeScreen(
             onSave = { name, phone, address, notes ->
                 onAddPerson(name, phone, address, notes)
                 showAddDialog = false
-            }
-        )
-    }
-
-    quickTransactionPerson?.let { person ->
-        QuickTransactionCurrencyDialog(
-            personName = person.person.name,
-            availableCurrencies = person.accounts.map { it.currencyCode },
-            onDismiss = { quickTransactionPerson = null },
-            onCurrencySelected = { currencyCode ->
-                quickTransactionPerson = null
-                onQuickTransactionClick(person.person.id, currencyCode)
             }
         )
     }
@@ -187,49 +174,14 @@ private fun CurrencyLabel(currency: String, balance: Long) {
     Text("$currency\n${formatBalance(balance)}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
 }
 
-private fun formatBalance(balanceMinor: Long): String = when {
-    balanceMinor > 0L -> "عليه ${formatAmount(balanceMinor)}"
-    balanceMinor < 0L -> "له ${formatAmount(-balanceMinor)}"
+private fun formatBalance(balance: Long): String = when {
+    balance > 0L -> "عليه ${formatAmount(balance)}"
+    balance < 0L -> "له ${formatAmount(-balance)}"
     else -> "متوازن 0"
 }
 
-private fun formatAmount(amountMinor: Long): String =
-    BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
-
-@Composable
-private fun QuickTransactionCurrencyDialog(
-    personName: String,
-    availableCurrencies: List<String>,
-    onDismiss: () -> Unit,
-    onCurrencySelected: (String) -> Unit
-) {
-    val currencies = listOf(
-        "YER" to "محلي / ريال يمني",
-        "SAR" to "سعودي / ريال سعودي",
-        "USD" to "دولار"
-    ).filter { (code, _) -> availableCurrencies.contains(code) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("إضافة عملية — $personName", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("اختر العملة")
-                currencies.forEach { (code, label) ->
-                    Button(
-                        onClick = { onCurrencySelected(code) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text(label) }
-                }
-                if (currencies.isEmpty()) {
-                    Text("لا يوجد حساب عملة متاح لهذا الشخص.")
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
-    )
-}
+private fun formatAmount(amount: Long): String =
+    BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
 
 @Composable
 private fun AddPersonDialog(
