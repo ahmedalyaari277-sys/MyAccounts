@@ -36,8 +36,10 @@ object PersonReportPdfExporter {
 
         fun header(canvas: android.graphics.Canvas, yStart: Float): Float {
             var y = yStart
-            canvas.drawText("MyAccounts - تقرير حساب شخصي", right, y, titlePaint); y += 27f
+            canvas.drawText("تقرير حساب شخصي", right, y, titlePaint); y += 27f
             canvas.drawText("الاسم: ${summary.personName}", right, y, headingPaint); y += 20f
+            canvas.drawText("الهاتف: ${summary.phone.ifBlank { "غير مسجل" }}", right, y, textPaint); y += 18f
+            canvas.drawText("العنوان: ${summary.address.ifBlank { "غير مسجل" }}", right, y, textPaint); y += 18f
             canvas.drawText("العملة: ${currencyName(summary.currencyCode)}", right, y, textPaint); y += 18f
             canvas.drawText("الفترة: ${formatDateRange(startDateMillis, endDateMillisExclusive)}", right, y, textPaint); y += 18f
             canvas.drawText("تاريخ إصدار التقرير: ${formatDate(System.currentTimeMillis())}", right, y, textPaint); y += 18f
