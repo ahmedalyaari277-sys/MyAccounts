@@ -1,11 +1,14 @@
 package com.myaccounts.app.data.repository
 
+import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
+import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
 import kotlinx.coroutines.flow.Flow
 
 class TransactionRepository(
-    private val transactionDao: TransactionDao
+    private val transactionDao: TransactionDao,
+    private val attachmentDao: TransactionAttachmentDao
 ) : TransactionRepositoryContract {
 
     override suspend fun addTransaction(
@@ -78,5 +81,37 @@ class TransactionRepository(
         transactionDao.deleteTransactionByIdAndUpdateBalance(
             transactionId
         )
+    }
+
+    override fun observeAttachments(
+        transactionId: Long
+    ): Flow<List<TransactionAttachmentEntity>> {
+        return attachmentDao.observeAttachments(transactionId)
+    }
+
+    override fun observeAttachmentCount(
+        transactionId: Long
+    ): Flow<Int> {
+        return attachmentDao.observeAttachmentCount(transactionId)
+    }
+
+    override suspend fun getAttachments(
+        transactionId: Long
+    ): List<TransactionAttachmentEntity> {
+        return attachmentDao.getAttachments(transactionId)
+    }
+
+    override suspend fun addAttachments(
+        attachments: List<TransactionAttachmentEntity>
+    ) {
+        if (attachments.isNotEmpty()) {
+            attachmentDao.insertAttachments(attachments)
+        }
+    }
+
+    override suspend fun deleteAttachment(
+        attachment: TransactionAttachmentEntity
+    ) {
+        attachmentDao.deleteAttachment(attachment)
     }
 }
