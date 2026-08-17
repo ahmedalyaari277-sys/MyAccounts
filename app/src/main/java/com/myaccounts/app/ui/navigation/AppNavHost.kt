@@ -39,6 +39,14 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 personsList = persons,
                 onAddPerson = { name, phone, address, notes -> viewModel.addPerson(name, phone, address, notes) },
                 onPersonClick = { navController.navigate(Routes.personAccount(it)) },
+                onQuickTransactionClick = { personId, currencyCode ->
+                    persons.firstOrNull { it.person.id == personId }
+                        ?.accounts
+                        ?.firstOrNull { it.currencyCode == currencyCode }
+                        ?.let { account ->
+                            navController.navigate(Routes.transactions(account.id, account.currencyCode))
+                        }
+                },
                 onReportsClick = { navController.navigate(Routes.REPORTS) },
                 onArchiveClick = { navController.navigate(Routes.ARCHIVE) },
                 onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) }
