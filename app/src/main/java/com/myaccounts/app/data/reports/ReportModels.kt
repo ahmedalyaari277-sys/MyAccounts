@@ -34,7 +34,8 @@ data class PersonReportTransaction(
     val transactionDate: Long,
     val type: String,
     val amountMinor: Long,
-    val description: String
+    val description: String,
+    val balanceMinor: Long
 )
 
 data class PersonReportTransactionRow(
