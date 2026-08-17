@@ -22,11 +22,13 @@ class TransactionViewModelFactory(
 
             val repository =
                 TransactionRepository(
-                    database.transactionDao()
+                    database.transactionDao(),
+                    database.transactionAttachmentDao()
                 )
 
             return TransactionViewModel(
-                repository
+                repository,
+                application
             ) as T
         }
 
