@@ -32,6 +32,15 @@ object ReportShareUtil {
         Result.failure(exception)
     }
 
+    private fun candidatePrefixes(prefix: String): List<String> = buildList {
+        add(prefix)
+        val normalized = prefix.replace(" ", "_")
+        if (normalized != prefix) add(normalized)
+        if (normalized.contains("ملخص_تقرير_الأشخاص")) {
+            add(normalized.replace("ملخص_تقرير_الأشخاص", "ملخص_الأشخاص"))
+        }
+    }.distinct()
+
     private fun findLatestDownloadUri(context: Context, prefix: String): Uri? {
         val resolver = context.contentResolver
         val projection = arrayOf(
@@ -40,20 +49,21 @@ object ReportShareUtil {
             MediaStore.Downloads.DATE_ADDED
         )
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
-        val selectionArgs = arrayOf(
-            "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%",
-            "$prefix%"
-        )
-        resolver.query(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            projection,
-            selection,
-            selectionArgs,
-            "${MediaStore.Downloads.DATE_ADDED} DESC"
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                return ContentUrisCompat.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+        val downloadPath = "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%"
+
+        candidatePrefixes(prefix).forEach { candidate ->
+            val selectionArgs = arrayOf(downloadPath, "$candidate%")
+            resolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                "${MediaStore.Downloads.DATE_ADDED} DESC"
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                    return ContentUrisCompat.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+                }
             }
         }
         return null
@@ -61,8 +71,9 @@ object ReportShareUtil {
 
     private fun findLatestLegacyFile(context: Context, prefix: String): File? {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
+        val candidates = candidatePrefixes(prefix)
         return directory.listFiles()
-            ?.filter { it.isFile && it.name.startsWith(prefix) }
+            ?.filter { file -> file.isFile && candidates.any { file.name.startsWith(it) } }
             ?.maxByOrNull { it.lastModified() }
     }
 
