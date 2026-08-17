@@ -20,6 +20,8 @@ data class CurrencyReportSummary(
 data class PersonReportSummary(
     val personId: Long,
     val personName: String,
+    val phone: String = "",
+    val address: String = "",
     val currencyCode: String,
     val openingBalanceMinor: Long,
     val periodReceivableMinor: Long,
