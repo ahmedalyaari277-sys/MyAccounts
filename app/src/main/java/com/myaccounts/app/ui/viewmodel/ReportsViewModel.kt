@@ -6,6 +6,7 @@ import com.myaccounts.app.data.reports.CurrencyReportPersonRow
 import com.myaccounts.app.data.reports.CurrencyReportSummary
 import com.myaccounts.app.data.reports.PersonReportSummary
 import com.myaccounts.app.data.reports.PersonReportTransaction
+import com.myaccounts.app.data.reports.PersonReportTransactionRow
 import com.myaccounts.app.data.reports.ReportRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,8 @@ data class ReportsUiState(
     val currencySummary: CurrencyReportSummary? = null,
     val selectedPersonSummary: PersonReportSummary? = null,
     val selectedPersonTransactions: List<PersonReportTransaction> = emptyList(),
+    val selectedPersonTransactionRows: List<PersonReportTransactionRow> = emptyList(),
+    val selectedPersonOpeningBalanceMinor: Long = 0L,
     val selectedPersonId: Long? = null,
     val startDateMillis: Long? = null,
     val endDateMillisExclusive: Long? = null,
@@ -45,6 +48,8 @@ class ReportsViewModel(
             selectedPersonId = null,
             selectedPersonSummary = null,
             selectedPersonTransactions = emptyList(),
+            selectedPersonTransactionRows = emptyList(),
+            selectedPersonOpeningBalanceMinor = 0L,
             errorMessage = null
         )
         loadCurrencyReport()
@@ -109,6 +114,8 @@ class ReportsViewModel(
             selectedPersonId = personId,
             selectedPersonSummary = null,
             selectedPersonTransactions = emptyList(),
+            selectedPersonTransactionRows = emptyList(),
+            selectedPersonOpeningBalanceMinor = 0L,
             errorMessage = null
         )
         loadPersonReport()
@@ -155,15 +162,31 @@ class ReportsViewModel(
                     startDateMillis = startDateMillis,
                     endDateMillisExclusive = endDateMillisExclusive
                 )
-                val transactions = repository.getPersonReportTransactions(
+                val openingBalance = repository.getPersonOpeningBalance(
+                    personId = personId,
+                    currencyCode = currencyCode,
+                    startDateMillis = startDateMillis
+                )
+                val transactionRows = repository.getPersonReportTransactionRows(
                     personId = personId,
                     currencyCode = currencyCode,
                     startDateMillis = startDateMillis,
                     endDateMillisExclusive = endDateMillisExclusive
                 )
+                val transactions = transactionRows.map { row ->
+                    PersonReportTransaction(
+                        transactionId = row.transactionId,
+                        transactionDate = row.transactionDate,
+                        type = row.type,
+                        amountMinor = row.amountMinor,
+                        description = row.description
+                    )
+                }
                 _uiState.value = _uiState.value.copy(
                     selectedPersonSummary = summary,
                     selectedPersonTransactions = transactions,
+                    selectedPersonTransactionRows = transactionRows,
+                    selectedPersonOpeningBalanceMinor = openingBalance,
                     isLoading = false
                 )
             } catch (exception: Exception) {
