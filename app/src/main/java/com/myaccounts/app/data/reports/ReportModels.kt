@@ -37,6 +37,15 @@ data class PersonReportTransaction(
     val description: String
 )
 
+data class PersonReportTransactionRow(
+    val transactionId: Long,
+    val transactionDate: Long,
+    val type: String,
+    val amountMinor: Long,
+    val description: String,
+    val balanceMinor: Long
+)
+
 data class ReportDateRange(
     val startDateMillis: Long?,
     val endDateMillisExclusive: Long?
