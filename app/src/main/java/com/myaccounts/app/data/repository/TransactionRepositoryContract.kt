@@ -1,5 +1,6 @@
 package com.myaccounts.app.data.repository
 
+import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -39,5 +40,25 @@ interface TransactionRepositoryContract {
 
     suspend fun deleteTransactionById(
         transactionId: Long
+    )
+
+    fun observeAttachments(
+        transactionId: Long
+    ): Flow<List<TransactionAttachmentEntity>>
+
+    fun observeAttachmentCount(
+        transactionId: Long
+    ): Flow<Int>
+
+    suspend fun getAttachments(
+        transactionId: Long
+    ): List<TransactionAttachmentEntity>
+
+    suspend fun addAttachments(
+        attachments: List<TransactionAttachmentEntity>
+    )
+
+    suspend fun deleteAttachment(
+        attachment: TransactionAttachmentEntity
     )
 }
