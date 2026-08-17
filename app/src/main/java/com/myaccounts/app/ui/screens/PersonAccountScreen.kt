@@ -51,140 +51,69 @@ fun PersonAccountScreen(
         String
     ) -> Unit,
     onDeletePerson: () -> Unit,
-    onAccountClick: (Long) -> Unit
+    onAccountClick: (Long) -> Unit,
+    onReportClick: (String) -> Unit
 ) {
-    var showEditDialog by remember {
-        mutableStateOf(false)
-    }
-
-    var showDeleteDialog by remember {
-        mutableStateOf(false)
-    }
-
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val person = personWithAccounts.person
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = person.name,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text(text = person.name, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(
-                        onClick = onBack
-                    ) {
-                        Icon(
-                            imageVector =
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "رجوع"
-                        )
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع")
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            showEditDialog = true
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "تعديل"
-                        )
+                    IconButton(onClick = { showEditDialog = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "تعديل")
                     }
-
-                    IconButton(
-                        onClick = {
-                            showDeleteDialog = true
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "أرشفة"
-                        )
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "أرشفة")
                     }
                 }
             )
         }
     ) { paddingValues ->
-
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
         ) {
-
             if (person.phone.isNotBlank()) {
-                Text(
-                    text = "الهاتف: ${person.phone}",
-                    fontSize = 14.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(6.dp)
-                )
+                Text(text = "الهاتف: ${person.phone}", fontSize = 14.sp)
+                Spacer(Modifier.height(6.dp))
             }
-
             if (person.address.isNotBlank()) {
-                Text(
-                    text = "العنوان: ${person.address}",
-                    fontSize = 14.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(6.dp)
-                )
+                Text(text = "العنوان: ${person.address}", fontSize = 14.sp)
+                Spacer(Modifier.height(6.dp))
             }
-
             if (person.notes.isNotBlank()) {
-                Text(
-                    text = "الملاحظات: ${person.notes}",
-                    fontSize = 14.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(16.dp)
-                )
+                Text(text = "الملاحظات: ${person.notes}", fontSize = 14.sp)
+                Spacer(Modifier.height(16.dp))
             }
 
-            Text(
-                text = "الحسابات",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
+            Text(text = "الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
 
             CurrencyAccountCard(
-                account = account(
-                    personWithAccounts.accounts,
-                    "YER"
-                ),
+                account = account(personWithAccounts.accounts, "YER"),
                 currencyName = "الريال اليمني",
-                onClick = onAccountClick
+                onClick = onAccountClick,
+                onReportClick = { onReportClick("YER") }
             )
-
             CurrencyAccountCard(
-                account = account(
-                    personWithAccounts.accounts,
-                    "SAR"
-                ),
+                account = account(personWithAccounts.accounts, "SAR"),
                 currencyName = "الريال السعودي",
-                onClick = onAccountClick
+                onClick = onAccountClick,
+                onReportClick = { onReportClick("SAR") }
             )
-
             CurrencyAccountCard(
-                account = account(
-                    personWithAccounts.accounts,
-                    "USD"
-                ),
+                account = account(personWithAccounts.accounts, "USD"),
                 currencyName = "الدولار الأمريكي",
-                onClick = onAccountClick
+                onClick = onAccountClick,
+                onReportClick = { onReportClick("USD") }
             )
         }
     }
@@ -195,22 +124,9 @@ fun PersonAccountScreen(
             phone = person.phone,
             address = person.address,
             notes = person.notes,
-            onDismiss = {
-                showEditDialog = false
-            },
-            onSave = {
-                    name,
-                    phone,
-                    address,
-                    notes ->
-
-                onUpdatePerson(
-                    name,
-                    phone,
-                    address,
-                    notes
-                )
-
+            onDismiss = { showEditDialog = false },
+            onSave = { name, phone, address, notes ->
+                onUpdatePerson(name, phone, address, notes)
                 showEditDialog = false
             }
         )
@@ -218,144 +134,81 @@ fun PersonAccountScreen(
 
     if (showDeleteDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showDeleteDialog = false
-            },
-            title = {
-                Text("أرشفة الشخص")
-            },
-            text = {
-                Text(
-                    "هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي."
-                )
-            },
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("أرشفة الشخص") },
+            text = { Text("هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي.") },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteDialog = false
-                        onDeletePerson()
-                    }
-                ) {
-                    Text("أرشفة")
-                }
+                Button(onClick = {
+                    showDeleteDialog = false
+                    onDeletePerson()
+                }) { Text("أرشفة") }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("إلغاء")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("إلغاء") }
             }
         )
     }
 }
 
-private fun account(
-    accounts: List<CurrencyAccountEntity>,
-    currencyCode: String
-): CurrencyAccountEntity? {
-    return accounts.firstOrNull {
-        it.currencyCode == currencyCode
-    }
-}
+private fun account(accounts: List<CurrencyAccountEntity>, currencyCode: String): CurrencyAccountEntity? =
+    accounts.firstOrNull { it.currencyCode == currencyCode }
 
 @Composable
 private fun CurrencyAccountCard(
     account: CurrencyAccountEntity?,
     currencyName: String,
-    onClick: (Long) -> Unit
+    onClick: (Long) -> Unit,
+    onReportClick: () -> Unit
 ) {
-    val balanceMinor =
-        account?.balanceMinor ?: 0L
-
+    val balanceMinor = account?.balanceMinor ?: 0L
     val balanceColor = when {
-        balanceMinor > 0L ->
-            MaterialTheme.colorScheme.error
-        balanceMinor < 0L ->
-            MaterialTheme.colorScheme.secondary
-        else ->
-            MaterialTheme.colorScheme.onSurfaceVariant
+        balanceMinor > 0L -> MaterialTheme.colorScheme.error
+        balanceMinor < 0L -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .then(
-                if (account != null) {
-                    Modifier.clickable {
-                        onClick(account.id)
-                    }
-                } else {
-                    Modifier
-                }
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.surfaceVariant
-        )
+            .then(if (account != null) Modifier.clickable { onClick(account.id) } else Modifier),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            horizontalArrangement =
-                Arrangement.SpaceBetween
-        ) {
-            Column {
+        Column(Modifier.fillMaxWidth().padding(18.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(text = currencyName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(text = account?.currencyCode ?: "---", fontSize = 12.sp)
+                }
                 Text(
-                    text = currencyName,
+                    text = formatBalance(balanceMinor),
+                    color = balanceColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(4.dp)
-                )
-
-                Text(
-                    text = account?.currencyCode ?: "---",
-                    fontSize = 12.sp
+                    fontSize = 20.sp
                 )
             }
-
-            Text(
-                text = formatBalance(balanceMinor),
-                color = balanceColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onReportClick, modifier = Modifier.fillMaxWidth()) {
+                Text("إصدار التقرير")
+            }
         }
     }
 }
 
-private fun formatBalance(
-    balanceMinor: Long
-): String {
-
-    return when {
-        balanceMinor > 0L ->
-            "عليه ${formatAmount(balanceMinor)}"
-
-        balanceMinor < 0L ->
-            "له ${formatAmount(-balanceMinor)}"
-
-        else ->
-            "متوازن 0"
-    }
+private fun formatBalance(balanceMinor: Long): String = when {
+    balanceMinor > 0L -> "عليه ${formatAmount(balanceMinor)}"
+    balanceMinor < 0L -> "له ${formatAmount(-balanceMinor)}"
+    else -> "متوازن 0"
 }
 
-private fun formatAmount(
-    amountMinor: Long
-): String {
-
-    return BigDecimal(amountMinor)
-        .movePointLeft(2)
-        .stripTrailingZeros()
-        .toPlainString()
-}
+private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor)
+    .movePointLeft(2)
+    .stripTrailingZeros()
+    .toPlainString()
 
 @Composable
 private fun EditPersonDialog(
@@ -364,137 +217,62 @@ private fun EditPersonDialog(
     address: String,
     notes: String,
     onDismiss: () -> Unit,
-    onSave: (
-        String,
-        String,
-        String,
-        String
-    ) -> Unit
+    onSave: (String, String, String, String) -> Unit
 ) {
-    var editedName by remember {
-        mutableStateOf(name)
-    }
-
-    var editedPhone by remember {
-        mutableStateOf(phone)
-    }
-
-    var editedAddress by remember {
-        mutableStateOf(address)
-    }
-
-    var editedNotes by remember {
-        mutableStateOf(notes)
-    }
-
-    var nameError by remember {
-        mutableStateOf(false)
-    }
+    var editedName by remember { mutableStateOf(name) }
+    var editedPhone by remember { mutableStateOf(phone) }
+    var editedAddress by remember { mutableStateOf(address) }
+    var editedNotes by remember { mutableStateOf(notes) }
+    var nameError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("تعديل بيانات الشخص")
-        },
+        title = { Text("تعديل بيانات الشخص") },
         text = {
             Column {
-
                 OutlinedTextField(
                     value = editedName,
-                    onValueChange = {
-                        editedName = it
-                        nameError = false
-                    },
+                    onValueChange = { editedName = it; nameError = false },
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("الاسم")
-                    },
+                    label = { Text("الاسم") },
                     singleLine = true,
                     isError = nameError
                 )
-
-                if (nameError) {
-                    Text(
-                        text = "الاسم مطلوب",
-                        color =
-                            MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(
-                    modifier = Modifier.height(8.dp)
-                )
-
+                if (nameError) Text("الاسم مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = editedPhone,
-                    onValueChange = {
-                        editedPhone = it
-                    },
+                    onValueChange = { editedPhone = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("الهاتف")
-                    },
+                    label = { Text("الهاتف") },
                     singleLine = true
                 )
-
-                Spacer(
-                    modifier = Modifier.height(8.dp)
-                )
-
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = editedAddress,
-                    onValueChange = {
-                        editedAddress = it
-                    },
+                    onValueChange = { editedAddress = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("العنوان")
-                    }
+                    label = { Text("العنوان") }
                 )
-
-                Spacer(
-                    modifier = Modifier.height(8.dp)
-                )
-
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = editedNotes,
-                    onValueChange = {
-                        editedNotes = it
-                    },
+                    onValueChange = { editedNotes = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("الملاحظات")
-                    },
+                    label = { Text("الملاحظات") },
                     minLines = 2
                 )
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-
-                    if (editedName.isBlank()) {
-                        nameError = true
-                    } else {
-                        onSave(
-                            editedName.trim(),
-                            editedPhone.trim(),
-                            editedAddress.trim(),
-                            editedNotes.trim()
-                        )
-                    }
+            Button(onClick = {
+                if (editedName.isBlank()) {
+                    nameError = true
+                } else {
+                    onSave(editedName.trim(), editedPhone.trim(), editedAddress.trim(), editedNotes.trim())
                 }
-            ) {
-                Text("حفظ")
-            }
+            }) { Text("حفظ") }
         },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("إلغاء")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )
 }
