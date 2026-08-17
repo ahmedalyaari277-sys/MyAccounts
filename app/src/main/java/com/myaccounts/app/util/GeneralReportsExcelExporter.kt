@@ -176,7 +176,7 @@ object GeneralReportsExcelExporter {
     private fun formatDateRange(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(it - 1) } ?: "غير محدد"}"
     private fun firstToFirstRange(firstPayable: Long?, firstReceivable: Long?) = if (firstPayable == null && firstReceivable == null) "—" else "${firstPayable?.let(::formatDate) ?: "—"} - ${firstReceivable?.let(::formatDate) ?: "—"}"
     private fun lastToLastRange(lastPayable: Long?, lastReceivable: Long?) = if (lastPayable == null && lastReceivable == null) "—" else "${lastPayable?.let(::formatDate) ?: "—"} - ${lastReceivable?.let(::formatDate) ?: "—"}"
-    private fun safeFileName(value: String) = value.replace(Regex("[^A-Za-z0-9_-]+"), "_").take(50)
+    private fun safeFileName(value: String) = value.replace(Regex("[^\\p{L}\\p{N}_-]+"), "_").trim('_').take(80)
     private fun escape(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;").filter { it == '\n' || it == '\r' || it == '\t' || it >= ' ' }
     private const val XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 }
