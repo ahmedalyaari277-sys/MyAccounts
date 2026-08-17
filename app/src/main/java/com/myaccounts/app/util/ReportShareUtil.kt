@@ -25,9 +25,7 @@ object ReportShareUtil {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        val chooser = Intent.createChooser(intent, "مشاركة التقرير")
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
+        context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         Result.success(Unit)
     } catch (exception: Exception) {
         Result.failure(exception)
@@ -49,19 +47,27 @@ object ReportShareUtil {
     private fun findLatestDownloadUri(context: Context, prefix: String, extension: String): Uri? {
         val resolver = context.contentResolver
         val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED)
-        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
-        val downloadPath = "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%"
+        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
+        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
+        var latestId: Long? = null
+        var latestDate = Long.MIN_VALUE
+        val candidates = candidatePrefixes(prefix)
 
-        candidatePrefixes(prefix).forEach { candidate ->
-            val selectionArgs = arrayOf(downloadPath, "$candidate%$extension")
-            resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                    return Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id.toString())
+        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
+            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+            val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+            val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
+            while (cursor.moveToNext()) {
+                val name = cursor.getString(nameIndex) ?: continue
+                if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
+                val dateAdded = cursor.getLong(dateIndex)
+                if (dateAdded >= latestDate) {
+                    latestDate = dateAdded
+                    latestId = cursor.getLong(idIndex)
                 }
             }
         }
-        return null
+        return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
     }
 
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
