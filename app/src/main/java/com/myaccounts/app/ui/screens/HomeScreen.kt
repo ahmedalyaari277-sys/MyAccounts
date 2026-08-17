@@ -52,12 +52,14 @@ fun HomeScreen(
     personsList: List<PersonWithAccounts>,
     onAddPerson: (String, String, String, String) -> Unit,
     onPersonClick: (Long) -> Unit,
+    onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) },
     onReportsClick: () -> Unit = {},
     onArchiveClick: () -> Unit = {},
     onBackupRestoreClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
+    var quickTransactionPerson by remember { mutableStateOf<PersonWithAccounts?>(null) }
 
     val filteredList = personsList.filter { item ->
         item.person.name.contains(searchQuery, ignoreCase = true) ||
@@ -107,7 +109,11 @@ fun HomeScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(filteredList, key = { it.person.id }) { item ->
-                        PersonCard(item) { onPersonClick(item.person.id) }
+                        PersonCard(
+                            item,
+                            onClick = { onPersonClick(item.person.id) },
+                            onQuickTransaction = { quickTransactionPerson = item }
+                        )
                     }
                 }
             }
@@ -123,10 +129,26 @@ fun HomeScreen(
             }
         )
     }
+
+    quickTransactionPerson?.let { person ->
+        QuickTransactionCurrencyDialog(
+            personName = person.person.name,
+            availableCurrencies = person.accounts.map { it.currencyCode },
+            onDismiss = { quickTransactionPerson = null },
+            onCurrencySelected = { currencyCode ->
+                quickTransactionPerson = null
+                onQuickTransactionClick(person.person.id, currencyCode)
+            }
+        )
+    }
 }
 
 @Composable
-private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Unit) {
+private fun PersonCard(
+    personWithAccounts: PersonWithAccounts,
+    onClick: () -> Unit,
+    onQuickTransaction: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -135,9 +157,12 @@ private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Un
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(personWithAccounts.person.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     if (personWithAccounts.person.phone.isNotBlank()) Text(personWithAccounts.person.phone, fontSize = 13.sp)
+                }
+                IconButton(onClick = onQuickTransaction) {
+                    Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة")
                 }
             }
             if (personWithAccounts.person.address.isNotBlank()) {
@@ -170,6 +195,41 @@ private fun formatBalance(balanceMinor: Long): String = when {
 
 private fun formatAmount(amountMinor: Long): String =
     BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
+
+@Composable
+private fun QuickTransactionCurrencyDialog(
+    personName: String,
+    availableCurrencies: List<String>,
+    onDismiss: () -> Unit,
+    onCurrencySelected: (String) -> Unit
+) {
+    val currencies = listOf(
+        "YER" to "محلي / ريال يمني",
+        "SAR" to "سعودي / ريال سعودي",
+        "USD" to "دولار"
+    ).filter { (code, _) -> availableCurrencies.contains(code) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("إضافة عملية — $personName", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("اختر العملة")
+                currencies.forEach { (code, label) ->
+                    Button(
+                        onClick = { onCurrencySelected(code) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(label) }
+                }
+                if (currencies.isEmpty()) {
+                    Text("لا يوجد حساب عملة متاح لهذا الشخص.")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+    )
+}
 
 @Composable
 private fun AddPersonDialog(
