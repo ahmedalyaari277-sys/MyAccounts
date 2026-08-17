@@ -49,6 +49,7 @@ import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.util.PersonReportExcelExporter
 import com.myaccounts.app.util.PersonReportPdfExporter
+import com.myaccounts.app.util.ReportShareUtil
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -86,6 +87,21 @@ fun PersonReportScreen(
 
     val startDateMillis = uiState.startDateMillis
     val endDateMillisExclusive = uiState.endDateMillisExclusive
+
+    fun sharePersonReport() {
+        val summary = uiState.selectedPersonSummary ?: return
+        val prefix = "MyAccounts_Person_Report_${safeFileName(summary.personName)}_"
+        coroutineScope.launch {
+            val pdfResult = ReportShareUtil.shareLatestReport(context, prefix, "application/pdf")
+            if (pdfResult.isFailure) {
+                val excelResult = ReportShareUtil.shareLatestReport(context, prefix, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                excelResult.fold(
+                    onSuccess = { snackbarHostState.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
+                    onFailure = { snackbarHostState.showSnackbar("لم يتم العثور على تقرير صادر. صدّر التقرير PDF أو Excel أولاً.") }
+                )
+            }
+        }
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("تقرير حساب", fontWeight = FontWeight.Bold) }) },
@@ -179,6 +195,12 @@ fun PersonReportScreen(
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
                 ) { Text("Excel") }
+
+                OutlinedButton(
+                    onClick = { sharePersonReport() },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isLoading && uiState.selectedPersonSummary != null
+                ) { Text("مشاركة") }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -444,6 +466,7 @@ private fun currencyName(currencyCode: String): String = when (currencyCode) {
 
 private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun formatDate(millis: Long): String = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(millis))
+private fun safeFileName(value: String): String = value.replace(Regex("[\\\\/:*?\"<>|]"), "_").replace(Regex("\\s+"), "_").take(60).ifBlank { "Person" }
 
 private fun startOfDayMillis(millis: Long): Long = Calendar.getInstance().apply {
     timeInMillis = millis
