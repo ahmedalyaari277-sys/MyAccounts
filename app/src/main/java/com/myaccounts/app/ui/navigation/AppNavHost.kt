@@ -16,6 +16,7 @@ import com.myaccounts.app.ui.screens.ArchivedPersonDetailScreen
 import com.myaccounts.app.ui.screens.BackupRestoreScreen
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
+import com.myaccounts.app.ui.screens.QuickTransactionScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
 import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
@@ -39,18 +40,32 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 personsList = persons,
                 onAddPerson = { name, phone, address, notes -> viewModel.addPerson(name, phone, address, notes) },
                 onPersonClick = { navController.navigate(Routes.personAccount(it)) },
-                onQuickTransactionClick = { personId, currencyCode ->
-                    persons.firstOrNull { it.person.id == personId }
-                        ?.accounts
-                        ?.firstOrNull { it.currencyCode == currencyCode }
-                        ?.let { account ->
-                            navController.navigate(Routes.transactions(account.id, account.currencyCode))
-                        }
+                onQuickTransactionClick = { personId, _ ->
+                    navController.navigate(Routes.quickTransaction(personId))
                 },
                 onReportsClick = { navController.navigate(Routes.REPORTS) },
                 onArchiveClick = { navController.navigate(Routes.ARCHIVE) },
                 onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) }
             )
+        }
+
+        composable(
+            Routes.QUICK_TRANSACTION,
+            arguments = listOf(navArgument("personId") { type = NavType.LongType })
+        ) { entry ->
+            val personId = entry.arguments?.getLong("personId")
+            val person = persons.firstOrNull { it.person.id == personId }
+            if (person != null) {
+                QuickTransactionScreen(
+                    personName = person.person.name,
+                    accounts = person.accounts,
+                    onSave = { transaction ->
+                        transactionViewModel.addTransaction(transaction)
+                        navController.popBackStack()
+                    },
+                    onCancel = { navController.popBackStack() }
+                )
+            }
         }
 
         composable(Routes.PERSON_ACCOUNT, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
