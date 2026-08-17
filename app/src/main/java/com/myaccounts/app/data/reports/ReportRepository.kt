@@ -44,6 +44,18 @@ class ReportRepository(
         )
     }
 
+    suspend fun getPersonOpeningBalance(
+        personId: Long,
+        currencyCode: String,
+        startDateMillis: Long
+    ): Long {
+        return reportDao.getPersonOpeningBalance(
+            personId = personId,
+            currencyCode = currencyCode,
+            startDateMillis = startDateMillis
+        )
+    }
+
     suspend fun getPersonReportTransactions(
         personId: Long,
         currencyCode: String,
