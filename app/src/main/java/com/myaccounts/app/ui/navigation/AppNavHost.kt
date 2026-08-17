@@ -40,9 +40,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 personsList = persons,
                 onAddPerson = { name, phone, address, notes -> viewModel.addPerson(name, phone, address, notes) },
                 onPersonClick = { navController.navigate(Routes.personAccount(it)) },
-                onQuickTransactionClick = { personId, _ ->
-                    navController.navigate(Routes.quickTransaction(personId))
-                },
+                onQuickTransactionClick = { personId, _ -> navController.navigate(Routes.quickTransaction(personId)) },
                 onReportsClick = { navController.navigate(Routes.REPORTS) },
                 onArchiveClick = { navController.navigate(Routes.ARCHIVE) },
                 onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) }
@@ -68,7 +66,10 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
             }
         }
 
-        composable(Routes.PERSON_ACCOUNT, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
+        composable(
+            Routes.PERSON_ACCOUNT,
+            arguments = listOf(navArgument("personId") { type = NavType.LongType })
+        ) { entry ->
             val personId = entry.arguments?.getLong("personId")
             val person = persons.firstOrNull { it.person.id == personId }
             if (person != null) {
@@ -81,6 +82,9 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                         person.accounts.firstOrNull { it.id == accountId }?.let {
                             navController.navigate(Routes.transactions(it.id, it.currencyCode))
                         }
+                    },
+                    onReportClick = { selectedCurrencyCode ->
+                        navController.navigate(Routes.personReport(person.person.id, selectedCurrencyCode))
                     }
                 )
             }
