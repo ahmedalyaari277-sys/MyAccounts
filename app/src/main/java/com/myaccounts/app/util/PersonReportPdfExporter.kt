@@ -28,13 +28,7 @@ object PersonReportPdfExporter {
     private const val CONTENT_TOP = 42f
     private const val CONTENT_BOTTOM = 790f
 
-    fun exportPersonReport(
-        context: Context,
-        summary: PersonReportSummary,
-        transactions: List<PersonReportTransaction>,
-        startDateMillis: Long?,
-        endDateMillisExclusive: Long?
-    ): Result<String> = try {
+    fun exportPersonReport(context: Context, summary: PersonReportSummary, transactions: List<PersonReportTransaction>, startDateMillis: Long?, endDateMillisExclusive: Long?): Result<String> = try {
         val document = PdfDocument()
         val titlePaint = paint(20f, true, Color.rgb(25, 25, 25))
         val headingPaint = paint(13f, true, Color.rgb(35, 35, 35))
@@ -43,29 +37,26 @@ object PersonReportPdfExporter {
         val greenPaint = paint(10f, true, Color.rgb(0, 125, 70))
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(185, 185, 185); strokeWidth = 1f }
         val lightLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(225, 225, 225); strokeWidth = 1f }
-
         val chunks = if (transactions.isEmpty()) listOf(emptyList()) else transactions.chunked(18)
+
         chunks.forEachIndexed { pageIndex, chunk ->
             val page = document.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageIndex + 1).create())
             val canvas = page.canvas
             var y = drawHeader(canvas, summary, startDateMillis, endDateMillisExclusive, titlePaint, headingPaint, textPaint, linePaint)
-
             if (pageIndex == 0) {
-                canvas.drawText("ملخص الحساب", RIGHT, y, headingPaint)
-                y += 20f
+                canvas.drawText("ملخص الحساب", RIGHT, y, headingPaint); y += 20f
                 canvas.drawText("الرصيد الافتتاحي: ${balanceText(summary.openingBalanceMinor)}", RIGHT, y, textPaint); y += 17f
                 canvas.drawText("إجمالي عليه خلال الفترة: ${formatAmount(summary.periodReceivableMinor)}", RIGHT, y, redPaint); y += 17f
                 canvas.drawText("إجمالي له خلال الفترة: ${formatAmount(summary.periodPayableMinor)}", RIGHT, y, greenPaint); y += 17f
                 canvas.drawText("الرصيد الختامي: ${balanceText(summary.closingBalanceMinor)}", RIGHT, y, balancePaint(summary.closingBalanceMinor)); y += 24f
             }
-
             y = drawTableHeader(canvas, y, headingPaint, redPaint, greenPaint, linePaint)
             if (chunk.isEmpty()) {
                 canvas.drawText("لا توجد عمليات خلال الفترة المحددة.", RIGHT, y, textPaint)
             } else {
                 chunk.forEach { transaction ->
                     canvas.drawText(formatDate(transaction.transactionDate), 78f, y, textPaint)
-                    drawSingleLineRight(canvas, transaction.description.ifBlank { "—" }, 310f, 220f, textPaint)
+                    drawSingleLineRight(canvas, transaction.description.ifBlank { "—" }, 310f, y, 220f, textPaint)
                     canvas.drawText(if (transaction.type == "RECEIVABLE") formatAmount(transaction.amountMinor) else "—", 355f, y, if (transaction.type == "RECEIVABLE") redPaint else textPaint)
                     canvas.drawText(if (transaction.type == "PAYABLE") formatAmount(transaction.amountMinor) else "—", 450f, y, if (transaction.type == "PAYABLE") greenPaint else textPaint)
                     canvas.drawText(formatAmount(transaction.balanceMinor), 545f, y, balancePaint(transaction.balanceMinor))
@@ -80,25 +71,14 @@ object PersonReportPdfExporter {
 
         val fileName = "MyAccounts_Person_Report_${safeFileName(summary.personName)}_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.pdf"
         saveDocument(context, document, fileName)
-    } catch (exception: Exception) {
-        Result.failure(exception)
-    }
+    } catch (exception: Exception) { Result.failure(exception) }
 
-    private fun drawHeader(
-        canvas: Canvas,
-        summary: PersonReportSummary,
-        start: Long?,
-        end: Long?,
-        titlePaint: Paint,
-        headingPaint: Paint,
-        textPaint: Paint,
-        linePaint: Paint
-    ): Float {
+    private fun drawHeader(canvas: Canvas, summary: PersonReportSummary, start: Long?, end: Long?, titlePaint: Paint, headingPaint: Paint, textPaint: Paint, linePaint: Paint): Float {
         var y = CONTENT_TOP
         canvas.drawText("تقرير حساب شخصي", RIGHT, y, titlePaint); y += 27f
         canvas.drawText("الاسم: ${summary.personName}", RIGHT, y, headingPaint); y += 19f
         canvas.drawText("الهاتف: ${summary.phone.ifBlank { "غير مسجل" }}", RIGHT, y, textPaint); y += 17f
-        drawWrappedRight(canvas, "العنوان: ${summary.address.ifBlank { "غير مسجل" }}", RIGHT, y, 500f, textPaint).also { y = it + 2f }
+        y = drawWrappedRight(canvas, "العنوان: ${summary.address.ifBlank { "غير مسجل" }}", RIGHT, y, 500f, textPaint) + 2f
         canvas.drawText("العملة: ${currencyName(summary.currencyCode)}", RIGHT, y, textPaint); y += 17f
         canvas.drawText("الفترة: ${formatDateRange(start, end)}", RIGHT, y, textPaint); y += 17f
         canvas.drawText("تاريخ إصدار التقرير: ${formatDate(System.currentTimeMillis())}", RIGHT, y, textPaint); y += 17f
@@ -120,16 +100,14 @@ object PersonReportPdfExporter {
         return y + 19f
     }
 
-    private fun drawSingleLineRight(canvas: Canvas, value: String, right: Float, width: Float, paint: Paint) {
+    private fun drawSingleLineRight(canvas: Canvas, value: String, right: Float, y: Float, width: Float, paint: Paint) {
         val safe = if (paint.measureText(value) <= width) value else {
             var end = value.length
             while (end > 0 && paint.measureText("…" + value.substring(0, end)) > width) end--
             if (end > 0) "…" + value.substring(0, end) else "…"
         }
-        canvas.drawText(safe, right, canvas.currentY(), paint)
+        canvas.drawText(safe, right, y, paint)
     }
-
-    private fun Canvas.currentY(): Float = 0f
 
     private fun drawWrappedRight(canvas: Canvas, text: String, right: Float, yStart: Float, width: Float, paint: Paint): Float {
         var y = yStart
@@ -151,40 +129,29 @@ object PersonReportPdfExporter {
         canvas.drawText("صفحة $page من $total", RIGHT, CONTENT_BOTTOM + 17f, text)
     }
 
-    private fun saveDocument(context: Context, document: PdfDocument, fileName: String): Result<String> {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/MyAccounts")
-                    put(MediaStore.Downloads.IS_PENDING, 1)
-                }
-                val resolver = context.contentResolver
-                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: throw IllegalStateException("تعذر إنشاء ملف تقرير الشخص.")
-                try {
-                    resolver.openOutputStream(uri).use { output ->
-                        if (output == null) throw IllegalStateException("تعذر فتح ملف تقرير الشخص.")
-                        document.writeTo(output)
-                    }
-                    resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
-                } catch (e: Exception) {
-                    resolver.delete(uri, null, null)
-                    throw e
-                }
-                Result.success("تم حفظ تقرير الشخص في مجلد التنزيلات/MyAccounts")
-            } else {
-                val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
-                if (!directory.exists() && !directory.mkdirs()) throw IllegalStateException("تعذر إنشاء مجلد التقرير.")
-                val file = File(directory, fileName)
-                FileOutputStream(file).use { document.writeTo(it) }
-                Result.success(file.absolutePath)
+    private fun saveDocument(context: Context, document: PdfDocument, fileName: String): Result<String> = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/MyAccounts")
+                put(MediaStore.Downloads.IS_PENDING, 1)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: throw IllegalStateException("تعذر إنشاء ملف تقرير الشخص.")
+            try {
+                resolver.openOutputStream(uri).use { output -> if (output == null) throw IllegalStateException("تعذر فتح ملف تقرير الشخص."); document.writeTo(output) }
+                resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+            } catch (e: Exception) { resolver.delete(uri, null, null); throw e }
+            Result.success("تم حفظ تقرير الشخص في مجلد التنزيلات/MyAccounts")
+        } else {
+            val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
+            if (!directory.exists() && !directory.mkdirs()) throw IllegalStateException("تعذر إنشاء مجلد التقرير.")
+            val file = File(directory, fileName)
+            FileOutputStream(file).use { document.writeTo(it) }
+            Result.success(file.absolutePath)
         }
-    }
+    } catch (e: Exception) { Result.failure(e) }
 
     private fun paint(size: Float, bold: Boolean, color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = color
@@ -193,25 +160,9 @@ object PersonReportPdfExporter {
         typeface = Typeface.create("sans-serif", if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
 
-    private fun balancePaint(value: Long) = paint(10f, true, when {
-        value > 0L -> Color.rgb(190, 35, 35)
-        value < 0L -> Color.rgb(0, 125, 70)
-        else -> Color.DKGRAY
-    })
-
-    private fun balanceText(value: Long) = when {
-        value > 0L -> "${formatAmount(value)} (عليه)"
-        value < 0L -> "${formatAmount(-value)} (له)"
-        else -> "0 (متوازن)"
-    }
-
-    private fun currencyName(code: String) = when (code) {
-        "YER" -> "الريال اليمني"
-        "SAR" -> "الريال السعودي"
-        "USD" -> "الدولار الأمريكي"
-        else -> code
-    }
-
+    private fun balancePaint(value: Long) = paint(10f, true, when { value > 0L -> Color.rgb(190, 35, 35); value < 0L -> Color.rgb(0, 125, 70); else -> Color.DKGRAY })
+    private fun balanceText(value: Long) = when { value > 0L -> "${formatAmount(value)} (عليه)"; value < 0L -> "${formatAmount(-value)} (له)"; else -> "0 (متوازن)" }
+    private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
     private fun formatAmount(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun formatDate(value: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(value))
     private fun formatDateRange(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(addDays(it, -1)) } ?: "غير محدد"}"
