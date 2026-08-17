@@ -69,4 +69,18 @@ class ReportRepository(
             endDateMillisExclusive = endDateMillisExclusive
         )
     }
+
+    suspend fun getPersonReportTransactionRows(
+        personId: Long,
+        currencyCode: String,
+        startDateMillis: Long,
+        endDateMillisExclusive: Long
+    ): List<PersonReportTransactionRow> {
+        return reportDao.getPersonReportTransactionRows(
+            personId = personId,
+            currencyCode = currencyCode,
+            startDateMillis = startDateMillis,
+            endDateMillisExclusive = endDateMillisExclusive
+        )
+    }
 }
