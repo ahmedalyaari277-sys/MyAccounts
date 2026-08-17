@@ -46,6 +46,30 @@ data class PersonReportTransactionRow(
     val balanceMinor: Long
 )
 
+data class GeneralReportTransactionRow(
+    val transactionId: Long,
+    val transactionDate: Long,
+    val personName: String,
+    val currencyCode: String,
+    val description: String,
+    val type: String,
+    val amountMinor: Long
+)
+
+data class PersonCurrencySummaryRow(
+    val personId: Long,
+    val personName: String,
+    val currencyCode: String,
+    val totalReceivableMinor: Long,
+    val totalPayableMinor: Long,
+    val balanceMinor: Long,
+    val firstReceivableDate: Long?,
+    val lastReceivableDate: Long?,
+    val firstPayableDate: Long?,
+    val lastPayableDate: Long?,
+    val transactionCount: Int
+)
+
 data class ReportDateRange(
     val startDateMillis: Long?,
     val endDateMillisExclusive: Long?
