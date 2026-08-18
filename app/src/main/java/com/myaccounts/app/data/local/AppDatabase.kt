@@ -20,26 +20,18 @@ import com.myaccounts.app.data.reports.ReportDao
         TransactionEntity::class,
         TransactionAttachmentEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
-@TypeConverters(
-    TransactionConverters::class
-)
+@TypeConverters(TransactionConverters::class)
 abstract class AppDatabase : RoomDatabase() {
-
     abstract fun ledgerDao(): LedgerDao
-
     abstract fun transactionDao(): TransactionDao
-
     abstract fun transactionAttachmentDao(): TransactionAttachmentDao
-
     abstract fun reportDao(): ReportDao
 
     companion object {
-
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
+        @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -48,224 +40,83 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "myaccounts_database"
                 )
-                    .addMigrations(
-                        MIGRATION_1_2,
-                        MIGRATION_2_3,
-                        MIGRATION_3_4,
-                        MIGRATION_4_5
-                    )
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
-                    .also {
-                        INSTANCE = it
-                    }
+                    .also { INSTANCE = it }
             }
         }
 
-        private val MIGRATION_1_2 =
-            object : Migration(1, 2) {
-
-                override fun migrate(
-                    db: SupportSQLiteDatabase
-                ) {
-                    db.execSQL(
-                        """
-                        ALTER TABLE people
-                        ADD COLUMN notes TEXT NOT NULL DEFAULT ''
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        ALTER TABLE people
-                        ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1
-                        """.trimIndent()
-                    )
-                }
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE people ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE people ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
             }
+        }
 
-        private val MIGRATION_2_3 =
-            object : Migration(2, 3) {
-
-                override fun migrate(
-                    db: SupportSQLiteDatabase
-                ) {
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS currency_accounts (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                            personId INTEGER NOT NULL,
-                            currencyCode TEXT NOT NULL,
-                            balanceMinor INTEGER NOT NULL DEFAULT 0,
-                            createdAt INTEGER NOT NULL,
-                            updatedAt INTEGER NOT NULL,
-                            FOREIGN KEY(personId)
-                                REFERENCES people(id)
-                                ON UPDATE CASCADE
-                                ON DELETE CASCADE
-                        )
-                        """.trimIndent()
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS currency_accounts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        personId INTEGER NOT NULL,
+                        currencyCode TEXT NOT NULL,
+                        balanceMinor INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        FOREIGN KEY(personId) REFERENCES people(id) ON UPDATE CASCADE ON DELETE CASCADE
                     )
-
-                    db.execSQL(
-                        """
-                        CREATE INDEX IF NOT EXISTS
-                        index_currency_accounts_personId
-                        ON currency_accounts(personId)
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        CREATE UNIQUE INDEX IF NOT EXISTS
-                        index_currency_accounts_personId_currencyCode
-                        ON currency_accounts(personId, currencyCode)
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        INSERT INTO currency_accounts
-                        (
-                            personId,
-                            currencyCode,
-                            balanceMinor,
-                            createdAt,
-                            updatedAt
-                        )
-                        SELECT
-                            id,
-                            'YER',
-                            0,
-                            createdAt,
-                            createdAt
-                        FROM people
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        INSERT OR IGNORE INTO currency_accounts
-                        (
-                            personId,
-                            currencyCode,
-                            balanceMinor,
-                            createdAt,
-                            updatedAt
-                        )
-                        SELECT
-                            id,
-                            'SAR',
-                            0,
-                            createdAt,
-                            createdAt
-                        FROM people
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        INSERT OR IGNORE INTO currency_accounts
-                        (
-                            personId,
-                            currencyCode,
-                            balanceMinor,
-                            createdAt,
-                            updatedAt
-                        )
-                        SELECT
-                            id,
-                            'USD',
-                            0,
-                            createdAt,
-                            createdAt
-                        FROM people
-                        """.trimIndent()
-                    )
-                }
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_currency_accounts_personId ON currency_accounts(personId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_currency_accounts_personId_currencyCode ON currency_accounts(personId, currencyCode)")
+                db.execSQL("""INSERT INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'YER',0,createdAt,createdAt FROM people""")
+                db.execSQL("""INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'SAR',0,createdAt,createdAt FROM people""")
+                db.execSQL("""INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'USD',0,createdAt,createdAt FROM people""")
             }
+        }
 
-        private val MIGRATION_3_4 =
-            object : Migration(3, 4) {
-
-                override fun migrate(
-                    db: SupportSQLiteDatabase
-                ) {
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS transactions (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                            accountId INTEGER NOT NULL,
-                            type TEXT NOT NULL,
-                            amountMinor INTEGER NOT NULL,
-                            description TEXT NOT NULL,
-                            transactionDate INTEGER NOT NULL,
-                            createdAt INTEGER NOT NULL,
-                            FOREIGN KEY(accountId)
-                                REFERENCES currency_accounts(id)
-                                ON UPDATE CASCADE
-                                ON DELETE CASCADE
-                        )
-                        """.trimIndent()
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS transactions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        accountId INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        amountMinor INTEGER NOT NULL,
+                        description TEXT NOT NULL,
+                        transactionDate INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY(accountId) REFERENCES currency_accounts(id) ON UPDATE CASCADE ON DELETE CASCADE
                     )
-
-                    db.execSQL(
-                        """
-                        CREATE INDEX IF NOT EXISTS
-                        index_transactions_accountId
-                        ON transactions(accountId)
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        CREATE INDEX IF NOT EXISTS
-                        index_transactions_transactionDate
-                        ON transactions(transactionDate)
-                        """.trimIndent()
-                    )
-
-                    db.execSQL(
-                        """
-                        CREATE INDEX IF NOT EXISTS
-                        index_transactions_type
-                        ON transactions(type)
-                        """.trimIndent()
-                    )
-                }
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_accountId ON transactions(accountId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_transactionDate ON transactions(transactionDate)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_type ON transactions(type)")
             }
+        }
 
-        private val MIGRATION_4_5 =
-            object : Migration(4, 5) {
-
-                override fun migrate(
-                    db: SupportSQLiteDatabase
-                ) {
-                    db.execSQL(
-                        """
-                        CREATE TABLE IF NOT EXISTS transaction_attachments (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                            transactionId INTEGER NOT NULL,
-                            fileName TEXT NOT NULL,
-                            mimeType TEXT NOT NULL,
-                            relativePath TEXT NOT NULL,
-                            sizeBytes INTEGER NOT NULL,
-                            createdAt INTEGER NOT NULL,
-                            FOREIGN KEY(transactionId)
-                                REFERENCES transactions(id)
-                                ON UPDATE CASCADE
-                                ON DELETE CASCADE
-                        )
-                        """.trimIndent()
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS transaction_attachments (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        transactionId INTEGER NOT NULL,
+                        fileName TEXT NOT NULL,
+                        mimeType TEXT NOT NULL,
+                        relativePath TEXT NOT NULL,
+                        sizeBytes INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY(transactionId) REFERENCES transactions(id) ON UPDATE CASCADE ON DELETE CASCADE
                     )
-
-                    db.execSQL(
-                        """
-                        CREATE INDEX IF NOT EXISTS
-                        index_transaction_attachments_transactionId
-                        ON transaction_attachments(transactionId)
-                        """.trimIndent()
-                    )
-                }
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transaction_attachments_transactionId ON transaction_attachments(transactionId)")
             }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_isArchived ON transactions(isArchived)")
+            }
+        }
     }
 }
