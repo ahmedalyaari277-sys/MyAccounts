@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -87,7 +88,7 @@ fun PersonAccountScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -97,7 +98,7 @@ fun PersonAccountScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text(
                         text = person.name,
-                        fontSize = 21.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -105,23 +106,23 @@ fun PersonAccountScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = "الهاتف: ${person.phone}",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (person.address.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(5.dp))
                         Text(
                             text = "العنوان: ${person.address}",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (person.notes.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(5.dp))
                         Text(
                             text = "الملاحظات: ${person.notes}",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -131,7 +132,7 @@ fun PersonAccountScreen(
             Spacer(Modifier.height(18.dp))
             Text(
                 text = "الحسابات",
-                fontSize = 20.sp,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -219,34 +220,47 @@ private fun CurrencyAccountCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = currencyName,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         text = account?.currencyCode ?: "غير متاح",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = formatBalance(balanceMinor),
-                    color = balanceColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 19.sp
-                )
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                    Text(
+                        text = formatBalance(balanceMinor),
+                        color = balanceColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    if (balanceMinor != 0L) {
+                        Text(
+                            text = if (balanceMinor > 0L) "+${formatAmount(balanceMinor)}" else "-${formatAmount(-balanceMinor)}",
+                            color = balanceColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
-            Spacer(Modifier.height(6.dp))
-            TextButton(onClick = onReportClick, modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onReportClick,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = account != null
+            ) {
                 Text("إصدار التقرير", fontWeight = FontWeight.Bold)
             }
         }
@@ -254,9 +268,9 @@ private fun CurrencyAccountCard(
 }
 
 private fun formatBalance(balanceMinor: Long): String = when {
-    balanceMinor > 0L -> "عليه ${formatAmount(balanceMinor)}"
-    balanceMinor < 0L -> "له ${formatAmount(-balanceMinor)}"
-    else -> "متوازن 0"
+    balanceMinor > 0L -> "عليه"
+    balanceMinor < 0L -> "له"
+    else -> "متوازن"
 }
 
 private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor)
