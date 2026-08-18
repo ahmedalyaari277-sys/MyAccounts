@@ -1,6 +1,7 @@
 package com.myaccounts.app.util
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.myaccounts.app.data.local.AppDatabase
@@ -21,6 +22,8 @@ object DatabaseBackupManager {
     private const val BACKUP_TYPE = "myaccounts_full_backup"
     private const val DATABASE_ENTRY = "backup.json"
     private const val FILES_PREFIX = "files/"
+    private const val PREFS_NAME = "myaccounts_backup_preferences"
+    private const val LAST_BACKUP_URI_KEY = "last_backup_uri"
 
     fun suggestedFileName(): String {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -38,6 +41,31 @@ object DatabaseBackupManager {
                 addAttachmentFiles(context, sqlite, zip)
             }
         } ?: error("تعذر فتح ملف النسخة الاحتياطية للكتابة.")
+        rememberLastBackupUri(context, uri)
+    }
+
+    fun shareLastBackup(context: Context): Result<Unit> = try {
+        val uriString = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(LAST_BACKUP_URI_KEY, null)
+            ?: throw IllegalStateException("لا توجد نسخة احتياطية محفوظة للمشاركة. أنشئ نسخة احتياطية أولاً.")
+        val uri = Uri.parse(uriString)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية من دفتر الحسابات")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "مشاركة النسخة الاحتياطية").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        Result.success(Unit)
+    } catch (exception: Exception) {
+        Result.failure(exception)
+    }
+
+    private fun rememberLastBackupUri(context: Context, uri: Uri) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(LAST_BACKUP_URI_KEY, uri.toString())
+            .apply()
     }
 
     suspend fun restoreBackup(context: Context, uri: Uri): Result<Unit> = runCatching {
@@ -207,7 +235,7 @@ object DatabaseBackupManager {
         val people = backup.getJSONArray("people")
         for (i in 0 until people.length()) { val p = people.getJSONObject(i); db.execSQL("INSERT INTO people (id,name,phone,address,notes,createdAt,isActive) VALUES (?,?,?,?,?,?,?)", arrayOf(p.getLong("id"),p.getString("name"),p.optString("phone"),p.optString("address"),p.optString("notes"),p.getLong("createdAt"),if(p.getBoolean("isActive"))1 else 0)) }
         val accounts = backup.getJSONArray("currencyAccounts")
-        for (i in 0 until accounts.length()) { val a=accounts.getJSONObject(i); db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",arrayOf(a.getLong("id"),a.getLong("personId"),a.getString("currencyCode"),a.getLong("balanceMinor"),a.getLong("createdAt"),a.getLong("updatedAt"))) }
+        for (i in 0 until accounts.length()) { val a=accounts.getJSONObject(i); db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",arrayOf(a.getLong("id"),a.getLong("personId"),a.getString("currencyCode"),a.getLong(3),a.getLong("createdAt"),a.getLong("updatedAt"))) }
         val transactions = backup.getJSONArray("transactions")
         for (i in 0 until transactions.length()) {
             val t=transactions.getJSONObject(i)
