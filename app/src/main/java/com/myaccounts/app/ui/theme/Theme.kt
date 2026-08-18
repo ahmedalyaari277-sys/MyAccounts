@@ -1,6 +1,5 @@
 package com.myaccounts.app.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -25,12 +24,12 @@ private val RedError = Color(0xFFB3261E)
 private val RedErrorContainer = Color(0xFFF9DEDC)
 private val RedOnErrorContainer = Color(0xFF410E0B)
 
-private val LightBackground = Color(0xFFF8F9FC)
-private val LightOnBackground = Color(0xFF191C20)
-private val LightSurface = Color(0xFFF8F9FC)
-private val LightOnSurface = Color(0xFF191C20)
-private val LightSurfaceVariant = Color(0xFFE1E5EC)
-private val LightOnSurfaceVariant = Color(0xFF43474E)
+private val LightBackground = Color(0xFFF5F7FA)
+private val LightOnBackground = Color(0xFF171A1F)
+private val LightSurface = Color(0xFFFFFFFF)
+private val LightOnSurface = Color(0xFF171A1F)
+private val LightSurfaceVariant = Color(0xFFE8EDF3)
+private val LightOnSurfaceVariant = Color(0xFF3F464F)
 
 private val NavyPrimaryDark = Color(0xFFA8C7E8)
 private val NavyOnPrimaryDark = Color(0xFF073353)
@@ -110,14 +109,10 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun MyAccountsTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) {
-        DarkColorScheme
-    } else {
-        LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     CompositionLocalProvider(
         androidx.compose.ui.platform.LocalLayoutDirection provides LayoutDirection.Rtl
