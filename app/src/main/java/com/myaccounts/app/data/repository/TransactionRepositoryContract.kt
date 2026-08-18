@@ -2,6 +2,7 @@ package com.myaccounts.app.data.repository
 
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
+import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
 import kotlinx.coroutines.flow.Flow
 
 interface TransactionRepositoryContract {
@@ -9,6 +10,7 @@ interface TransactionRepositoryContract {
     suspend fun updateTransaction(transaction: TransactionEntity)
     fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>>
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
+    fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
     suspend fun getTransactions(accountId: Long): List<TransactionEntity>
     suspend fun getTransaction(transactionId: Long): TransactionEntity?
     fun observeBalance(accountId: Long): Flow<Long>
