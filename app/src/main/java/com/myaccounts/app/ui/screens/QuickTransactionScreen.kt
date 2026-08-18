@@ -63,8 +63,8 @@ fun QuickTransactionScreen(
     }
 
     val currencyLabels = mapOf(
-        "YER" to "محلي / ريال يمني",
-        "SAR" to "سعودي / ريال سعودي",
+        "YER" to "ريال يمني",
+        "SAR" to "ريال سعودي",
         "USD" to "دولار"
     )
 
@@ -73,25 +73,30 @@ fun QuickTransactionScreen(
     }
 
     Column(
-        modifier = Modifier.padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = "إضافة عملية — $personName",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
 
         Text("العملة", fontWeight = FontWeight.Bold)
-        accounts.sortedBy { it.currencyCode }.forEach { account ->
-            FilterChip(
-                selected = selectedCurrency == account.currencyCode,
-                onClick = { selectedCurrency = account.currencyCode },
-                label = {
-                    Text(currencyLabels[account.currencyCode] ?: account.currencyCode)
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            accounts.sortedBy { it.currencyCode }.forEach { account ->
+                FilterChip(
+                    selected = selectedCurrency == account.currencyCode,
+                    onClick = { selectedCurrency = account.currencyCode },
+                    label = {
+                        Text(currencyLabels[account.currencyCode] ?: account.currencyCode)
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         Text("نوع العملية", fontWeight = FontWeight.Bold)
@@ -139,7 +144,8 @@ fun QuickTransactionScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("البيان") },
             placeholder = { Text("مثال: شراء بضاعة") },
-            minLines = 2
+            minLines = 2,
+            maxLines = 3
         )
 
         OutlinedTextField(
@@ -178,7 +184,7 @@ fun QuickTransactionScreen(
             onAttachmentsChanged = { attachments = it }
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
