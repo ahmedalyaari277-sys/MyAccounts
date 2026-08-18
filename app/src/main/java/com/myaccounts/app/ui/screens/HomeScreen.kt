@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,11 +71,18 @@ fun HomeScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("دفتر الحسابات", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary
+                ),
                 actions = {
-                    TextButton(onClick = onReportsClick) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = onReportsClick) {
+                        Text("التقارير", fontWeight = FontWeight.Bold)
+                    }
                     IconButton(onClick = onBackupRestoreClick) {
                         Icon(Icons.Default.Backup, contentDescription = "النسخ الاحتياطي والاستعادة")
                     }
@@ -81,39 +91,66 @@ fun HomeScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
-            }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("بحث بالاسم أو الهاتف أو العنوان أو الملاحظات") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
-                singleLine = true
-            )
-            Spacer(Modifier.height(16.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("بحث بالاسم أو الهاتف أو العنوان أو الملاحظات") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
+                    singleLine = true
+                )
+                Spacer(Modifier.height(16.dp))
 
-            if (filteredList.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(if (searchQuery.isBlank()) "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص" else "لا توجد نتائج للبحث")
-                }
-            } else {
-                LazyColumn(Modifier.fillMaxSize()) {
-                    items(filteredList, key = { it.person.id }) { item ->
-                        PersonCard(
-                            item,
-                            onClick = { onPersonClick(item.person.id) },
-                            onQuickTransaction = { onQuickTransactionClick(item.person.id, "") }
+                if (filteredList.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (searchQuery.isBlank()) "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
+                            else "لا توجد نتائج للبحث",
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filteredList, key = { it.person.id }) { item ->
+                            PersonCard(
+                                item,
+                                onClick = { onPersonClick(item.person.id) },
+                                onQuickTransaction = {
+                                    onQuickTransactionClick(item.person.id, "")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
                 }
             }
         }
@@ -137,27 +174,56 @@ private fun PersonCard(
     onQuickTransaction: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(personWithAccounts.person.name, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                    if (personWithAccounts.person.phone.isNotBlank()) Text(personWithAccounts.person.phone, fontSize = 13.sp)
+                    Text(
+                        personWithAccounts.person.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (personWithAccounts.person.phone.isNotBlank()) {
+                        Text(
+                            personWithAccounts.person.phone,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 IconButton(onClick = onQuickTransaction) {
-                    Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "إضافة عملية سريعة",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
             if (personWithAccounts.person.address.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
-                Text("العنوان: ${personWithAccounts.person.address}", fontSize = 13.sp)
+                Text(
+                    "العنوان: ${personWithAccounts.person.address}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 CurrencyLabel("ريال يمني", personWithAccounts.balance("YER"))
                 CurrencyLabel("ريال سعودي", personWithAccounts.balance("SAR"))
                 CurrencyLabel("دولار", personWithAccounts.balance("USD"))
@@ -171,7 +237,25 @@ private fun PersonWithAccounts.balance(currencyCode: String): Long =
 
 @Composable
 private fun CurrencyLabel(currency: String, balance: Long) {
-    Text("$currency\n${formatBalance(balance)}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    val balanceColor = when {
+        balance > 0L -> MaterialTheme.colorScheme.error
+        balance < 0L -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            currency,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            formatBalance(balance),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = balanceColor
+        )
+    }
 }
 
 private fun formatBalance(balance: Long): String = when {
@@ -207,13 +291,35 @@ private fun AddPersonDialog(
                     singleLine = true,
                     isError = nameError
                 )
-                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                if (nameError) Text(
+                    "اسم الشخص مطلوب",
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp
+                )
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true)
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("رقم الهاتف") },
+                    singleLine = true
+                )
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = address, onValueChange = { address = it }, modifier = Modifier.fillMaxWidth(), label = { Text("العنوان") }, minLines = 2)
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("العنوان") },
+                    minLines = 2
+                )
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2)
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("الملاحظات") },
+                    minLines = 2
+                )
             }
         },
         confirmButton = {
