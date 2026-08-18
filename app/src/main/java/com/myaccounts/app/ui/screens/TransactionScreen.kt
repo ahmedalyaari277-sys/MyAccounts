@@ -49,7 +49,6 @@ import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.util.TransactionAttachmentStorage
-import kotlinx.coroutines.flow.flowOf
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
@@ -199,15 +198,15 @@ fun TransactionScreen(
     transactionToDelete?.let { transaction ->
         AlertDialog(
             onDismissRequest = { transactionToDelete = null },
-            title = { Text("حذف العملية") },
-            text = { Text("هل أنت متأكد من حذف هذه العملية ومرفقاتها؟") },
+            title = { Text("أرشفة العملية") },
+            text = { Text("هل أنت متأكد من أرشفة هذه العملية ومرفقاتها؟ يمكنك استعادتها لاحقًا من الأرشيف.") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         transactionViewModel.deleteTransactionById(transaction.id)
                         transactionToDelete = null
                     }
-                ) { Text("حذف") }
+                ) { Text("أرشفة") }
             },
             dismissButton = {
                 TextButton(onClick = { transactionToDelete = null }) {
@@ -504,7 +503,7 @@ private fun TransactionItem(
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "حذف العملية"
+                        contentDescription = "أرشفة العملية"
                     )
                 }
             }
