@@ -26,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,12 +45,7 @@ import java.math.BigDecimal
 fun PersonAccountScreen(
     personWithAccounts: PersonWithAccounts,
     onBack: () -> Unit,
-    onUpdatePerson: (
-        String,
-        String,
-        String,
-        String
-    ) -> Unit,
+    onUpdatePerson: (String, String, String, String) -> Unit,
     onDeletePerson: () -> Unit,
     onAccountClick: (Long) -> Unit,
     onReportClick: (String) -> Unit
@@ -59,9 +55,14 @@ fun PersonAccountScreen(
     val person = personWithAccounts.person
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text(text = person.name, fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع")
@@ -72,30 +73,69 @@ fun PersonAccountScreen(
                         Icon(Icons.Default.Edit, contentDescription = "تعديل")
                     }
                     IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "أرشفة")
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "أرشفة",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             )
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
         ) {
-            if (person.phone.isNotBlank()) {
-                Text(text = "الهاتف: ${person.phone}", fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-            }
-            if (person.address.isNotBlank()) {
-                Text(text = "العنوان: ${person.address}", fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-            }
-            if (person.notes.isNotBlank()) {
-                Text(text = "الملاحظات: ${person.notes}", fontSize = 14.sp)
-                Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        text = person.name,
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (person.phone.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "الهاتف: ${person.phone}",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (person.address.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "العنوان: ${person.address}",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (person.notes.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "الملاحظات: ${person.notes}",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
-            Text(text = "الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = "الحسابات",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(8.dp))
 
             CurrencyAccountCard(
                 account = account(personWithAccounts.accounts, "YER"),
@@ -136,7 +176,9 @@ fun PersonAccountScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("أرشفة الشخص") },
-            text = { Text("هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي.") },
+            text = {
+                Text("هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي.")
+            },
             confirmButton = {
                 Button(onClick = {
                     showDeleteDialog = false
@@ -150,8 +192,10 @@ fun PersonAccountScreen(
     }
 }
 
-private fun account(accounts: List<CurrencyAccountEntity>, currencyCode: String): CurrencyAccountEntity? =
-    accounts.firstOrNull { it.currencyCode == currencyCode }
+private fun account(
+    accounts: List<CurrencyAccountEntity>,
+    currencyCode: String
+): CurrencyAccountEntity? = accounts.firstOrNull { it.currencyCode == currencyCode }
 
 @Composable
 private fun CurrencyAccountCard(
@@ -170,30 +214,40 @@ private fun CurrencyAccountCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
+            .padding(vertical = 5.dp)
             .then(if (account != null) Modifier.clickable { onClick(account.id) } else Modifier),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.fillMaxWidth().padding(18.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(text = currencyName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        text = currencyName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Spacer(Modifier.height(4.dp))
-                    Text(text = account?.currencyCode ?: "---", fontSize = 12.sp)
+                    Text(
+                        text = account?.currencyCode ?: "غير متاح",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Text(
                     text = formatBalance(balanceMinor),
                     color = balanceColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
+                    fontSize = 19.sp
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             TextButton(onClick = onReportClick, modifier = Modifier.fillMaxWidth()) {
-                Text("إصدار التقرير")
+                Text("إصدار التقرير", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -238,7 +292,11 @@ private fun EditPersonDialog(
                     singleLine = true,
                     isError = nameError
                 )
-                if (nameError) Text("الاسم مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                if (nameError) Text(
+                    "الاسم مطلوب",
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp
+                )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = editedPhone,
@@ -269,7 +327,12 @@ private fun EditPersonDialog(
                 if (editedName.isBlank()) {
                     nameError = true
                 } else {
-                    onSave(editedName.trim(), editedPhone.trim(), editedAddress.trim(), editedNotes.trim())
+                    onSave(
+                        editedName.trim(),
+                        editedPhone.trim(),
+                        editedAddress.trim(),
+                        editedNotes.trim()
+                    )
                 }
             }) { Text("حفظ") }
         },
