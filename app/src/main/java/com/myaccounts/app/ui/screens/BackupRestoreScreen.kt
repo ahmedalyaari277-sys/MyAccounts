@@ -3,6 +3,7 @@ package com.myaccounts.app.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Patterns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -45,11 +48,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.util.DatabaseBackupManager
+import com.myaccounts.app.util.ManualSyncManager
 import kotlinx.coroutines.launch
 
 private const val BACKUP_PREFS = "myaccounts_backup_preferences"
 private const val LAST_BACKUP_URI = "last_backup_uri"
 private const val BACKUP_EMAIL = "backup_email"
+private const val SYNC_FOLDER_URI = "sync_folder_uri"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,11 +69,8 @@ fun BackupRestoreScreen(
     var message by remember { mutableStateOf<String?>(null) }
     var email by remember { mutableStateOf(preferences.getString(BACKUP_EMAIL, "") ?: "") }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
-    var lastBackupUri by remember {
-        mutableStateOf(
-            preferences.getString(LAST_BACKUP_URI, null)?.let(Uri::parse)
-        )
-    }
+    var lastBackupUri by remember { mutableStateOf(preferences.getString(LAST_BACKUP_URI, null)?.let(Uri::parse)) }
+    var syncFolderUri by remember { mutableStateOf(preferences.getString(SYNC_FOLDER_URI, null)?.let(Uri::parse)) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -82,10 +84,28 @@ fun BackupRestoreScreen(
                     onSuccess = {
                         lastBackupUri = uri
                         preferences.edit().putString(LAST_BACKUP_URI, uri.toString()).apply()
-                        message = "تم إنشاء النسخة الاحتياطية الكاملة بنجاح، وتشمل البيانات والمرفقات. يمكنك الآن مشاركتها أو إرسالها يدويًا إلى البريد الإلكتروني."
+                        message = "تم إنشاء النسخة الاحتياطية الكاملة بنجاح، وتشمل البيانات والمرفقات."
                     },
                     onFailure = { message = "تعذر إنشاء النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}" }
                 )
+            }
+        }
+    }
+
+    val syncFolderLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                syncFolderUri = uri
+                preferences.edit().putString(SYNC_FOLDER_URI, uri.toString()).apply()
+                message = "تم حفظ مجلد المزامنة. يمكنك اختيار مجلد داخل Google Drive ثم الضغط على مزامنة الآن."
+            } catch (exception: Exception) {
+                message = "تعذر حفظ صلاحية مجلد المزامنة: ${exception.message ?: "خطأ غير معروف"}"
             }
         }
     }
@@ -94,6 +114,27 @@ fun BackupRestoreScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) pendingRestoreUri = uri
+    }
+
+    fun syncNow() {
+        val folderUri = syncFolderUri
+        if (folderUri == null) {
+            message = "اختر مجلد المزامنة أولاً. يمكنك اختيار مجلد داخل Google Drive أو أي مساحة تخزين متاحة."
+            return
+        }
+        busy = true
+        scope.launch {
+            val result = ManualSyncManager.syncToFolder(context, folderUri)
+            busy = false
+            result.fold(
+                onSuccess = { uri ->
+                    lastBackupUri = uri
+                    preferences.edit().putString(LAST_BACKUP_URI, uri.toString()).apply()
+                    message = "تمت المزامنة اليدوية بنجاح وإنشاء نسخة جديدة داخل مجلد المزامنة."
+                },
+                onFailure = { error -> message = "تعذرت المزامنة: ${error.message ?: "خطأ غير معروف"}" }
+            )
+        }
     }
 
     fun shareBackup() {
@@ -122,7 +163,7 @@ fun BackupRestoreScreen(
             message = "أنشئ نسخة احتياطية أولاً قبل إرسالها إلى البريد الإلكتروني."
             return
         }
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
+        if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
             message = "أدخل عنوان بريد إلكتروني صحيحًا."
             return
         }
@@ -144,14 +185,14 @@ fun BackupRestoreScreen(
 
     LaunchedEffect(Unit) {
         if (lastBackupUri != null) {
-            snackbarHostState.showSnackbar("يمكنك مشاركة أو إرسال آخر نسخة احتياطية يدويًا.")
+            snackbarHostState.showSnackbar("يمكنك إنشاء نسخة جديدة أو مزامنتها يدويًا أو إرسالها بالبريد.")
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("النسخ الاحتياطي والاستعادة") },
+                title = { Text("النسخ الاحتياطي والمزامنة") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع")
@@ -175,24 +216,22 @@ fun BackupRestoreScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("البريد الإلكتروني") },
+                label = { Text("البريد الإلكتروني (اختياري)") },
                 placeholder = { Text("example@email.com") },
-                supportingText = { Text("اختياري — يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
+                supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
             )
 
             Spacer(Modifier.height(12.dp))
 
             Button(
-                onClick = {
-                    createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName())
-                },
+                onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -204,13 +243,23 @@ fun BackupRestoreScreen(
             Spacer(Modifier.height(10.dp))
 
             OutlinedButton(
-                onClick = { shareBackup() },
-                enabled = !busy && lastBackupUri != null,
+                onClick = { syncNow() },
+                enabled = !busy && syncFolderUri != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Share, null)
+                Icon(Icons.Default.CloudUpload, null)
                 Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("مشاركة النسخة الاحتياطية")
+                Text("مزامنة الآن")
+            }
+
+            OutlinedButton(
+                onClick = { syncFolderLauncher.launch(null) },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Folder, null)
+                Spacer(Modifier.padding(horizontal = 4.dp))
+                Text(if (syncFolderUri == null) "اختيار مجلد المزامنة" else "تغيير مجلد المزامنة")
             }
 
             Spacer(Modifier.height(10.dp))
@@ -225,12 +274,18 @@ fun BackupRestoreScreen(
                 Text("إرسال النسخة الاحتياطية بالبريد")
             }
 
-            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = { shareBackup() },
+                enabled = !busy && lastBackupUri != null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Share, null)
+                Spacer(Modifier.padding(horizontal = 4.dp))
+                Text("مشاركة النسخة الاحتياطية")
+            }
 
             OutlinedButton(
-                onClick = {
-                    openDocumentLauncher.launch(arrayOf("*/*"))
-                },
+                onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -240,7 +295,7 @@ fun BackupRestoreScreen(
             }
 
             if (busy) {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(18.dp))
                 CircularProgressIndicator()
             }
         }
@@ -250,9 +305,7 @@ fun BackupRestoreScreen(
         AlertDialog(
             onDismissRequest = { pendingRestoreUri = null },
             title = { Text("تأكيد الاستعادة") },
-            text = {
-                Text("سيتم استبدال البيانات الحالية بالبيانات الموجودة في النسخة الاحتياطية، بما فيها المرفقات. هل تريد المتابعة؟")
-            },
+            text = { Text("سيتم استبدال البيانات الحالية بالبيانات الموجودة في النسخة الاحتياطية، بما فيها المرفقات. هل تريد المتابعة؟") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -269,9 +322,7 @@ fun BackupRestoreScreen(
                     }
                 ) { Text("استعادة") }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingRestoreUri = null }) { Text("إلغاء") }
-            }
+            dismissButton = { TextButton(onClick = { pendingRestoreUri = null }) { Text("إلغاء") } }
         )
     }
 
@@ -279,9 +330,7 @@ fun BackupRestoreScreen(
         AlertDialog(
             onDismissRequest = { message = null },
             text = { Text(text) },
-            confirmButton = {
-                TextButton(onClick = { message = null }) { Text("موافق") }
-            }
+            confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
         )
     }
 }
