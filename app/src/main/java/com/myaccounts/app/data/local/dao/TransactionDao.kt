@@ -10,6 +10,17 @@ import androidx.room.Update
 import com.myaccounts.app.data.local.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
+data class ArchivedTransactionRow(
+    val transactionId: Long,
+    val accountId: Long,
+    val personName: String,
+    val currencyCode: String,
+    val type: String,
+    val amountMinor: Long,
+    val description: String,
+    val transactionDate: Long
+)
+
 @Dao
 interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
@@ -51,6 +62,18 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isArchived = 1 ORDER BY transactionDate DESC, id DESC")
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("""
+        SELECT t.id AS transactionId, t.accountId AS accountId, p.name AS personName,
+               ca.currencyCode AS currencyCode, t.type AS type, t.amountMinor AS amountMinor,
+               t.description AS description, t.transactionDate AS transactionDate
+        FROM transactions t
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
+        WHERE t.isArchived = 1
+        ORDER BY t.transactionDate DESC, t.id DESC
+    """)
+    fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
+
     @Transaction
     suspend fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
         val transactionId = insertTransaction(transaction)
@@ -62,9 +85,7 @@ interface TransactionDao {
     suspend fun updateTransactionAndUpdateBalance(transaction: TransactionEntity) {
         val previousTransaction = getTransaction(transaction.id)
         updateTransaction(transaction)
-        previousTransaction?.let {
-            if (it.accountId != transaction.accountId) recalculateBalance(it.accountId)
-        }
+        previousTransaction?.let { if (it.accountId != transaction.accountId) recalculateBalance(it.accountId) }
         recalculateBalance(transaction.accountId)
     }
 
