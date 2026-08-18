@@ -2,6 +2,7 @@ package com.myaccounts.app.data.repository
 
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
+import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
 import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,7 @@ class TransactionRepository(
     override suspend fun updateTransaction(transaction: TransactionEntity) = transactionDao.updateTransactionAndUpdateBalance(transaction)
     override fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>> = transactionDao.observeTransactions(accountId)
     override fun observeArchivedTransactions(): Flow<List<TransactionEntity>> = transactionDao.observeArchivedTransactions()
+    override fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>> = transactionDao.observeArchivedTransactionRows()
     override suspend fun getTransactions(accountId: Long): List<TransactionEntity> = transactionDao.getTransactions(accountId)
     override suspend fun getTransaction(transactionId: Long): TransactionEntity? = transactionDao.getTransaction(transactionId)
     override fun observeBalance(accountId: Long): Flow<Long> = transactionDao.observeBalance(accountId)
