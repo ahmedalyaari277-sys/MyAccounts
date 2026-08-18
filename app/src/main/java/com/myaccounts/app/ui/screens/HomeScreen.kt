@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -42,8 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import java.math.BigDecimal
@@ -109,22 +110,44 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("بحث بالاسم أو الهاتف أو العنوان أو الملاحظات") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
                 )
                 Spacer(Modifier.height(16.dp))
 
                 if (filteredList.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            if (searchQuery.isBlank()) "لا توجد حسابات مسجلة\nاضغط (+) لإضافة شخص"
-                            else "لا توجد نتائج للبحث",
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.height(48.dp).width(48.dp)
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            if (searchQuery.isBlank()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "اضغط (+) لإضافة أول شخص",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(filteredList, key = { it.person.id }) { item ->
                             PersonCard(
@@ -147,7 +170,8 @@ fun HomeScreen(
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
                 }
@@ -177,7 +201,8 @@ private fun PersonCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -288,7 +313,8 @@ private fun AddPersonDialog(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("اسم الشخص") },
                     singleLine = true,
-                    isError = nameError
+                    isError = nameError,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 if (nameError) Text(
                     "اسم الشخص مطلوب",
@@ -301,7 +327,8 @@ private fun AddPersonDialog(
                     onValueChange = { phone = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("رقم الهاتف") },
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
@@ -309,7 +336,8 @@ private fun AddPersonDialog(
                     onValueChange = { address = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("العنوان") },
-                    minLines = 2
+                    minLines = 2,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
@@ -317,7 +345,8 @@ private fun AddPersonDialog(
                     onValueChange = { notes = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("الملاحظات") },
-                    minLines = 2
+                    minLines = 2,
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         },
