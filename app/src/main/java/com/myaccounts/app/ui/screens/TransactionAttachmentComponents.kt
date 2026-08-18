@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Delete
@@ -69,7 +70,7 @@ fun TransactionAttachmentPicker(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Button(
             onClick = { launcher.launch(arrayOf("*/*")) },
@@ -90,40 +91,50 @@ fun TransactionAttachmentPicker(
         }
 
         if (selectedAttachments.isNotEmpty()) {
-            selectedAttachments.forEachIndexed { index, attachment ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(modifier = Modifier.weight(1f)) {
-                            Icon(
-                                imageVector = if (attachment.mimeType.startsWith("image/")) {
-                                    Icons.Default.Image
-                                } else {
-                                    Icons.Default.Description
-                                },
-                                contentDescription = null
-                            )
-                            Text(
-                                text = attachment.fileName,
-                                modifier = Modifier.padding(start = 8.dp),
-                                maxLines = 2
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                onAttachmentsChanged(
-                                    selectedAttachments.filterIndexed { i, _ -> i != index }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                itemsIndexed(
+                    items = selectedAttachments,
+                    key = { index, attachment -> "${attachment.uri}-$index" }
+                ) { index, attachment ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    imageVector = if (attachment.mimeType.startsWith("image/")) {
+                                        Icons.Default.Image
+                                    } else {
+                                        Icons.Default.Description
+                                    },
+                                    contentDescription = null
+                                )
+                                Text(
+                                    text = attachment.fileName,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    maxLines = 2
                                 )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "إزالة المرفق"
-                            )
+                            IconButton(
+                                onClick = {
+                                    onAttachmentsChanged(
+                                        selectedAttachments.filterIndexed { i, _ -> i != index }
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "إزالة المرفق"
+                                )
+                            }
                         }
                     }
                 }
@@ -158,7 +169,10 @@ fun TransactionAttachmentsDialog(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(attachments, key = { it.id }) { attachment ->
+                        itemsIndexed(
+                            items = attachments,
+                            key = { _, attachment -> attachment.id }
+                        ) { _, attachment ->
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Row(
                                     modifier = Modifier
