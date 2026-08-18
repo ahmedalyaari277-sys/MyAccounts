@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -25,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -47,6 +49,7 @@ import kotlinx.coroutines.launch
 
 private const val BACKUP_PREFS = "myaccounts_backup_preferences"
 private const val LAST_BACKUP_URI = "last_backup_uri"
+private const val BACKUP_EMAIL = "backup_email"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,14 +59,14 @@ fun BackupRestoreScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val preferences = remember { context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var email by remember { mutableStateOf(preferences.getString(BACKUP_EMAIL, "") ?: "") }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var lastBackupUri by remember {
         mutableStateOf(
-            context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE)
-                .getString(LAST_BACKUP_URI, null)
-                ?.let(Uri::parse)
+            preferences.getString(LAST_BACKUP_URI, null)?.let(Uri::parse)
         )
     }
 
@@ -78,11 +81,8 @@ fun BackupRestoreScreen(
                 result.fold(
                     onSuccess = {
                         lastBackupUri = uri
-                        context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE)
-                            .edit()
-                            .putString(LAST_BACKUP_URI, uri.toString())
-                            .apply()
-                        message = "تم إنشاء النسخة الاحتياطية الكاملة بنجاح، وتشمل البيانات والمرفقات. يمكنك الآن مشاركتها يدويًا مع أي تطبيق أو بريد إلكتروني."
+                        preferences.edit().putString(LAST_BACKUP_URI, uri.toString()).apply()
+                        message = "تم إنشاء النسخة الاحتياطية الكاملة بنجاح، وتشمل البيانات والمرفقات. يمكنك الآن مشاركتها أو إرسالها يدويًا إلى البريد الإلكتروني."
                     },
                     onFailure = { message = "تعذر إنشاء النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}" }
                 )
@@ -115,9 +115,36 @@ fun BackupRestoreScreen(
         }
     }
 
+    fun sendBackupByEmail() {
+        val uri = lastBackupUri
+        val normalizedEmail = email.trim()
+        if (uri == null) {
+            message = "أنشئ نسخة احتياطية أولاً قبل إرسالها إلى البريد الإلكتروني."
+            return
+        }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
+            message = "أدخل عنوان بريد إلكتروني صحيحًا."
+            return
+        }
+        preferences.edit().putString(BACKUP_EMAIL, normalizedEmail).apply()
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/octet-stream"
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(normalizedEmail))
+                putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية من دفتر الحسابات")
+                putExtra(Intent.EXTRA_TEXT, "مرفق نسخة احتياطية من تطبيق دفتر الحسابات.")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "إرسال النسخة الاحتياطية بالبريد").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (exception: Exception) {
+            message = "تعذر فتح تطبيق البريد أو المشاركة: ${exception.message ?: "خطأ غير معروف"}"
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (lastBackupUri != null) {
-            snackbarHostState.showSnackbar("يمكنك مشاركة آخر نسخة احتياطية يدويًا من زر المشاركة.")
+            snackbarHostState.showSnackbar("يمكنك مشاركة أو إرسال آخر نسخة احتياطية يدويًا.")
         }
     }
 
@@ -148,7 +175,19 @@ fun BackupRestoreScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("البريد الإلكتروني") },
+                placeholder = { Text("example@email.com") },
+                supportingText = { Text("اختياري — يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
+            )
+
+            Spacer(Modifier.height(12.dp))
 
             Button(
                 onClick = {
@@ -162,7 +201,7 @@ fun BackupRestoreScreen(
                 Text("إنشاء نسخة احتياطية")
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
             OutlinedButton(
                 onClick = { shareBackup() },
@@ -174,7 +213,19 @@ fun BackupRestoreScreen(
                 Text("مشاركة النسخة الاحتياطية")
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
+
+            OutlinedButton(
+                onClick = { sendBackupByEmail() },
+                enabled = !busy && lastBackupUri != null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Email, null)
+                Spacer(Modifier.padding(horizontal = 4.dp))
+                Text("إرسال النسخة الاحتياطية بالبريد")
+            }
+
+            Spacer(Modifier.height(10.dp))
 
             OutlinedButton(
                 onClick = {
