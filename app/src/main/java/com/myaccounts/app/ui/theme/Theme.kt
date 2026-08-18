@@ -1,6 +1,7 @@
 package com.myaccounts.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -10,9 +11,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Shapes
 
 private val NavyPrimary = Color(0xFF173A5E)
 private val White = Color(0xFFFFFFFF)
@@ -132,11 +133,11 @@ private val MyAccountsTypography = Typography(
 )
 
 private val MyAccountsShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.sp),
-    small = RoundedCornerShape(10.sp),
-    medium = RoundedCornerShape(14.sp),
-    large = RoundedCornerShape(18.sp),
-    extraLarge = RoundedCornerShape(22.sp)
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(22.dp)
 )
 
 @Composable
