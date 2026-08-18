@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -96,14 +100,14 @@ fun QuickTransactionScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
-                selected = selectedType == TransactionType.PAYABLE,
-                onClick = { selectedType = TransactionType.PAYABLE },
+                selected = selectedType == TransactionType.RECEIVABLE,
+                onClick = { selectedType = TransactionType.RECEIVABLE },
                 label = { Text("🔴 عليه") },
                 modifier = Modifier.weight(1f)
             )
             FilterChip(
-                selected = selectedType == TransactionType.RECEIVABLE,
-                onClick = { selectedType = TransactionType.RECEIVABLE },
+                selected = selectedType == TransactionType.PAYABLE,
+                onClick = { selectedType = TransactionType.PAYABLE },
                 label = { Text("🟢 له") },
                 modifier = Modifier.weight(1f)
             )
@@ -145,7 +149,7 @@ fun QuickTransactionScreen(
             label = { Text("التاريخ") },
             readOnly = true,
             trailingIcon = {
-                Button(onClick = {
+                IconButton(onClick = {
                     val selected = Calendar.getInstance().apply {
                         timeInMillis = transactionDate
                     }
@@ -160,7 +164,12 @@ fun QuickTransactionScreen(
                         selected.get(Calendar.MONTH),
                         selected.get(Calendar.DAY_OF_MONTH)
                     ).show()
-                }) { Text("اختيار") }
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = "اختيار التاريخ"
+                    )
+                }
             }
         )
 
