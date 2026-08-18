@@ -19,70 +19,38 @@ class TransactionViewModel(
     private val repository: TransactionRepositoryContract,
     private val application: Application
 ) : ViewModel() {
-
-    private val selectedAccountId =
-        MutableStateFlow<Long?>(null)
-
-    private val _transactions =
-        MutableStateFlow<List<TransactionEntity>>(emptyList())
-
-    val transactions: StateFlow<List<TransactionEntity>> =
-        _transactions.asStateFlow()
-
-    private val _balance =
-        MutableStateFlow(0L)
-
-    val balance: StateFlow<Long> =
-        _balance.asStateFlow()
+    private val selectedAccountId = MutableStateFlow<Long?>(null)
+    private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
+    val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
+    private val _archivedTransactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
+    val archivedTransactions: StateFlow<List<TransactionEntity>> = _archivedTransactions.asStateFlow()
+    private val _balance = MutableStateFlow(0L)
+    val balance: StateFlow<Long> = _balance.asStateFlow()
 
     init {
         viewModelScope.launch {
-            selectedAccountId
-                .flatMapLatest { accountId ->
-                    if (accountId == null) {
-                        flowOf(emptyList())
-                    } else {
-                        repository.observeTransactions(accountId)
-                    }
-                }
-                .collect { result ->
-                    _transactions.value = result
-                }
+            selectedAccountId.flatMapLatest { accountId ->
+                if (accountId == null) flowOf(emptyList()) else repository.observeTransactions(accountId)
+            }.collect { _transactions.value = it }
         }
-
         viewModelScope.launch {
-            selectedAccountId
-                .flatMapLatest { accountId ->
-                    if (accountId == null) {
-                        flowOf(0L)
-                    } else {
-                        repository.observeBalance(accountId)
-                    }
-                }
-                .collect { result ->
-                    _balance.value = result
-                }
+            selectedAccountId.flatMapLatest { accountId ->
+                if (accountId == null) flowOf(0L) else repository.observeBalance(accountId)
+            }.collect { _balance.value = it }
+        }
+        viewModelScope.launch {
+            repository.observeArchivedTransactions().collect { _archivedTransactions.value = it }
         }
     }
 
-    fun selectAccount(accountId: Long?) {
-        selectedAccountId.value = accountId
-    }
+    fun selectAccount(accountId: Long?) { selectedAccountId.value = accountId }
 
-    fun addTransaction(
-        transaction: TransactionEntity,
-        attachments: List<TransactionAttachmentStorage.SelectedAttachment> = emptyList()
-    ) {
+    fun addTransaction(transaction: TransactionEntity, attachments: List<TransactionAttachmentStorage.SelectedAttachment> = emptyList()) {
         viewModelScope.launch {
             val transactionId = repository.addTransaction(transaction)
             if (attachments.isEmpty()) return@launch
-
             try {
-                val stored = TransactionAttachmentStorage.saveAttachments(
-                    application,
-                    transactionId,
-                    attachments
-                )
+                val stored = TransactionAttachmentStorage.saveAttachments(application, transactionId, attachments)
                 repository.addAttachments(stored)
             } catch (error: Throwable) {
                 repository.deleteTransactionById(transactionId)
@@ -91,60 +59,43 @@ class TransactionViewModel(
     }
 
     fun updateTransaction(transaction: TransactionEntity) {
-        viewModelScope.launch {
-            repository.updateTransaction(transaction)
-        }
+        viewModelScope.launch { repository.updateTransaction(transaction) }
+    }
+
+    fun archiveTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch { repository.archiveTransaction(transaction.id) }
+    }
+
+    fun archiveTransactionById(transactionId: Long) {
+        viewModelScope.launch { repository.archiveTransaction(transactionId) }
+    }
+
+    fun restoreTransaction(transactionId: Long) {
+        viewModelScope.launch { repository.restoreTransaction(transactionId) }
     }
 
     fun deleteTransaction(transaction: TransactionEntity) {
-        viewModelScope.launch {
-            deleteTransactionAndFiles(transaction.id)
-        }
+        viewModelScope.launch { deleteTransactionAndFiles(transaction.id) }
     }
 
     fun deleteTransactionById(transactionId: Long) {
-        viewModelScope.launch {
-            deleteTransactionAndFiles(transactionId)
-        }
+        viewModelScope.launch { deleteTransactionAndFiles(transactionId) }
     }
 
     private suspend fun deleteTransactionAndFiles(transactionId: Long) {
         val attachments = repository.getAttachments(transactionId)
         repository.deleteTransactionById(transactionId)
-        TransactionAttachmentStorage.deleteTransactionFiles(
-            application,
-            transactionId,
-            attachments
-        )
+        TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, attachments)
     }
 
-    suspend fun getTransaction(transactionId: Long): TransactionEntity? {
-        return repository.getTransaction(transactionId)
-    }
+    suspend fun getTransaction(transactionId: Long): TransactionEntity? = repository.getTransaction(transactionId)
+    suspend fun getTransactions(accountId: Long): List<TransactionEntity> = repository.getTransactions(accountId)
+    suspend fun getBalance(accountId: Long): Long = repository.getBalance(accountId)
 
-    suspend fun getTransactions(accountId: Long): List<TransactionEntity> {
-        return repository.getTransactions(accountId)
-    }
+    fun observeAttachments(transactionId: Long): Flow<List<TransactionAttachmentEntity>> = repository.observeAttachments(transactionId)
+    fun observeAttachmentCount(transactionId: Long): Flow<Int> = repository.observeAttachmentCount(transactionId)
 
-    suspend fun getBalance(accountId: Long): Long {
-        return repository.getBalance(accountId)
-    }
-
-    fun observeAttachments(
-        transactionId: Long
-    ): Flow<List<TransactionAttachmentEntity>> {
-        return repository.observeAttachments(transactionId)
-    }
-
-    fun observeAttachmentCount(
-        transactionId: Long
-    ): Flow<Int> {
-        return repository.observeAttachmentCount(transactionId)
-    }
-
-    fun deleteAttachment(
-        attachment: TransactionAttachmentEntity
-    ) {
+    fun deleteAttachment(attachment: TransactionAttachmentEntity) {
         viewModelScope.launch {
             repository.deleteAttachment(attachment)
             TransactionAttachmentStorage.deleteFile(application, attachment)
