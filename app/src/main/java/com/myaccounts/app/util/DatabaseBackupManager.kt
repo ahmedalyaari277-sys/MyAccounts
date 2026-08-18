@@ -15,9 +15,9 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 object DatabaseBackupManager {
-
-    private const val FORMAT_VERSION = 2
+    private const val FORMAT_VERSION = 3
     private const val LEGACY_FORMAT_VERSION = 1
+    private const val PREVIOUS_FORMAT_VERSION = 2
     private const val BACKUP_TYPE = "myaccounts_full_backup"
     private const val DATABASE_ENTRY = "backup.json"
     private const val FILES_PREFIX = "files/"
@@ -41,21 +41,16 @@ object DatabaseBackupManager {
     }
 
     suspend fun restoreBackup(context: Context, uri: Uri): Result<Unit> = runCatching {
-        val input = context.contentResolver.openInputStream(uri)
-            ?: error("تعذر فتح ملف النسخة الاحتياطية.")
+        val input = context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف النسخة الاحتياطية.")
         val sourceFile = File.createTempFile("myaccounts_backup_", ".tmp", context.cacheDir)
         input.use { sourceFile.outputStream().buffered().use { output -> it.copyTo(output) } }
-
         val tempDirectory = File(context.cacheDir, "backup_restore_${System.currentTimeMillis()}").apply { mkdirs() }
         try {
             val databaseJsonFile = File(tempDirectory, DATABASE_ENTRY)
-            if (isZip(sourceFile)) extractZip(sourceFile, tempDirectory)
-            else sourceFile.copyTo(databaseJsonFile, overwrite = true)
-
+            if (isZip(sourceFile)) extractZip(sourceFile, tempDirectory) else sourceFile.copyTo(databaseJsonFile, overwrite = true)
             require(databaseJsonFile.isFile) { "النسخة الاحتياطية لا تحتوي على بيانات قاعدة البيانات." }
             val backup = JSONObject(databaseJsonFile.readText(Charsets.UTF_8))
             validateBackup(backup)
-
             val attachments = backup.optJSONArray("attachments") ?: JSONArray()
             val filesToInstall = prepareAttachmentFiles(context, tempDirectory, attachments)
             val database = AppDatabase.getInstance(context)
@@ -63,7 +58,6 @@ object DatabaseBackupManager {
             val oldAttachmentPaths = existingAttachmentPaths(sqlite)
             val newAttachmentPaths = filesToInstall.map { it.destination.relativeTo(context.filesDir).path.replace(File.separatorChar, '/') }.toSet()
             val oldFilesDirectory = File(tempDirectory, "old-files").apply { mkdirs() }
-
             backupExistingFiles(context, oldAttachmentPaths, oldFilesDirectory)
             try {
                 installAttachmentFiles(filesToInstall)
@@ -74,10 +68,7 @@ object DatabaseBackupManager {
                 } finally {
                     sqlite.endTransaction()
                 }
-
-                oldAttachmentPaths
-                    .filter { it !in newAttachmentPaths }
-                    .forEach { File(context.filesDir, it).delete() }
+                oldAttachmentPaths.filter { it !in newAttachmentPaths }.forEach { File(context.filesDir, it).delete() }
             } catch (error: Throwable) {
                 filesToInstall.forEach { it.destination.delete() }
                 restoreExistingFiles(context, oldFilesDirectory)
@@ -91,11 +82,7 @@ object DatabaseBackupManager {
 
     private data class FileToInstall(val source: File, val destination: File)
 
-    private fun isZip(file: File): Boolean {
-        file.inputStream().buffered().use { input ->
-            return input.read() == 'P'.code && input.read() == 'K'.code
-        }
-    }
+    private fun isZip(file: File): Boolean = file.inputStream().buffered().use { input -> input.read() == 'P'.code && input.read() == 'K'.code }
 
     private fun extractZip(source: File, tempDirectory: File) {
         source.inputStream().buffered().use { input ->
@@ -105,9 +92,7 @@ object DatabaseBackupManager {
                     require(!entry.isDirectory) { "ملف النسخة الاحتياطية يحتوي على مجلدات غير مدعومة." }
                     val safeRelativePath = safeZipPath(entry.name)
                     val destination = File(tempDirectory, safeRelativePath)
-                    require(destination.canonicalPath.startsWith(tempDirectory.canonicalPath + File.separator)) {
-                        "مسار ملف غير صالح داخل النسخة الاحتياطية."
-                    }
+                    require(destination.canonicalPath.startsWith(tempDirectory.canonicalPath + File.separator)) { "مسار ملف غير صالح داخل النسخة الاحتياطية." }
                     destination.parentFile?.mkdirs()
                     destination.outputStream().use { output -> zip.copyTo(output) }
                     zip.closeEntry()
@@ -118,56 +103,26 @@ object DatabaseBackupManager {
     }
 
     private fun buildBackupJson(db: SupportSQLiteDatabase): JSONObject {
-        val root = JSONObject()
-            .put("backupType", BACKUP_TYPE)
-            .put("formatVersion", FORMAT_VERSION)
-            .put("createdAt", System.currentTimeMillis())
-
+        val root = JSONObject().put("backupType", BACKUP_TYPE).put("formatVersion", FORMAT_VERSION).put("createdAt", System.currentTimeMillis())
         root.put("people", JSONArray().apply {
-            db.query("SELECT id, name, phone, address, notes, createdAt, isActive FROM people ORDER BY id").use { cursor ->
-                while (cursor.moveToNext()) put(JSONObject()
-                    .put("id", cursor.getLong(0)).put("name", cursor.getString(1))
-                    .put("phone", cursor.getString(2)).put("address", cursor.getString(3))
-                    .put("notes", cursor.getString(4)).put("createdAt", cursor.getLong(5))
-                    .put("isActive", cursor.getInt(6) != 0))
-            }
+            db.query("SELECT id,name,phone,address,notes,createdAt,isActive FROM people ORDER BY id").use { c -> while (c.moveToNext()) put(JSONObject().put("id", c.getLong(0)).put("name", c.getString(1)).put("phone", c.getString(2)).put("address", c.getString(3)).put("notes", c.getString(4)).put("createdAt", c.getLong(5)).put("isActive", c.getInt(6) != 0)) }
         })
-
         root.put("currencyAccounts", JSONArray().apply {
-            db.query("SELECT id, personId, currencyCode, balanceMinor, createdAt, updatedAt FROM currency_accounts ORDER BY id").use { cursor ->
-                while (cursor.moveToNext()) put(JSONObject()
-                    .put("id", cursor.getLong(0)).put("personId", cursor.getLong(1))
-                    .put("currencyCode", cursor.getString(2)).put("balanceMinor", cursor.getLong(3))
-                    .put("createdAt", cursor.getLong(4)).put("updatedAt", cursor.getLong(5)))
-            }
+            db.query("SELECT id,personId,currencyCode,balanceMinor,createdAt,updatedAt FROM currency_accounts ORDER BY id").use { c -> while (c.moveToNext()) put(JSONObject().put("id", c.getLong(0)).put("personId", c.getLong(1)).put("currencyCode", c.getString(2)).put("balanceMinor", c.getLong(3)).put("createdAt", c.getLong(4)).put("updatedAt", c.getLong(5))) }
         })
-
         root.put("transactions", JSONArray().apply {
-            db.query("SELECT id, accountId, type, amountMinor, description, transactionDate, createdAt FROM transactions ORDER BY id").use { cursor ->
-                while (cursor.moveToNext()) put(JSONObject()
-                    .put("id", cursor.getLong(0)).put("accountId", cursor.getLong(1))
-                    .put("type", cursor.getString(2)).put("amountMinor", cursor.getLong(3))
-                    .put("description", cursor.getString(4)).put("transactionDate", cursor.getLong(5))
-                    .put("createdAt", cursor.getLong(6)))
-            }
+            db.query("SELECT id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived FROM transactions ORDER BY id").use { c -> while (c.moveToNext()) put(JSONObject().put("id", c.getLong(0)).put("accountId", c.getLong(1)).put("type", c.getString(2)).put("amountMinor", c.getLong(3)).put("description", c.getString(4)).put("transactionDate", c.getLong(5)).put("createdAt", c.getLong(6)).put("isArchived", c.getInt(7) != 0)) }
         })
-
         root.put("attachments", JSONArray().apply {
-            db.query("SELECT id, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt FROM transaction_attachments ORDER BY id").use { cursor ->
-                while (cursor.moveToNext()) put(JSONObject()
-                    .put("id", cursor.getLong(0)).put("transactionId", cursor.getLong(1))
-                    .put("fileName", cursor.getString(2)).put("mimeType", cursor.getString(3))
-                    .put("relativePath", cursor.getString(4)).put("sizeBytes", cursor.getLong(5))
-                    .put("createdAt", cursor.getLong(6)))
-            }
+            db.query("SELECT id,transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt FROM transaction_attachments ORDER BY id").use { c -> while (c.moveToNext()) put(JSONObject().put("id", c.getLong(0)).put("transactionId", c.getLong(1)).put("fileName", c.getString(2)).put("mimeType", c.getString(3)).put("relativePath", c.getString(4)).put("sizeBytes", c.getLong(5)).put("createdAt", c.getLong(6))) }
         })
         return root
     }
 
     private fun addAttachmentFiles(context: Context, db: SupportSQLiteDatabase, zip: ZipOutputStream) {
-        db.query("SELECT relativePath FROM transaction_attachments ORDER BY id").use { cursor ->
-            while (cursor.moveToNext()) {
-                val relativePath = safeZipPath(cursor.getString(0))
+        db.query("SELECT relativePath FROM transaction_attachments ORDER BY id").use { c ->
+            while (c.moveToNext()) {
+                val relativePath = safeZipPath(c.getString(0))
                 val file = File(context.filesDir, relativePath)
                 require(file.isFile) { "ملف المرفق غير موجود: $relativePath" }
                 zip.putNextEntry(ZipEntry(FILES_PREFIX + relativePath))
@@ -180,76 +135,57 @@ object DatabaseBackupManager {
     private fun validateBackup(backup: JSONObject) {
         require(backup.optString("backupType") == BACKUP_TYPE) { "ملف النسخة الاحتياطية غير صالح." }
         val version = backup.optInt("formatVersion", -1)
-        require(version == LEGACY_FORMAT_VERSION || version == FORMAT_VERSION) { "إصدار النسخة الاحتياطية غير مدعوم." }
-        require(backup.has("people")) { "النسخة الاحتياطية لا تحتوي على بيانات الأشخاص." }
-        require(backup.has("currencyAccounts")) { "النسخة الاحتياطية لا تحتوي على حسابات العملات." }
-        require(backup.has("transactions")) { "النسخة الاحتياطية لا تحتوي على العمليات." }
-        if (version >= FORMAT_VERSION) require(backup.has("attachments")) { "النسخة الاحتياطية لا تحتوي على المرفقات." }
-
+        require(version == LEGACY_FORMAT_VERSION || version == PREVIOUS_FORMAT_VERSION || version == FORMAT_VERSION) { "إصدار النسخة الاحتياطية غير مدعوم." }
+        require(backup.has("people") && backup.has("currencyAccounts") && backup.has("transactions")) { "النسخة الاحتياطية لا تحتوي على البيانات الأساسية." }
+        if (version >= PREVIOUS_FORMAT_VERSION) require(backup.has("attachments")) { "النسخة الاحتياطية لا تحتوي على المرفقات." }
         val people = backup.getJSONArray("people")
         val accounts = backup.getJSONArray("currencyAccounts")
         val transactions = backup.getJSONArray("transactions")
         val attachments = backup.optJSONArray("attachments") ?: JSONArray()
         val transactionIds = mutableSetOf<Long>()
-
-        for (index in 0 until people.length()) {
-            val person = people.getJSONObject(index)
-            require(person.has("id") && person.has("name") && person.has("createdAt") && person.has("isActive"))
+        for (i in 0 until people.length()) { val p = people.getJSONObject(i); require(p.has("id") && p.has("name") && p.has("createdAt") && p.has("isActive")) }
+        for (i in 0 until accounts.length()) { val a = accounts.getJSONObject(i); require(a.has("id") && a.has("personId") && a.has("currencyCode") && a.has("balanceMinor") && a.has("createdAt") && a.has("updatedAt")) }
+        for (i in 0 until transactions.length()) {
+            val t = transactions.getJSONObject(i)
+            require(t.has("id") && t.has("accountId") && t.has("type") && t.has("amountMinor") && t.has("description") && t.has("transactionDate") && t.has("createdAt"))
+            require(t.getString("type") == "RECEIVABLE" || t.getString("type") == "PAYABLE") { "نوع عملية غير مدعوم في النسخة الاحتياطية." }
+            if (version >= FORMAT_VERSION) require(t.has("isArchived")) { "بيانات أرشفة العمليات غير مكتملة." }
+            transactionIds += t.getLong("id")
         }
-        for (index in 0 until accounts.length()) {
-            val account = accounts.getJSONObject(index)
-            require(account.has("id") && account.has("personId") && account.has("currencyCode") && account.has("balanceMinor") && account.has("createdAt") && account.has("updatedAt"))
-        }
-        for (index in 0 until transactions.length()) {
-            val transaction = transactions.getJSONObject(index)
-            require(transaction.has("id") && transaction.has("accountId") && transaction.has("type") && transaction.has("amountMinor") && transaction.has("description") && transaction.has("transactionDate") && transaction.has("createdAt"))
-            require(transaction.getString("type") == "RECEIVABLE" || transaction.getString("type") == "PAYABLE") { "نوع عملية غير مدعوم في النسخة الاحتياطية." }
-            transactionIds += transaction.getLong("id")
-        }
-        for (index in 0 until attachments.length()) {
-            val attachment = attachments.getJSONObject(index)
-            require(attachment.has("id") && attachment.has("transactionId") && attachment.has("fileName") && attachment.has("mimeType") && attachment.has("relativePath") && attachment.has("sizeBytes") && attachment.has("createdAt"))
-            require(transactionIds.contains(attachment.getLong("transactionId"))) { "المرفق مرتبط بعملية غير موجودة." }
-            safeZipPath(attachment.getString("relativePath"))
+        for (i in 0 until attachments.length()) {
+            val a = attachments.getJSONObject(i)
+            require(a.has("id") && a.has("transactionId") && a.has("fileName") && a.has("mimeType") && a.has("relativePath") && a.has("sizeBytes") && a.has("createdAt"))
+            require(transactionIds.contains(a.getLong("transactionId"))) { "المرفق مرتبط بعملية غير موجودة." }
+            safeZipPath(a.getString("relativePath"))
         }
     }
 
-    private fun prepareAttachmentFiles(context: Context, tempDirectory: File, attachments: JSONArray): List<FileToInstall> {
-        val result = mutableListOf<FileToInstall>()
-        for (index in 0 until attachments.length()) {
-            val attachment = attachments.getJSONObject(index)
-            val relativePath = safeZipPath(attachment.getString("relativePath"))
+    private fun prepareAttachmentFiles(context: Context, tempDirectory: File, attachments: JSONArray): List<FileToInstall> = buildList {
+        for (i in 0 until attachments.length()) {
+            val a = attachments.getJSONObject(i)
+            val relativePath = safeZipPath(a.getString("relativePath"))
             val source = File(tempDirectory, FILES_PREFIX + relativePath)
             require(source.isFile) { "ملف المرفق غير موجود داخل النسخة الاحتياطية: $relativePath" }
-            require(source.length() == attachment.getLong("sizeBytes")) { "حجم المرفق لا يطابق البيانات المسجلة: ${attachment.getString("fileName")}" }
-            result += FileToInstall(source, File(context.filesDir, relativePath))
+            require(source.length() == a.getLong("sizeBytes")) { "حجم المرفق لا يطابق البيانات المسجلة: ${a.getString("fileName")}" }
+            add(FileToInstall(source, File(context.filesDir, relativePath)))
         }
-        return result
     }
 
     private fun installAttachmentFiles(files: List<FileToInstall>) {
         files.forEach { item ->
             item.destination.parentFile?.mkdirs()
-            item.source.inputStream().buffered().use { input ->
-                item.destination.outputStream().buffered().use { output -> input.copyTo(output) }
-            }
+            item.source.inputStream().buffered().use { input -> item.destination.outputStream().buffered().use { output -> input.copyTo(output) } }
         }
     }
 
     private fun existingAttachmentPaths(db: SupportSQLiteDatabase): List<String> = buildList {
-        db.query("SELECT relativePath FROM transaction_attachments").use { cursor ->
-            while (cursor.moveToNext()) add(cursor.getString(0))
-        }
+        db.query("SELECT relativePath FROM transaction_attachments").use { c -> while (c.moveToNext()) add(c.getString(0)) }
     }
 
     private fun backupExistingFiles(context: Context, paths: List<String>, backupDirectory: File) {
         paths.forEach { relativePath ->
             val source = File(context.filesDir, relativePath)
-            if (source.isFile) {
-                val backup = File(backupDirectory, safeZipPath(relativePath))
-                backup.parentFile?.mkdirs()
-                source.copyTo(backup, overwrite = true)
-            }
+            if (source.isFile) { val backup = File(backupDirectory, safeZipPath(relativePath)); backup.parentFile?.mkdirs(); source.copyTo(backup, overwrite = true) }
         }
     }
 
@@ -264,39 +200,27 @@ object DatabaseBackupManager {
     }
 
     private fun restoreIntoDatabase(db: SupportSQLiteDatabase, backup: JSONObject) {
+        val version = backup.optInt("formatVersion", LEGACY_FORMAT_VERSION)
         db.execSQL("DELETE FROM transactions")
         db.execSQL("DELETE FROM currency_accounts")
         db.execSQL("DELETE FROM people")
-
         val people = backup.getJSONArray("people")
-        for (index in 0 until people.length()) {
-            val person = people.getJSONObject(index)
-            db.execSQL("INSERT INTO people (id, name, phone, address, notes, createdAt, isActive) VALUES (?, ?, ?, ?, ?, ?, ?)", arrayOf(person.getLong("id"), person.getString("name"), person.optString("phone"), person.optString("address"), person.optString("notes"), person.getLong("createdAt"), if (person.getBoolean("isActive")) 1 else 0))
-        }
-
+        for (i in 0 until people.length()) { val p = people.getJSONObject(i); db.execSQL("INSERT INTO people (id,name,phone,address,notes,createdAt,isActive) VALUES (?,?,?,?,?,?,?)", arrayOf(p.getLong("id"),p.getString("name"),p.optString("phone"),p.optString("address"),p.optString("notes"),p.getLong("createdAt"),if(p.getBoolean("isActive"))1 else 0)) }
         val accounts = backup.getJSONArray("currencyAccounts")
-        for (index in 0 until accounts.length()) {
-            val account = accounts.getJSONObject(index)
-            db.execSQL("INSERT INTO currency_accounts (id, personId, currencyCode, balanceMinor, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)", arrayOf(account.getLong("id"), account.getLong("personId"), account.getString("currencyCode"), account.getLong("balanceMinor"), account.getLong("createdAt"), account.getLong("updatedAt")))
-        }
-
+        for (i in 0 until accounts.length()) { val a=accounts.getJSONObject(i); db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",arrayOf(a.getLong("id"),a.getLong("personId"),a.getString("currencyCode"),a.getLong("balanceMinor"),a.getLong("createdAt"),a.getLong("updatedAt"))) }
         val transactions = backup.getJSONArray("transactions")
-        for (index in 0 until transactions.length()) {
-            val transaction = transactions.getJSONObject(index)
-            db.execSQL("INSERT INTO transactions (id, accountId, type, amountMinor, description, transactionDate, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)", arrayOf(transaction.getLong("id"), transaction.getLong("accountId"), transaction.getString("type"), transaction.getLong("amountMinor"), transaction.getString("description"), transaction.getLong("transactionDate"), transaction.getLong("createdAt")))
+        for (i in 0 until transactions.length()) {
+            val t=transactions.getJSONObject(i)
+            db.execSQL("INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived) VALUES (?,?,?,?,?,?,?,?)",arrayOf(t.getLong("id"),t.getLong("accountId"),t.getString("type"),t.getLong("amountMinor"),t.getString("description"),t.getLong("transactionDate"),t.getLong("createdAt"),if(version>=FORMAT_VERSION && t.optBoolean("isArchived",false))1 else 0))
         }
-
-        if (backup.optInt("formatVersion", LEGACY_FORMAT_VERSION) >= FORMAT_VERSION) {
-            val attachments = backup.getJSONArray("attachments")
-            for (index in 0 until attachments.length()) {
-                val attachment = attachments.getJSONObject(index)
-                db.execSQL("INSERT INTO transaction_attachments (id, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)", arrayOf(attachment.getLong("id"), attachment.getLong("transactionId"), attachment.getString("fileName"), attachment.getString("mimeType"), attachment.getString("relativePath"), attachment.getLong("sizeBytes"), attachment.getLong("createdAt")))
-            }
+        if (version >= PREVIOUS_FORMAT_VERSION) {
+            val attachments=backup.optJSONArray("attachments") ?: JSONArray()
+            for(i in 0 until attachments.length()){val a=attachments.getJSONObject(i);db.execSQL("INSERT INTO transaction_attachments (id,transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?,?)",arrayOf(a.getLong("id"),a.getLong("transactionId"),a.getString("fileName"),a.getString("mimeType"),a.getString("relativePath"),a.getLong("sizeBytes"),a.getLong("createdAt")))}
         }
     }
 
     private fun safeZipPath(path: String): String {
-        val normalized = path.replace('\\', '/')
+        val normalized = path.replace('\\','/')
         require(normalized.isNotBlank() && !normalized.startsWith('/') && !normalized.contains("../") && normalized != ".." && !normalized.contains("/./") && !normalized.startsWith("./")) { "مسار ملف غير صالح داخل النسخة الاحتياطية." }
         return normalized
     }
