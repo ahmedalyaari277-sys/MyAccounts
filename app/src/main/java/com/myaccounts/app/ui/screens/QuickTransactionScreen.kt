@@ -8,14 +8,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionEntity
@@ -66,8 +63,8 @@ fun QuickTransactionScreen(
     }
 
     val currencyLabels = mapOf(
-        "YER" to "يمني",
-        "SAR" to "سعودي",
+        "YER" to "ريال يمني",
+        "SAR" to "ريال سعودي",
         "USD" to "دولار"
     )
 
@@ -76,10 +73,7 @@ fun QuickTransactionScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
@@ -98,17 +92,9 @@ fun QuickTransactionScreen(
                     selected = selectedCurrency == account.currencyCode,
                     onClick = { selectedCurrency = account.currencyCode },
                     label = {
-                        Text(
-                            text = currencyLabels[account.currencyCode] ?: account.currencyCode,
-                            maxLines = 1
-                        )
+                        Text(currencyLabels[account.currencyCode] ?: account.currencyCode)
                     },
-                    modifier = Modifier.weight(1f),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        labelColor = MaterialTheme.colorScheme.onSurface
-                    )
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -116,29 +102,19 @@ fun QuickTransactionScreen(
         Text("نوع العملية", fontWeight = FontWeight.Bold)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
                 selected = selectedType == TransactionType.RECEIVABLE,
                 onClick = { selectedType = TransactionType.RECEIVABLE },
-                label = { Text("عليه", maxLines = 1) },
-                modifier = Modifier.weight(1f),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.error,
-                    labelColor = MaterialTheme.colorScheme.onSurface
-                )
+                label = { Text("🔴 عليه") },
+                modifier = Modifier.weight(1f)
             )
             FilterChip(
                 selected = selectedType == TransactionType.PAYABLE,
                 onClick = { selectedType = TransactionType.PAYABLE },
-                label = { Text("له", maxLines = 1) },
-                modifier = Modifier.weight(1f),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.secondary,
-                    labelColor = MaterialTheme.colorScheme.onSurface
-                )
+                label = { Text("🟢 له") },
+                modifier = Modifier.weight(1f)
             )
         }
 
