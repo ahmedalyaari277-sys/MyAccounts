@@ -34,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.util.DatabaseBackupManager
 import kotlinx.coroutines.launch
@@ -44,14 +45,13 @@ fun BackupRestoreScreen(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-
     val createDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
+        ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         if (uri != null) {
             busy = true
@@ -59,7 +59,7 @@ fun BackupRestoreScreen(
                 val result = DatabaseBackupManager.createBackup(context, uri)
                 busy = false
                 message = result.fold(
-                    onSuccess = { "تم إنشاء النسخة الاحتياطية بنجاح." },
+                    onSuccess = { "تم إنشاء النسخة الاحتياطية الكاملة بنجاح، وتشمل المرفقات." },
                     onFailure = { "تعذر إنشاء النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}" }
                 )
             }
@@ -93,7 +93,7 @@ fun BackupRestoreScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "احفظ نسخة كاملة من بيانات دفتر الحسابات واستعدها عند الحاجة.",
+                text = "النسخة الاحتياطية الكاملة تشمل بيانات الأشخاص والحسابات والعمليات والمرفقات الفعلية مثل الصور وملفات PDF والمستندات.",
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -115,7 +115,11 @@ fun BackupRestoreScreen(
             Spacer(Modifier.height(12.dp))
 
             OutlinedButton(
-                onClick = { openDocumentLauncher.launch(arrayOf("application/json", "text/*")) },
+                onClick = {
+                    openDocumentLauncher.launch(
+                        arrayOf("application/zip", "application/json", "text/*")
+                    )
+                },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -136,7 +140,7 @@ fun BackupRestoreScreen(
             onDismissRequest = { pendingRestoreUri = null },
             title = { Text("تأكيد الاستعادة") },
             text = {
-                Text("سيتم استبدال البيانات الحالية بالبيانات الموجودة في النسخة الاحتياطية. هل تريد المتابعة؟")
+                Text("سيتم استبدال البيانات الحالية بالبيانات الموجودة في النسخة الاحتياطية، بما فيها المرفقات. هل تريد المتابعة؟")
             },
             confirmButton = {
                 TextButton(
@@ -147,7 +151,7 @@ fun BackupRestoreScreen(
                             val result = DatabaseBackupManager.restoreBackup(context, uri)
                             busy = false
                             message = result.fold(
-                                onSuccess = { "تمت استعادة النسخة الاحتياطية بنجاح." },
+                                onSuccess = { "تمت استعادة النسخة الاحتياطية والمرفقات بنجاح." },
                                 onFailure = { "تعذر استعادة النسخة الاحتياطية: ${it.message ?: "الملف غير صالح"}" }
                             )
                         }
