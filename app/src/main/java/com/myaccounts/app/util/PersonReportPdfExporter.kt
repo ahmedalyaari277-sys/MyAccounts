@@ -30,42 +30,33 @@ object PersonReportPdfExporter {
 
     fun exportPersonReport(context: Context, summary: PersonReportSummary, transactions: List<PersonReportTransaction>, startDateMillis: Long?, endDateMillisExclusive: Long?): Result<String> = try {
         val document = PdfDocument()
-        val titlePaint = paint(20f, true, Color.rgb(25, 25, 25))
-        val headingPaint = paint(13f, true, Color.rgb(35, 35, 35))
-        val textPaint = paint(10f, false, Color.rgb(35, 35, 35))
-        val redPaint = paint(10f, true, Color.rgb(190, 35, 35))
-        val greenPaint = paint(10f, true, Color.rgb(0, 125, 70))
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(185, 185, 185); strokeWidth = 1f }
-        val lightLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(225, 225, 225); strokeWidth = 1f }
-        val chunks = if (transactions.isEmpty()) listOf(emptyList()) else transactions.chunked(18)
+        val title = paint(19f, true, Color.rgb(25, 25, 25))
+        val heading = paint(11f, true, Color.rgb(25, 25, 25))
+        val text = paint(9f, false, Color.rgb(35, 35, 35))
+        val receivable = paint(9f, true, Color.rgb(0, 125, 70))
+        val payable = paint(9f, true, Color.rgb(190, 35, 35))
+        val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(150, 150, 150); strokeWidth = 1f }
+        val lightLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(220, 220, 220); strokeWidth = 1f }
+        val chunks = if (transactions.isEmpty()) listOf(emptyList()) else transactions.chunked(22)
 
         chunks.forEachIndexed { pageIndex, chunk ->
             val page = document.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageIndex + 1).create())
             val canvas = page.canvas
-            var y = drawHeader(canvas, summary, startDateMillis, endDateMillisExclusive, titlePaint, headingPaint, textPaint, linePaint)
+            var y = drawHeader(canvas, summary, startDateMillis, endDateMillisExclusive, title, heading, text, line)
             if (pageIndex == 0) {
-                canvas.drawText("ملخص الحساب", RIGHT, y, headingPaint); y += 20f
-                canvas.drawText("الرصيد الافتتاحي: ${balanceText(summary.openingBalanceMinor)}", RIGHT, y, textPaint); y += 17f
-                canvas.drawText("إجمالي عليه خلال الفترة: ${formatAmount(summary.periodReceivableMinor)}", RIGHT, y, redPaint); y += 17f
-                canvas.drawText("إجمالي له خلال الفترة: ${formatAmount(summary.periodPayableMinor)}", RIGHT, y, greenPaint); y += 17f
-                canvas.drawText("الرصيد الختامي: ${balanceText(summary.closingBalanceMinor)}", RIGHT, y, balancePaint(summary.closingBalanceMinor)); y += 24f
+                canvas.drawText("ملخص الحساب", RIGHT, y, heading); y += 17f
+                drawSummaryLine(canvas, y, summary, text, receivable, payable); y += 23f
             }
-            y = drawTableHeader(canvas, y, headingPaint, redPaint, greenPaint, linePaint)
+            y = drawTableHeader(canvas, y, heading, receivable, payable, line)
             if (chunk.isEmpty()) {
-                canvas.drawText("لا توجد عمليات خلال الفترة المحددة.", RIGHT, y, textPaint)
+                canvas.drawText("لا توجد عمليات خلال الفترة المحددة.", RIGHT, y, text)
             } else {
                 chunk.forEach { transaction ->
-                    canvas.drawText(formatDate(transaction.transactionDate), 78f, y, textPaint)
-                    drawSingleLineRight(canvas, transaction.description.ifBlank { "—" }, 310f, y, 220f, textPaint)
-                    canvas.drawText(if (transaction.type == "RECEIVABLE") formatAmount(transaction.amountMinor) else "—", 355f, y, if (transaction.type == "RECEIVABLE") redPaint else textPaint)
-                    canvas.drawText(if (transaction.type == "PAYABLE") formatAmount(transaction.amountMinor) else "—", 450f, y, if (transaction.type == "PAYABLE") greenPaint else textPaint)
-                    canvas.drawText(formatAmount(transaction.balanceMinor), 545f, y, balancePaint(transaction.balanceMinor))
-                    y += 10f
-                    canvas.drawLine(LEFT, y, RIGHT, y, lightLinePaint)
-                    y += 17f
+                    drawTableRow(canvas, y, transaction, text, receivable, payable, lightLine)
+                    y += 27f
                 }
             }
-            drawFooter(canvas, pageIndex + 1, chunks.size, linePaint, textPaint)
+            drawFooter(canvas, pageIndex + 1, chunks.size, line, text)
             document.finishPage(page)
         }
 
@@ -73,55 +64,58 @@ object PersonReportPdfExporter {
         saveDocument(context, document, fileName)
     } catch (exception: Exception) { Result.failure(exception) }
 
-    private fun drawHeader(canvas: Canvas, summary: PersonReportSummary, start: Long?, end: Long?, titlePaint: Paint, headingPaint: Paint, textPaint: Paint, linePaint: Paint): Float {
+    private fun drawHeader(canvas: Canvas, summary: PersonReportSummary, start: Long?, end: Long?, title: Paint, heading: Paint, text: Paint, line: Paint): Float {
         var y = CONTENT_TOP
-        canvas.drawText("تقرير حساب شخصي", RIGHT, y, titlePaint); y += 27f
-        canvas.drawText("الاسم: ${summary.personName}", RIGHT, y, headingPaint); y += 19f
-        canvas.drawText("الهاتف: ${summary.phone.ifBlank { "غير مسجل" }}", RIGHT, y, textPaint); y += 17f
-        y = drawWrappedRight(canvas, "العنوان: ${summary.address.ifBlank { "غير مسجل" }}", RIGHT, y, 500f, textPaint) + 2f
-        canvas.drawText("العملة: ${currencyName(summary.currencyCode)}", RIGHT, y, textPaint); y += 17f
-        canvas.drawText("الفترة: ${formatDateRange(start, end)}", RIGHT, y, textPaint); y += 17f
-        canvas.drawText("تاريخ إصدار التقرير: ${formatDate(System.currentTimeMillis())}", RIGHT, y, textPaint); y += 17f
-        canvas.drawText("عدد العمليات: ${summary.transactionCount}", RIGHT, y, textPaint); y += 12f
-        canvas.drawLine(LEFT, y, RIGHT, y, linePaint)
-        return y + 20f
+        canvas.drawText("تقرير حساب شخصي", RIGHT, y, title); y += 25f
+        canvas.drawText("الاسم: ${summary.personName}", RIGHT, y, heading)
+        canvas.drawText("الهاتف: ${summary.phone.ifBlank { "غير مسجل" }}", 315f, y, text); y += 18f
+        canvas.drawText("العنوان: ${summary.address.ifBlank { "غير مسجل" }}", RIGHT, y, text)
+        canvas.drawText("العملة: ${currencyName(summary.currencyCode)}", 315f, y, text); y += 18f
+        canvas.drawText("الفترة: ${formatDateRange(start, end)}", RIGHT, y, text)
+        canvas.drawText("إصدار: ${formatDate(System.currentTimeMillis())}", 315f, y, text); y += 18f
+        canvas.drawText("عدد العمليات: ${summary.transactionCount}", RIGHT, y, text)
+        canvas.drawLine(LEFT, y + 7f, RIGHT, y + 7f, line)
+        return y + 24f
     }
 
-    private fun drawTableHeader(canvas: Canvas, yStart: Float, heading: Paint, red: Paint, green: Paint, line: Paint): Float {
-        var y = yStart
-        canvas.drawLine(LEFT, y - 14f, RIGHT, y - 14f, line)
-        canvas.drawText("الرصيد", 545f, y, heading)
-        canvas.drawText("له", 450f, y, green)
-        canvas.drawText("عليه", 355f, y, red)
-        canvas.drawText("البيان", 310f, y, heading)
-        canvas.drawText("التاريخ", 78f, y, heading)
-        y += 9f
-        canvas.drawLine(LEFT, y, RIGHT, y, line)
-        return y + 19f
+    private fun drawSummaryLine(canvas: Canvas, y: Float, summary: PersonReportSummary, text: Paint, receivable: Paint, payable: Paint) {
+        canvas.drawText("الرصيد الافتتاحي: ${signedBalance(summary.openingBalanceMinor)}", RIGHT, y, balancePaint(summary.openingBalanceMinor))
+        canvas.drawText("عليه: +${formatAmount(summary.periodReceivableMinor)}", 410f, y, receivable)
+        canvas.drawText("له: -${formatAmount(summary.periodPayableMinor)}", 265f, y, payable)
+        canvas.drawText("الرصيد الختامي: ${signedBalance(summary.closingBalanceMinor)}", 115f, y, balancePaint(summary.closingBalanceMinor))
+    }
+
+    private fun drawTableHeader(canvas: Canvas, yStart: Float, heading: Paint, receivable: Paint, payable: Paint, line: Paint): Float {
+        val top = yStart - 15f
+        val xs = floatArrayOf(35f, 145f, 245f, 335f, 455f, 560f)
+        xs.forEach { canvas.drawLine(it, top, it, yStart + 12f, line) }
+        canvas.drawLine(LEFT, top, RIGHT, top, line)
+        canvas.drawText("التاريخ", 550f, yStart, heading)
+        canvas.drawText("البيان", 445f, yStart, heading)
+        canvas.drawText("عليه", 325f, yStart, receivable)
+        canvas.drawText("له", 235f, yStart, payable)
+        canvas.drawText("الرصيد", 135f, yStart, heading)
+        canvas.drawLine(LEFT, yStart + 12f, RIGHT, yStart + 12f, line)
+        return yStart + 28f
+    }
+
+    private fun drawTableRow(canvas: Canvas, y: Float, transaction: PersonReportTransaction, text: Paint, receivable: Paint, payable: Paint, line: Paint) {
+        val bottom = y + 10f
+        val xs = floatArrayOf(35f, 145f, 245f, 335f, 455f, 560f)
+        xs.forEach { canvas.drawLine(it, y - 14f, it, bottom, line) }
+        canvas.drawText(formatDate(transaction.transactionDate), 550f, y, text)
+        drawSingleLineRight(canvas, transaction.description.ifBlank { "—" }, 445f, y, 95f, text)
+        canvas.drawText(if (transaction.type == "RECEIVABLE") "+${formatAmount(transaction.amountMinor)}" else "—", 325f, y, if (transaction.type == "RECEIVABLE") receivable else text)
+        canvas.drawText(if (transaction.type == "PAYABLE") "-${formatAmount(transaction.amountMinor)}" else "—", 235f, y, if (transaction.type == "PAYABLE") payable else text)
+        canvas.drawText(signedBalance(transaction.balanceMinor), 135f, y, balancePaint(transaction.balanceMinor))
+        canvas.drawLine(LEFT, bottom, RIGHT, bottom, line)
     }
 
     private fun drawSingleLineRight(canvas: Canvas, value: String, right: Float, y: Float, width: Float, paint: Paint) {
-        val safe = if (paint.measureText(value) <= width) value else {
-            var end = value.length
-            while (end > 0 && paint.measureText("…" + value.substring(0, end)) > width) end--
-            if (end > 0) "…" + value.substring(0, end) else "…"
-        }
+        var safe = value
+        while (safe.length > 1 && paint.measureText(safe) > width) safe = safe.dropLast(1)
+        if (safe != value) safe = safe.dropLast(1).plus("…")
         canvas.drawText(safe, right, y, paint)
-    }
-
-    private fun drawWrappedRight(canvas: Canvas, text: String, right: Float, yStart: Float, width: Float, paint: Paint): Float {
-        var y = yStart
-        var remaining = text.trim()
-        while (remaining.isNotEmpty()) {
-            var end = remaining.length
-            while (end > 1 && paint.measureText(remaining.substring(0, end)) > width) end--
-            val breakAt = remaining.lastIndexOf(' ', end - 1).takeIf { it > 0 } ?: end
-            val line = remaining.substring(0, breakAt).trim()
-            canvas.drawText(line, right, y, paint)
-            y += 17f
-            remaining = remaining.substring(breakAt).trim()
-        }
-        return y
     }
 
     private fun drawFooter(canvas: Canvas, page: Int, total: Int, line: Paint, text: Paint) {
@@ -154,14 +148,11 @@ object PersonReportPdfExporter {
     } catch (e: Exception) { Result.failure(e) }
 
     private fun paint(size: Float, bold: Boolean, color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.color = color
-        textSize = size
-        textAlign = Paint.Align.RIGHT
+        this.color = color; textSize = size; textAlign = Paint.Align.RIGHT
         typeface = Typeface.create("sans-serif", if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
-
-    private fun balancePaint(value: Long) = paint(10f, true, when { value > 0L -> Color.rgb(190, 35, 35); value < 0L -> Color.rgb(0, 125, 70); else -> Color.DKGRAY })
-    private fun balanceText(value: Long) = when { value > 0L -> "${formatAmount(value)} (عليه)"; value < 0L -> "${formatAmount(-value)} (له)"; else -> "0 (متوازن)" }
+    private fun balancePaint(value: Long) = paint(9f, true, when { value > 0L -> Color.rgb(0, 125, 70); value < 0L -> Color.rgb(190, 35, 35); else -> Color.DKGRAY })
+    private fun signedBalance(value: Long) = when { value > 0L -> "+${formatAmount(value)} (عليه)"; value < 0L -> "-${formatAmount(-value)} (له)"; else -> "0 (متوازن)" }
     private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
     private fun formatAmount(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun formatDate(value: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(value))
