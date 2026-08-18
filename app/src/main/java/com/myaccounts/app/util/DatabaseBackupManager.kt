@@ -28,10 +28,8 @@ object DatabaseBackupManager {
     }
 
     suspend fun createBackup(context: Context, uri: Uri): Result<Unit> = runCatching {
-        val database = AppDatabase.getInstance(context)
-        val sqlite = database.openHelper.readableDatabase
+        val sqlite = AppDatabase.getInstance(context).openHelper.readableDatabase
         val backup = buildBackupJson(sqlite)
-
         context.contentResolver.openOutputStream(uri)?.use { output ->
             ZipOutputStream(output.buffered()).use { zip ->
                 zip.putNextEntry(ZipEntry(DATABASE_ENTRY))
@@ -51,11 +49,8 @@ object DatabaseBackupManager {
         val tempDirectory = File(context.cacheDir, "backup_restore_${System.currentTimeMillis()}").apply { mkdirs() }
         try {
             val databaseJsonFile = File(tempDirectory, DATABASE_ENTRY)
-            if (isZip(sourceFile)) {
-                extractZip(sourceFile, tempDirectory)
-            } else {
-                sourceFile.copyTo(databaseJsonFile, overwrite = true)
-            }
+            if (isZip(sourceFile)) extractZip(sourceFile, tempDirectory)
+            else sourceFile.copyTo(databaseJsonFile, overwrite = true)
 
             require(databaseJsonFile.isFile) { "النسخة الاحتياطية لا تحتوي على بيانات قاعدة البيانات." }
             val backup = JSONObject(databaseJsonFile.readText(Charsets.UTF_8))
@@ -66,6 +61,7 @@ object DatabaseBackupManager {
             val database = AppDatabase.getInstance(context)
             val sqlite = database.openHelper.writableDatabase
             val oldAttachmentPaths = existingAttachmentPaths(sqlite)
+            val newAttachmentPaths = filesToInstall.map { it.destination.relativeTo(context.filesDir).path.replace(File.separatorChar, '/') }.toSet()
             val oldFilesDirectory = File(tempDirectory, "old-files").apply { mkdirs() }
 
             backupExistingFiles(context, oldAttachmentPaths, oldFilesDirectory)
@@ -78,6 +74,10 @@ object DatabaseBackupManager {
                 } finally {
                     sqlite.endTransaction()
                 }
+
+                oldAttachmentPaths
+                    .filter { it !in newAttachmentPaths }
+                    .forEach { File(context.filesDir, it).delete() }
             } catch (error: Throwable) {
                 filesToInstall.forEach { it.destination.delete() }
                 restoreExistingFiles(context, oldFilesDirectory)
