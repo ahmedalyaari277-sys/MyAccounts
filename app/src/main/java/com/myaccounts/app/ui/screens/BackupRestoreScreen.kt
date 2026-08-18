@@ -116,9 +116,7 @@ fun BackupRestoreScreen(
 
             OutlinedButton(
                 onClick = {
-                    openDocumentLauncher.launch(
-                        arrayOf("application/zip", "application/json", "text/*")
-                    )
+                    openDocumentLauncher.launch(arrayOf("*/*"))
                 },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
