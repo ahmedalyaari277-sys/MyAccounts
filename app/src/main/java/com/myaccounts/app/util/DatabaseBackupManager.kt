@@ -43,20 +43,27 @@ object DatabaseBackupManager {
             runCatching { context.contentResolver.delete(uri, null, null) }
             throw error
         }
+
+        requireBackupHasData(backup)
     }
 
     suspend fun restoreBackup(context: Context, uri: Uri): Result<Unit> = runCatching {
         val input = context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف النسخة الاحتياطية.")
         val sourceFile = File.createTempFile("myaccounts_backup_", ".tmp", context.cacheDir)
         input.use { sourceFile.outputStream().buffered().use { output -> it.copyTo(output) } }
+        require(sourceFile.length() > 0L) { "ملف النسخة الاحتياطية فارغ." }
+
         val tempDirectory = File(context.cacheDir, "backup_restore_${System.currentTimeMillis()}").apply { mkdirs() }
         try {
             val databaseJsonFile = File(tempDirectory, DATABASE_ENTRY)
             if (isZip(sourceFile)) extractZip(sourceFile, tempDirectory) else sourceFile.copyTo(databaseJsonFile, overwrite = true)
-            require(databaseJsonFile.isFile) { "النسخة الاحتياطية لا تحتوي على بيانات قاعدة البيانات." }
+            require(databaseJsonFile.isFile && databaseJsonFile.length() > 0L) {
+                "النسخة الاحتياطية لا تحتوي على بيانات قاعدة البيانات."
+            }
 
             val backup = JSONObject(databaseJsonFile.readText(Charsets.UTF_8))
             validateBackup(backup)
+            requireBackupHasData(backup)
 
             val attachments = backup.optJSONArray("attachments") ?: JSONArray()
             val filesToInstall = prepareAttachmentFiles(context, tempDirectory, attachments)
@@ -71,13 +78,14 @@ object DatabaseBackupManager {
 
             try {
                 installAttachmentFiles(filesToInstall)
-
-                // Use Room's own transaction wrapper so Room's invalidation machinery
-                // observes the restored database state instead of treating the writes
-                // as an unrelated raw-SQL transaction.
                 database.runInTransaction {
                     restoreIntoDatabase(database.openHelper.writableDatabase, backup)
                 }
+
+                // The restore intentionally uses SQL because it preserves IDs and
+                // the complete snapshot. Refresh Room's invalidation tracker so
+                // existing DAO/Flow observers immediately see the restored rows.
+                database.invalidationTracker.refreshVersionsAsync()
 
                 oldAttachmentPaths
                     .filter { it !in newAttachmentPaths }
@@ -94,6 +102,16 @@ object DatabaseBackupManager {
     }
 
     private data class FileToInstall(val source: File, val destination: File)
+
+    private fun requireBackupHasData(backup: JSONObject) {
+        val people = backup.optJSONArray("people") ?: JSONArray()
+        val accounts = backup.optJSONArray("currencyAccounts") ?: JSONArray()
+        val transactions = backup.optJSONArray("transactions") ?: JSONArray()
+        val attachments = backup.optJSONArray("attachments") ?: JSONArray()
+        require(people.length() + accounts.length() + transactions.length() + attachments.length() > 0) {
+            "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية."
+        }
+    }
 
     private fun isZip(file: File): Boolean = file.inputStream().buffered().use { input ->
         input.read() == 'P'.code && input.read() == 'K'.code
@@ -238,14 +256,12 @@ object DatabaseBackupManager {
             require(p.has("id") && p.has("name") && p.has("createdAt") && p.has("isActive"))
             require(personIds.add(p.getLong("id"))) { "النسخة الاحتياطية تحتوي على شخص مكرر." }
         }
-
         for (i in 0 until accounts.length()) {
             val a = accounts.getJSONObject(i)
             require(a.has("id") && a.has("personId") && a.has("currencyCode") && a.has("balanceMinor") && a.has("createdAt") && a.has("updatedAt"))
             require(personIds.contains(a.getLong("personId"))) { "الحساب مرتبط بشخص غير موجود." }
             require(accountIds.add(a.getLong("id"))) { "النسخة الاحتياطية تحتوي على حساب مكرر." }
         }
-
         for (i in 0 until transactions.length()) {
             val t = transactions.getJSONObject(i)
             require(t.has("id") && t.has("accountId") && t.has("type") && t.has("amountMinor") && t.has("description") && t.has("transactionDate") && t.has("createdAt"))
@@ -256,7 +272,6 @@ object DatabaseBackupManager {
             if (version >= FORMAT_VERSION) require(t.has("isArchived")) { "بيانات أرشفة العمليات غير مكتملة." }
             require(transactionIds.add(t.getLong("id"))) { "النسخة الاحتياطية تحتوي على عملية مكررة." }
         }
-
         val attachmentIds = mutableSetOf<Long>()
         val attachmentPaths = mutableSetOf<String>()
         for (i in 0 until attachments.length()) {
@@ -321,10 +336,6 @@ object DatabaseBackupManager {
 
     private fun restoreIntoDatabase(db: SupportSQLiteDatabase, backup: JSONObject) {
         val version = backup.optInt("formatVersion", LEGACY_FORMAT_VERSION)
-
-        // Explicitly clear attachments first. They are also protected by the
-        // transaction foreign-key cascade, but making this explicit prevents
-        // stale attachment rows from surviving a restore if the schema changes.
         db.execSQL("DELETE FROM transaction_attachments")
         db.execSQL("DELETE FROM transactions")
         db.execSQL("DELETE FROM currency_accounts")
@@ -335,50 +346,32 @@ object DatabaseBackupManager {
             val p = people.getJSONObject(i)
             db.execSQL(
                 "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive) VALUES (?,?,?,?,?,?,?)",
-                arrayOf(
-                    p.getLong("id"), p.getString("name"), p.optString("phone"),
-                    p.optString("address"), p.optString("notes"), p.getLong("createdAt"),
-                    if (p.getBoolean("isActive")) 1 else 0
-                )
+                arrayOf(p.getLong("id"), p.getString("name"), p.optString("phone"), p.optString("address"), p.optString("notes"), p.getLong("createdAt"), if (p.getBoolean("isActive")) 1 else 0)
             )
         }
-
         val accounts = backup.getJSONArray("currencyAccounts")
         for (i in 0 until accounts.length()) {
             val a = accounts.getJSONObject(i)
             db.execSQL(
                 "INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",
-                arrayOf(
-                    a.getLong("id"), a.getLong("personId"), a.getString("currencyCode"),
-                    a.getLong("balanceMinor"), a.getLong("createdAt"), a.getLong("updatedAt")
-                )
+                arrayOf(a.getLong("id"), a.getLong("personId"), a.getString("currencyCode"), a.getLong("balanceMinor"), a.getLong("createdAt"), a.getLong("updatedAt"))
             )
         }
-
         val transactions = backup.getJSONArray("transactions")
         for (i in 0 until transactions.length()) {
             val t = transactions.getJSONObject(i)
             db.execSQL(
                 "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived) VALUES (?,?,?,?,?,?,?,?)",
-                arrayOf(
-                    t.getLong("id"), t.getLong("accountId"), t.getString("type"), t.getLong("amountMinor"),
-                    t.getString("description"), t.getLong("transactionDate"), t.getLong("createdAt"),
-                    if (version >= FORMAT_VERSION && t.optBoolean("isArchived", false)) 1 else 0
-                )
+                arrayOf(t.getLong("id"), t.getLong("accountId"), t.getString("type"), t.getLong("amountMinor"), t.getString("description"), t.getLong("transactionDate"), t.getLong("createdAt"), if (version >= FORMAT_VERSION && t.optBoolean("isArchived", false)) 1 else 0)
             )
         }
-
         if (version >= PREVIOUS_FORMAT_VERSION) {
             val attachments = backup.optJSONArray("attachments") ?: JSONArray()
             for (i in 0 until attachments.length()) {
                 val a = attachments.getJSONObject(i)
                 db.execSQL(
                     "INSERT INTO transaction_attachments (id,transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?,?)",
-                    arrayOf(
-                        a.getLong("id"), a.getLong("transactionId"), a.getString("fileName"),
-                        a.getString("mimeType"), a.getString("relativePath"), a.getLong("sizeBytes"),
-                        a.getLong("createdAt")
-                    )
+                    arrayOf(a.getLong("id"), a.getLong("transactionId"), a.getString("fileName"), a.getString("mimeType"), a.getString("relativePath"), a.getLong("sizeBytes"), a.getLong("createdAt"))
                 )
             }
         }
@@ -386,14 +379,9 @@ object DatabaseBackupManager {
 
     private fun safeZipPath(path: String): String {
         val normalized = path.replace('\\', '/')
-        require(
-            normalized.isNotBlank() &&
-                !normalized.startsWith('/') &&
-                !normalized.contains("../") &&
-                normalized != ".." &&
-                !normalized.contains("/./") &&
-                !normalized.startsWith("./")
-        ) { "مسار ملف غير صالح داخل النسخة الاحتياطية." }
+        require(normalized.isNotBlank() && !normalized.startsWith('/') && !normalized.contains("../") && normalized != ".." && !normalized.contains("/./") && !normalized.startsWith("./")) {
+            "مسار ملف غير صالح داخل النسخة الاحتياطية."
+        }
         return normalized
     }
 }
