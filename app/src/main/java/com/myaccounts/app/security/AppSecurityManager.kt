@@ -9,6 +9,12 @@ class AppSecurityManager(context: Context) {
         Context.MODE_PRIVATE
     )
 
+    // Process-local only. This flag must never be persisted, because a
+    // persisted external-activity flag could survive process death and
+    // accidentally bypass the app lock on a later launch.
+    @Volatile
+    private var externalActivityPending = false
+
     fun isProtectionEnabled(): Boolean =
         preferences.getBoolean(KEY_PROTECTION_ENABLED, false)
 
@@ -49,15 +55,14 @@ class AppSecurityManager(context: Context) {
      * treated as leaving the app and must not trigger the app lock.
      */
     fun markExternalActivityPending() {
-        preferences.edit().putBoolean(KEY_EXTERNAL_ACTIVITY_PENDING, true).apply()
+        externalActivityPending = true
     }
 
     fun clearExternalActivityPending() {
-        preferences.edit().putBoolean(KEY_EXTERNAL_ACTIVITY_PENDING, false).apply()
+        externalActivityPending = false
     }
 
-    fun isExternalActivityPending(): Boolean =
-        preferences.getBoolean(KEY_EXTERNAL_ACTIVITY_PENDING, false)
+    fun isExternalActivityPending(): Boolean = externalActivityPending
 
     private fun hash(value: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -70,6 +75,5 @@ class AppSecurityManager(context: Context) {
         private const val KEY_PROTECTION_ENABLED = "protection_enabled"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_RECOVERY_EMAIL = "recovery_email"
-        private const val KEY_EXTERNAL_ACTIVITY_PENDING = "external_activity_pending"
     }
 }
