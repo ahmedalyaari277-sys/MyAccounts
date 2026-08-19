@@ -37,7 +37,23 @@ interface LedgerDao {
     @Query("""
         SELECT * FROM people
         WHERE isActive = 1
-        ORDER BY name COLLATE NOCASE ASC
+        ORDER BY
+            CASE WHEN (
+                SELECT MAX(t.createdAt)
+                FROM transactions t
+                INNER JOIN currency_accounts ca ON ca.id = t.accountId
+                WHERE ca.personId = people.id
+                  AND t.isArchived = 0
+            ) IS NULL THEN 0 ELSE 1 END DESC,
+            (
+                SELECT MAX(t.createdAt)
+                FROM transactions t
+                INNER JOIN currency_accounts ca ON ca.id = t.accountId
+                WHERE ca.personId = people.id
+                  AND t.isArchived = 0
+            ) DESC,
+            createdAt DESC,
+            id DESC
     """)
     fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>>
 
