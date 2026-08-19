@@ -106,23 +106,59 @@ object MultiCurrencyReportPdfExporter {
 
     private data class Col(val left: Float, val right: Float, val title: String)
 
+    // RTL: the first/base columns are placed at the right edge, then currency groups extend leftward.
     private fun peopleColumns(): List<Col> {
-        val out = mutableListOf(Col(24f, 110f, "الشخص")); var x = 110f
-        currencies.forEach { val s = x; out += listOf(Col(s, s + 57f, "عليه"), Col(s + 57f, s + 114f, "له"), Col(s + 114f, s + 171f, "الرصيد"), Col(s + 171f, s + 228f, "العمليات")); x += 228f }
+        val out = mutableListOf(Col(732f, 818f, "الشخص"))
+        var right = 732f
+        currencies.forEach {
+            val left = right - 228f
+            out += listOf(
+                Col(left, left + 57f, "عليه"),
+                Col(left + 57f, left + 114f, "له"),
+                Col(left + 114f, left + 171f, "الرصيد"),
+                Col(left + 171f, right, "العمليات")
+            )
+            right = left
+        }
         return out
     }
 
     private fun detailedColumns(): List<Col> {
-        val out = mutableListOf(Col(24f, 82f, "التاريخ"), Col(82f, 148f, "الشخص"), Col(148f, 211f, "البيان")); var x = 211f
-        currencies.forEach { val s = x; out += listOf(Col(s, s + 64.666f, "عليه"), Col(s + 64.666f, s + 129.333f, "له"), Col(s + 129.333f, s + 194f, "الرصيد")); x += 194f }
+        val out = mutableListOf(
+            Col(760f, 818f, "التاريخ"),
+            Col(694f, 760f, "الشخص"),
+            Col(631f, 694f, "البيان")
+        )
+        var right = 631f
+        currencies.forEach {
+            val left = right - 194f
+            out += listOf(
+                Col(left, left + 64.666f, "عليه"),
+                Col(left + 64.666f, left + 129.333f, "له"),
+                Col(left + 129.333f, right, "الرصيد")
+            )
+            right = left
+        }
         return out
     }
 
     private fun summaryColumns() = peopleColumns()
 
     private fun personColumns(): List<Col> {
-        val out = mutableListOf(Col(24f, 90f, "التاريخ"), Col(90f, 180f, "البيان")); var x = 180f
-        currencies.forEach { val s = x; out += listOf(Col(s, s + 69f, "عليه"), Col(s + 69f, s + 138f, "له"), Col(s + 138f, s + 207f, "الرصيد")); x += 207f }
+        val out = mutableListOf(
+            Col(728f, 818f, "التاريخ"),
+            Col(638f, 728f, "البيان")
+        )
+        var right = 638f
+        currencies.forEach {
+            val left = right - 207f
+            out += listOf(
+                Col(left, left + 69f, "عليه"),
+                Col(left + 69f, left + 138f, "له"),
+                Col(left + 138f, right, "الرصيد")
+            )
+            right = left
+        }
         return out
     }
 
