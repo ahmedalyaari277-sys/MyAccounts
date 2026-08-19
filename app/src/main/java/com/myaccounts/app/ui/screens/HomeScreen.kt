@@ -170,13 +170,16 @@ fun HomeScreen(
     if (quickPerson != null && onQuickTransactionSave != null) {
         Dialog(
             onDismissRequest = { quickTransactionPersonId = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
         ) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.94f)
+                    .fillMaxWidth(0.72f)
                     .imePadding(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
@@ -204,8 +207,6 @@ private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Un
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // In RTL the first child is placed on the right. Keep the quick-action
-                // button first so the + action is beside the person's name on the right.
                 IconButton(onClick = onQuickTransaction) {
                     Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة", tint = MaterialTheme.colorScheme.primary)
                 }
