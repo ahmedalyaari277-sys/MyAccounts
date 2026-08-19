@@ -166,6 +166,7 @@ fun TransactionAttachmentsDialog(
     onDelete: (TransactionAttachmentEntity) -> Unit
 ) {
     val context = LocalContext.current
+    val security = remember(context) { AppSecurityManager(context.applicationContext) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -226,6 +227,10 @@ fun TransactionAttachmentsDialog(
                                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     }
                                                     try {
+                                                        // Opening an installed viewer is also an
+                                                        // external activity. Keep the current app
+                                                        // session unlocked while it is open.
+                                                        security.markExternalActivityPending()
                                                         context.startActivity(
                                                             Intent.createChooser(
                                                                 intent,
@@ -233,10 +238,12 @@ fun TransactionAttachmentsDialog(
                                                             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                         )
                                                     } catch (_: ActivityNotFoundException) {
+                                                        security.clearExternalActivityPending()
                                                         errorMessage = "لا يوجد تطبيق قادر على فتح هذا الملف."
                                                     }
                                                 }
                                             } catch (_: Throwable) {
+                                                security.clearExternalActivityPending()
                                                 errorMessage = "تعذر فتح المرفق."
                                             }
                                         }
