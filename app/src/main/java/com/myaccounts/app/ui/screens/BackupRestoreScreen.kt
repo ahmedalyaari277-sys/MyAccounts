@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.util.DatabaseBackupManager
 import com.myaccounts.app.util.ManualSyncManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val BACKUP_PREFS = "myaccounts_backup_preferences"
@@ -77,7 +78,7 @@ fun BackupRestoreScreen(
     ) { uri ->
         if (uri != null) {
             busy = true
-            scope.launch {
+            scope.launch(Dispatchers.IO) {
                 val result = DatabaseBackupManager.createBackup(context, uri)
                 busy = false
                 result.fold(
@@ -123,7 +124,7 @@ fun BackupRestoreScreen(
             return
         }
         busy = true
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             val result = ManualSyncManager.syncToFolder(context, folderUri)
             busy = false
             result.fold(
@@ -311,7 +312,7 @@ fun BackupRestoreScreen(
                     onClick = {
                         pendingRestoreUri = null
                         busy = true
-                        scope.launch {
+                        scope.launch(Dispatchers.IO) {
                             val result = DatabaseBackupManager.restoreBackup(context, uri)
                             busy = false
                             message = result.fold(
