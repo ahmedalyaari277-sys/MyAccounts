@@ -22,10 +22,13 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -54,6 +57,8 @@ import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 
+private enum class PersonSortOrder { LATEST_TRANSACTION, ALPHABETICAL }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -69,12 +74,19 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
     var quickTransactionPersonId by remember { mutableStateOf<Long?>(null) }
+    var sortOrder by remember { mutableStateOf(PersonSortOrder.LATEST_TRANSACTION) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
     val filteredList = personsList.filter { item ->
         item.person.name.contains(searchQuery, ignoreCase = true) ||
             item.person.phone.contains(searchQuery) ||
             item.person.address.contains(searchQuery, ignoreCase = true) ||
             item.person.notes.contains(searchQuery, ignoreCase = true)
+    }
+
+    val displayedList = when (sortOrder) {
+        PersonSortOrder.LATEST_TRANSACTION -> filteredList
+        PersonSortOrder.ALPHABETICAL -> filteredList.sortedBy { it.person.name.lowercase() }
     }
 
     val quickPerson = personsList.firstOrNull { it.person.id == quickTransactionPersonId }
@@ -90,6 +102,28 @@ fun HomeScreen(
                 ),
                 actions = {
                     TextButton(onClick = onReportsClick) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                    IconButton(onClick = { showSortMenu = true }) {
+                        Icon(Icons.Default.Sort, contentDescription = "ترتيب الأشخاص")
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("حسب أحدث عملية") },
+                            onClick = {
+                                sortOrder = PersonSortOrder.LATEST_TRANSACTION
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("حسب الأبجدية") },
+                            onClick = {
+                                sortOrder = PersonSortOrder.ALPHABETICAL
+                                showSortMenu = false
+                            }
+                        )
+                    }
                     IconButton(onClick = onBackupRestoreClick) { Icon(Icons.Default.Backup, contentDescription = "النسخ الاحتياطي والاستعادة") }
                     IconButton(onClick = onArchiveClick) { Icon(Icons.Default.Archive, contentDescription = "الأرشيف") }
                 }
@@ -118,7 +152,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(16.dp))
 
-                if (filteredList.isEmpty()) {
+                if (displayedList.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.height(48.dp).width(48.dp))
@@ -132,7 +166,7 @@ fun HomeScreen(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(filteredList, key = { it.person.id }) { item ->
+                        items(displayedList, key = { it.person.id }) { item ->
                             PersonCard(
                                 item,
                                 onClick = { onPersonClick(item.person.id) },
