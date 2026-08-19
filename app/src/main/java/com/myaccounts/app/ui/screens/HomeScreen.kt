@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,7 +70,8 @@ fun HomeScreen(
     onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null,
     onReportsClick: () -> Unit = {},
     onArchiveClick: () -> Unit = {},
-    onBackupRestoreClick: () -> Unit = {}
+    onBackupRestoreClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -123,6 +125,9 @@ fun HomeScreen(
                                 showSortMenu = false
                             }
                         )
+                    }
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "الإعدادات")
                     }
                     IconButton(onClick = onBackupRestoreClick) { Icon(Icons.Default.Backup, contentDescription = "النسخ الاحتياطي والاستعادة") }
                     IconButton(onClick = onArchiveClick) { Icon(Icons.Default.Archive, contentDescription = "الأرشيف") }
