@@ -34,20 +34,27 @@ class MainActivity : FragmentActivity() {
         unlocked = !security.isProtectionEnabled()
 
         lifecycle.addObserver(LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                if (hasStartedOnce && security.isProtectionEnabled()) {
-                    if (security.isExternalActivityPending()) {
-                        // Returning from an external activity such as the
-                        // Android document picker is part of the current
-                        // workflow. Keep the existing screen and its state
-                        // unlocked instead of restarting the app lock.
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    if (hasStartedOnce && security.isProtectionEnabled()) {
+                        if (!security.isExternalActivityPending()) {
+                            // A normal return to the app requires authentication.
+                            unlocked = false
+                        }
+                    }
+                    hasStartedOnce = true
+                }
+
+                Lifecycle.Event.ON_RESUME -> {
+                    if (hasStartedOnce && security.isExternalActivityPending()) {
+                        // The external activity has returned control to MyAccounts.
+                        // Keep the current screen unlocked for this return, then
+                        // consume the exception so the next real app return locks.
                         security.clearExternalActivityPending()
-                    } else {
-                        // A normal return to the app requires authentication.
-                        unlocked = false
                     }
                 }
-                hasStartedOnce = true
+
+                else -> Unit
             }
         })
 
