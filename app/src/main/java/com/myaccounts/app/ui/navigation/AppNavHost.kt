@@ -11,11 +11,13 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.screens.ArchiveScreen
 import com.myaccounts.app.ui.screens.ArchivedPersonDetailScreen
 import com.myaccounts.app.ui.screens.BackupRestoreScreen
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
+import com.myaccounts.app.ui.screens.SettingsScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
 import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
@@ -29,7 +31,9 @@ import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
     val persons by viewModel.personsWithAccounts.collectAsState()
     val archivedPersons by viewModel.archivedPersonsWithAccounts.collectAsState()
-    val application = LocalContext.current.applicationContext as Application
+    val context = LocalContext.current
+    val application = context.applicationContext as Application
+    val security = AppSecurityManager(context)
     val reportsViewModel: ReportsViewModel = viewModel(factory = ReportsViewModelFactory(application))
     val transactionViewModel: TransactionViewModel = viewModel(factory = TransactionViewModelFactory(application))
     val archivedTransactions by transactionViewModel.archivedTransactionRows.collectAsState()
@@ -44,7 +48,8 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 onQuickTransactionSave = { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments) },
                 onReportsClick = { navController.navigate(Routes.REPORTS) },
                 onArchiveClick = { navController.navigate(Routes.ARCHIVE) },
-                onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) }
+                onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) },
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
             )
         }
         composable(Routes.PERSON_ACCOUNT, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
@@ -95,5 +100,6 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
             )
         }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
+        composable(Routes.SETTINGS) { SettingsScreen(security = security, onBack = { navController.popBackStack() }) }
     }
 }
