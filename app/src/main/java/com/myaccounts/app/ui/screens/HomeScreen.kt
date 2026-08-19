@@ -204,15 +204,18 @@ private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Un
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                // In RTL the first child is placed on the right. Keep the quick-action
+                // button first so the + action is beside the person's name on the right.
+                IconButton(onClick = onQuickTransaction) {
+                    Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة", tint = MaterialTheme.colorScheme.primary)
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(personWithAccounts.person.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface)
                     if (personWithAccounts.person.phone.isNotBlank()) Text(personWithAccounts.person.phone, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = onQuickTransaction) {
-                    Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة", tint = MaterialTheme.colorScheme.primary)
-                }
+                Spacer(Modifier.width(10.dp))
+                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
             if (personWithAccounts.person.address.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
