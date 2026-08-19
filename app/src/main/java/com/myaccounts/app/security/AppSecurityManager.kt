@@ -9,12 +9,6 @@ class AppSecurityManager(context: Context) {
         Context.MODE_PRIVATE
     )
 
-    // Process-local only. This flag must never be persisted, because a
-    // persisted external-activity flag could survive process death and
-    // accidentally bypass the app lock on a later launch.
-    @Volatile
-    private var externalActivityPending = false
-
     fun isProtectionEnabled(): Boolean =
         preferences.getBoolean(KEY_PROTECTION_ENABLED, false)
 
@@ -50,9 +44,12 @@ class AppSecurityManager(context: Context) {
         preferences.getString(KEY_RECOVERY_EMAIL, "") ?: ""
 
     /**
-     * Marks that an external activity (for example Android's document picker)
-     * was launched from the app. Returning from that activity must not be
-     * treated as leaving the app and must not trigger the app lock.
+     * Marks that an external activity (for example Android's document picker
+     * or a file viewer) was launched from the app. The flag is process-local,
+     * but shared by all AppSecurityManager instances in the same process.
+     * This is important because MainActivity/Compose may be recreated while
+     * the external activity is open. It is deliberately not persisted, so a
+     * process restart can never use it to bypass the app lock.
      */
     fun markExternalActivityPending() {
         externalActivityPending = true
@@ -75,5 +72,8 @@ class AppSecurityManager(context: Context) {
         private const val KEY_PROTECTION_ENABLED = "protection_enabled"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_RECOVERY_EMAIL = "recovery_email"
+
+        @Volatile
+        private var externalActivityPending = false
     }
 }
