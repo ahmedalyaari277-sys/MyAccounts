@@ -1,8 +1,6 @@
 package com.myaccounts.app
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.fragment.app.FragmentActivity
@@ -28,14 +26,6 @@ class MainActivity : FragmentActivity() {
     private lateinit var security: AppSecurityManager
     private var unlocked by mutableStateOf(false)
     private var hasStartedOnce = false
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    private val delayedRelock = Runnable {
-        if (security.isProtectionEnabled() && security.isExternalActivityPending()) {
-            security.clearExternalActivityPending()
-            unlocked = false
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,15 +35,15 @@ class MainActivity : FragmentActivity() {
 
         lifecycle.addObserver(LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
-                mainHandler.removeCallbacks(delayedRelock)
-
                 if (hasStartedOnce && security.isProtectionEnabled()) {
                     if (security.isExternalActivityPending()) {
-                        // Android's document picker is an external activity.
-                        // Give its ActivityResult callback time to clear the
-                        // pending flag before deciding to lock the app again.
-                        mainHandler.postDelayed(delayedRelock, EXTERNAL_ACTIVITY_RETURN_GRACE_MS)
+                        // Returning from an external activity such as the
+                        // Android document picker is part of the current
+                        // workflow. Keep the existing screen and its state
+                        // unlocked instead of restarting the app lock.
+                        security.clearExternalActivityPending()
                     } else {
+                        // A normal return to the app requires authentication.
                         unlocked = false
                     }
                 }
@@ -77,14 +67,5 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
-    }
-
-    override fun onDestroy() {
-        mainHandler.removeCallbacks(delayedRelock)
-        super.onDestroy()
-    }
-
-    companion object {
-        private const val EXTERNAL_ACTIVITY_RETURN_GRACE_MS = 400L
     }
 }
