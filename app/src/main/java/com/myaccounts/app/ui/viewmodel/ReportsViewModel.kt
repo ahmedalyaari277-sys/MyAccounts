@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class ReportsUiState(
-    val selectedCurrencyCode: String = "YER",
+    val selectedCurrencyCode: String = "ALL",
     val people: List<CurrencyReportPersonRow> = emptyList(),
     val allCurrencyPeople: List<CurrencyReportPersonRowWithCurrency> = emptyList(),
     val currencySummary: CurrencyReportSummary? = null,
@@ -46,15 +46,13 @@ class ReportsViewModel(private val repository: ReportRepository) : ViewModel() {
     private var peopleObservationJob: Job? = null
 
     fun selectCurrency(currencyCode: String) {
-        if (currencyCode == _uiState.value.selectedCurrencyCode) return
         _uiState.value = _uiState.value.copy(selectedCurrencyCode = currencyCode, errorMessage = null)
-        loadCurrencyReport()
-        if (_uiState.value.selectedPersonId != null) loadPersonReport()
+        if (currencyCode == "ALL") loadAllCurrencyReport() else loadCurrencyReport()
     }
 
     fun loadCurrencyReport() {
         val state = _uiState.value
-        val currencyCode = state.selectedCurrencyCode
+        val currencyCode = state.selectedCurrencyCode.takeIf { it != "ALL" } ?: "YER"
         val start = state.startDateMillis ?: 0L
         val end = state.endDateMillisExclusive ?: Long.MAX_VALUE
         viewModelScope.launch {
@@ -106,23 +104,23 @@ class ReportsViewModel(private val repository: ReportRepository) : ViewModel() {
     fun selectPerson(personId: Long) {
         _uiState.value = _uiState.value.copy(selectedPersonId = personId, selectedPersonSummary = null, selectedPersonTransactions = emptyList(), selectedPersonTransactionRows = emptyList(), selectedPersonOpeningBalanceMinor = 0L, selectedPersonMultiCurrencyReport = null, errorMessage = null)
         loadPersonReport()
+        loadMultiCurrencyPersonReport()
     }
 
     fun loadPersonReport() {
         val state = _uiState.value
         val personId = state.selectedPersonId ?: return
-        val currency = state.selectedCurrencyCode
+        val currency = state.selectedCurrencyCode.takeIf { it != "ALL" } ?: "YER"
         val start = state.startDateMillis ?: 0L
         val end = state.endDateMillisExclusive ?: Long.MAX_VALUE
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
                 val summary = repository.getPersonReportSummary(personId, currency, start, end)
                 val rows = repository.getPersonReportTransactionRows(personId, currency, start, end)
-                _uiState.value = _uiState.value.copy(selectedPersonSummary = summary, selectedPersonTransactions = rows.map { PersonReportTransaction(it.transactionId, it.transactionDate, it.type, it.amountMinor, it.description, it.balanceMinor) }, selectedPersonTransactionRows = rows, selectedPersonOpeningBalanceMinor = repository.getPersonOpeningBalance(personId, currency, start), isLoading = false)
+                _uiState.value = _uiState.value.copy(selectedPersonSummary = summary, selectedPersonTransactions = rows.map { PersonReportTransaction(it.transactionId, it.transactionDate, it.type, it.amountMinor, it.description, it.balanceMinor) }, selectedPersonTransactionRows = rows, selectedPersonOpeningBalanceMinor = repository.getPersonOpeningBalance(personId, currency, start))
             } catch (exception: Exception) {
                 if (exception is kotlinx.coroutines.CancellationException) throw exception
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = exception.message ?: "حدث خطأ أثناء تحميل تقرير الشخص")
+                _uiState.value = _uiState.value.copy(errorMessage = exception.message ?: "حدث خطأ أثناء تحميل تقرير الشخص")
             }
         }
     }
@@ -145,20 +143,20 @@ class ReportsViewModel(private val repository: ReportRepository) : ViewModel() {
 
     fun setAllTime() {
         _uiState.value = _uiState.value.copy(startDateMillis = null, endDateMillisExclusive = null, errorMessage = null)
-        loadAllCurrencyReport()
+        if (_uiState.value.selectedCurrencyCode == "ALL") loadAllCurrencyReport() else loadCurrencyReport()
         if (_uiState.value.selectedPersonId != null) loadMultiCurrencyPersonReport()
     }
 
     fun setDateRange(startDateMillis: Long, endDateMillisExclusive: Long) {
         require(endDateMillisExclusive > startDateMillis) { "يجب أن يكون تاريخ النهاية بعد تاريخ البداية" }
         _uiState.value = _uiState.value.copy(startDateMillis = startDateMillis, endDateMillisExclusive = endDateMillisExclusive, errorMessage = null)
-        loadAllCurrencyReport()
+        if (_uiState.value.selectedCurrencyCode == "ALL") loadAllCurrencyReport() else loadCurrencyReport()
         if (_uiState.value.selectedPersonId != null) loadMultiCurrencyPersonReport()
     }
 
     fun clearDateRange() = setAllTime()
     fun clearError() { _uiState.value = _uiState.value.copy(errorMessage = null) }
-    fun refresh() = loadAllCurrencyReport()
+    fun refresh() { if (_uiState.value.selectedCurrencyCode == "ALL") loadAllCurrencyReport() else loadCurrencyReport() }
 
     override fun onCleared() {
         peopleObservationJob?.cancel()
