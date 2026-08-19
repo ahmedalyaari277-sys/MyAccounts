@@ -74,6 +74,7 @@ fun QuickTransactionScreen(
         "SAR" to "ريال سعودي",
         "USD" to "دولار"
     )
+    val currencyOrder = mapOf("YER" to 0, "SAR" to 1, "USD" to 2)
 
     val dateText = remember(transactionDate) {
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(transactionDate))
@@ -111,7 +112,7 @@ fun QuickTransactionScreen(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            accounts.sortedBy { it.currencyCode }.forEach { account ->
+            accounts.sortedBy { currencyOrder[it.currencyCode] ?: Int.MAX_VALUE }.forEach { account ->
                 FilterChip(
                     selected = selectedCurrency == account.currencyCode,
                     onClick = { selectedCurrency = account.currencyCode },
