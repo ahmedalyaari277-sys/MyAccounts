@@ -25,12 +25,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -54,6 +58,8 @@ fun QuickTransactionScreen(
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val amountFocusRequester = remember { FocusRequester() }
     val today = remember { Calendar.getInstance() }
     var selectedCurrency by remember { mutableStateOf(accounts.firstOrNull()?.currencyCode ?: "YER") }
     var selectedType by remember { mutableStateOf(TransactionType.RECEIVABLE) }
@@ -66,6 +72,11 @@ fun QuickTransactionScreen(
     val currencyLabels = mapOf("YER" to "ريال يمني", "SAR" to "ريال سعودي", "USD" to "دولار")
     val currencyOrder = mapOf("YER" to 0, "SAR" to 1, "USD" to 2)
     val dateText = remember(transactionDate) { SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(transactionDate)) }
+
+    LaunchedEffect(Unit) {
+        amountFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
 
     Column(
         modifier = Modifier
@@ -81,7 +92,7 @@ fun QuickTransactionScreen(
             OutlinedTextField(
                 value = amount,
                 onValueChange = { amount = it; amountError = false },
-                modifier = Modifier.weight(1.35f),
+                modifier = Modifier.weight(1.35f).focusRequester(amountFocusRequester),
                 label = { Text("المبلغ") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
@@ -164,6 +175,7 @@ fun QuickTransactionScreen(
                         amountError = true
                         return@Button
                     }
+                    keyboardController?.hide()
                     onSave(
                         TransactionEntity(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate),
                         attachments
@@ -171,7 +183,7 @@ fun QuickTransactionScreen(
                 },
                 modifier = Modifier.weight(1f)
             ) { Text("حفظ", fontWeight = FontWeight.Bold) }
-            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("إلغاء") }
+            OutlinedButton(onClick = { keyboardController?.hide(); onCancel() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
         }
     }
 }
