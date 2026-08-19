@@ -70,7 +70,11 @@ object PersonReportPdfExporter {
         val top = yStart - 15f
         val xs = floatArrayOf(35f, 145f, 245f, 335f, 455f, 560f)
         val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BLUE }
-        xs.zipWithNext().forEach { (l, r) -> canvas.drawRect(l, top, r, yStart + 12f, bg) }
+        var i = 0
+        while (i < xs.size - 1) {
+            canvas.drawRect(xs[i], top, xs[i + 1], yStart + 12f, bg)
+            i++
+        }
         val white = paint(9f, true, Color.WHITE)
         canvas.drawText("التاريخ", 550f, yStart, white)
         canvas.drawText("البيان", 445f, yStart, white)
@@ -102,8 +106,8 @@ object PersonReportPdfExporter {
         val bottom = y + 13f
         val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFEAF2FB.toInt() }
         canvas.drawRect(LEFT, top, RIGHT, bottom, bg)
-        val white = paint(9f, true, Color.rgb(30, 30, 30))
-        canvas.drawText("المجموع", RIGHT, y + 4f, white)
+        val totalPaint = paint(9f, true, Color.rgb(30, 30, 30))
+        canvas.drawText("المجموع", RIGHT, y + 4f, totalPaint)
         canvas.drawText("عليه: +${formatAmount(summary.periodReceivableMinor)}", 390f, y + 4f, paint(9f, true, GREEN))
         canvas.drawText("له: -${formatAmount(summary.periodPayableMinor)}", 260f, y + 4f, paint(9f, true, RED))
         canvas.drawText("الرصيد: ${signedBalance(summary.periodBalanceMinor)}", 120f, y + 4f, balancePaint(summary.periodBalanceMinor))
