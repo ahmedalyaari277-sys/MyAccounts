@@ -57,6 +57,14 @@ dependencies {
     )
 
     implementation(
+        "androidx.fragment:fragment-ktx:1.8.9"
+    )
+
+    implementation(
+        "androidx.biometric:biometric:1.1.0"
+    )
+
+    implementation(
         platform(
             "androidx.compose:compose-bom:2024.02.00"
         )
