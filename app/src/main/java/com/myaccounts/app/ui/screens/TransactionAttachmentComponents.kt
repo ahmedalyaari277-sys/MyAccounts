@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
+import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.util.TransactionAttachmentStorage
 
 @Composable
@@ -45,9 +46,15 @@ fun TransactionAttachmentPicker(
     onAttachmentsChanged: (List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit
 ) {
     val context = LocalContext.current
+    val security = remember(context) { AppSecurityManager(context.applicationContext) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
+        // The document picker is an external activity. Its return must keep
+        // the current transaction dialog/screen alive instead of triggering
+        // the app lock introduced at activity startup.
+        security.clearExternalActivityPending()
+
         if (uris.isNotEmpty()) {
             val current = selectedAttachments.toMutableList()
             uris.forEach { uri ->
@@ -73,7 +80,10 @@ fun TransactionAttachmentPicker(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Button(
-            onClick = { launcher.launch(arrayOf("*/*")) },
+            onClick = {
+                security.markExternalActivityPending()
+                launcher.launch(arrayOf("*/*"))
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(
