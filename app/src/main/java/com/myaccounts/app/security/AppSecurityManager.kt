@@ -43,6 +43,22 @@ class AppSecurityManager(context: Context) {
     fun recoveryEmail(): String =
         preferences.getString(KEY_RECOVERY_EMAIL, "") ?: ""
 
+    /**
+     * Marks that an external activity (for example Android's document picker)
+     * was launched from the app. Returning from that activity must not be
+     * treated as leaving the app and must not trigger the app lock.
+     */
+    fun markExternalActivityPending() {
+        preferences.edit().putBoolean(KEY_EXTERNAL_ACTIVITY_PENDING, true).apply()
+    }
+
+    fun clearExternalActivityPending() {
+        preferences.edit().putBoolean(KEY_EXTERNAL_ACTIVITY_PENDING, false).apply()
+    }
+
+    fun isExternalActivityPending(): Boolean =
+        preferences.getBoolean(KEY_EXTERNAL_ACTIVITY_PENDING, false)
+
     private fun hash(value: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(value.toByteArray(Charsets.UTF_8))
@@ -54,5 +70,6 @@ class AppSecurityManager(context: Context) {
         private const val KEY_PROTECTION_ENABLED = "protection_enabled"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_RECOVERY_EMAIL = "recovery_email"
+        private const val KEY_EXTERNAL_ACTIVITY_PENDING = "external_activity_pending"
     }
 }
