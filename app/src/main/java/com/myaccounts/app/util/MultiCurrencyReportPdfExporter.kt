@@ -53,21 +53,16 @@ object MultiCurrencyReportPdfExporter {
             val c = page.canvas
             header(c, "تقرير الأشخاص — جميع العملات", "الفترة: ${range(start, end)}")
             val cols = peopleColumns()
-            tableHeader(c, 105f, cols)
-            var y = 137f
+            tableHeader(c, 105f, cols, 1, 4)
+            var y = 143f
             chunk.forEach { (id, name) ->
                 val cells = mutableListOf(name)
                 currencies.forEach { cur ->
                     val p = people.firstOrNull { it.personId == id && it.currencyCode == cur }
-                    cells += listOf(
-                        format(p?.totalReceivableMinor ?: 0),
-                        format(p?.totalPayableMinor ?: 0),
-                        balanceText(p?.balanceMinor ?: 0),
-                        "${p?.transactionCount ?: 0}"
-                    )
+                    cells += listOf(format(p?.totalReceivableMinor ?: 0), format(p?.totalPayableMinor ?: 0), balanceText(p?.balanceMinor ?: 0), "${p?.transactionCount ?: 0}")
                 }
                 row(c, y, cols, cells)
-                y += 36f
+                y += 32f
             }
             if (i == pages.lastIndex) totalPeople(c, y, cols, people)
             footer(c, i + 1, pages.size)
@@ -78,14 +73,14 @@ object MultiCurrencyReportPdfExporter {
 
     private fun buildDetailed(summaries: List<CurrencyReportSummary>, transactions: List<GeneralReportTransactionRow>, start: Long?, end: Long?): PdfDocument {
         val doc = PdfDocument()
-        val chunks = transactions.chunked(9).ifEmpty { listOf(emptyList()) }
+        val chunks = transactions.chunked(10).ifEmpty { listOf(emptyList()) }
         chunks.forEachIndexed { i, chunk ->
             val page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, i + 1).create())
             val c = page.canvas
             header(c, "التقرير العام — جميع العملات", "الفترة: ${range(start, end)}")
             val cols = detailedColumns()
-            tableHeader(c, 105f, cols)
-            var y = 137f
+            tableHeader(c, 105f, cols, 3, 3)
+            var y = 143f
             val balances = mutableMapOf<String, Long>()
             chunk.forEach { t ->
                 val key = "${t.personName}|${t.currencyCode}"
@@ -93,18 +88,11 @@ object MultiCurrencyReportPdfExporter {
                 balances[key] = next
                 val cells = mutableListOf(date(t.transactionDate), t.personName, t.description.ifBlank { "—" })
                 currencies.forEach { cur ->
-                    if (cur == t.currencyCode) {
-                        cells += listOf(
-                            if (t.type == "RECEIVABLE") format(t.amountMinor) else "—",
-                            if (t.type == "PAYABLE") format(t.amountMinor) else "—",
-                            balanceText(next)
-                        )
-                    } else {
-                        cells += listOf("—", "—", "—")
-                    }
+                    if (cur == t.currencyCode) cells += listOf(if (t.type == "RECEIVABLE") format(t.amountMinor) else "—", if (t.type == "PAYABLE") format(t.amountMinor) else "—", balanceText(next))
+                    else cells += listOf("—", "—", "—")
                 }
                 row(c, y, cols, cells)
-                y += 42f
+                y += 36f
             }
             if (i == chunks.lastIndex) totalDetailed(c, y, cols, summaries)
             footer(c, i + 1, chunks.size)
@@ -116,27 +104,22 @@ object MultiCurrencyReportPdfExporter {
     private fun buildSummary(rowsData: List<PersonCurrencySummaryRow>, start: Long?, end: Long?): PdfDocument {
         val doc = PdfDocument()
         val persons = rowsData.map { it.personId to it.personName }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
-        val pages = persons.chunked(9).ifEmpty { listOf(emptyList()) }
+        val pages = persons.chunked(10).ifEmpty { listOf(emptyList()) }
         pages.forEachIndexed { i, chunk ->
             val page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, i + 1).create())
             val c = page.canvas
             header(c, "تقرير أرصدة الحسابات — جميع العملات", "الفترة: ${range(start, end)}")
             val cols = summaryColumns()
-            tableHeader(c, 105f, cols)
-            var y = 137f
+            tableHeader(c, 105f, cols, 1, 4)
+            var y = 143f
             chunk.forEach { (id, name) ->
                 val cells = mutableListOf(name)
                 currencies.forEach { cur ->
                     val r = rowsData.firstOrNull { it.personId == id && it.currencyCode == cur }
-                    cells += listOf(
-                        format(r?.totalReceivableMinor ?: 0),
-                        format(r?.totalPayableMinor ?: 0),
-                        balanceText(r?.balanceMinor ?: 0),
-                        "${r?.transactionCount ?: 0}"
-                    )
+                    cells += listOf(format(r?.totalReceivableMinor ?: 0), format(r?.totalPayableMinor ?: 0), balanceText(r?.balanceMinor ?: 0), "${r?.transactionCount ?: 0}")
                 }
                 row(c, y, cols, cells)
-                y += 40f
+                y += 32f
             }
             if (i == pages.lastIndex) totalSummary(c, y, cols, rowsData)
             footer(c, i + 1, pages.size)
@@ -147,39 +130,24 @@ object MultiCurrencyReportPdfExporter {
 
     private fun buildPerson(report: MultiCurrencyPersonReport, start: Long?, end: Long?): PdfDocument {
         val doc = PdfDocument()
-        val transactions = report.reports
-            .flatMap { r -> r.transactions.map { r.currencyCode to it } }
-            .sortedWith(
-                compareBy<Pair<String, com.myaccounts.app.data.reports.PersonReportTransaction>> { it.second.transactionDate }
-                    .thenBy { it.second.transactionId }
-            )
-        val pages = transactions.chunked(7).ifEmpty { listOf(emptyList()) }
+        val transactions = report.reports.flatMap { r -> r.transactions.map { r.currencyCode to it } }
+            .sortedWith(compareBy<Pair<String, com.myaccounts.app.data.reports.PersonReportTransaction>> { it.second.transactionDate }.thenBy { it.second.transactionId })
+        val pages = transactions.chunked(10).ifEmpty { listOf(emptyList()) }
         pages.forEachIndexed { i, chunk ->
             val page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, i + 1).create())
             val c = page.canvas
-            header(
-                c,
-                "تقرير حساب ${report.personName} — جميع العملات",
-                "${report.phone.ifBlank { "غير مسجل" }}  |  ${report.address.ifBlank { "غير مسجل" }}  |  ${range(start, end)}"
-            )
+            header(c, "تقرير حساب ${report.personName} — جميع العملات", "${report.phone.ifBlank { "غير مسجل" }}  |  ${report.address.ifBlank { "غير مسجل" }}  |  ${range(start, end)}")
             val cols = personColumns()
-            tableHeader(c, 105f, cols)
-            var y = 137f
+            tableHeader(c, 105f, cols, 2, 3)
+            var y = 143f
             chunk.forEach { (cur, t) ->
                 val cells = mutableListOf(date(t.transactionDate), t.description.ifBlank { "—" })
                 currencies.forEach { cc ->
-                    if (cc == cur) {
-                        cells += listOf(
-                            if (t.type == "RECEIVABLE") format(t.amountMinor) else "—",
-                            if (t.type == "PAYABLE") format(t.amountMinor) else "—",
-                            balanceText(t.balanceMinor)
-                        )
-                    } else {
-                        cells += listOf("—", "—", "—")
-                    }
+                    if (cc == cur) cells += listOf(if (t.type == "RECEIVABLE") format(t.amountMinor) else "—", if (t.type == "PAYABLE") format(t.amountMinor) else "—", balanceText(t.balanceMinor))
+                    else cells += listOf("—", "—", "—")
                 }
                 row(c, y, cols, cells)
-                y += 48f
+                y += 32f
             }
             if (i == pages.lastIndex) totalPerson(c, y, cols, report)
             footer(c, i + 1, pages.size)
@@ -191,62 +159,57 @@ object MultiCurrencyReportPdfExporter {
     private data class Col(val left: Float, val right: Float, val title: String)
 
     private fun peopleColumns(): List<Col> {
-        val out = mutableListOf(Col(24f, 150f, "الشخص"))
-        var x = 150f
-        currencies.forEach {
-            out += Col(x, x + 55f, "عليه / ${currencyName(it)}")
-            out += Col(x + 55f, x + 110f, "له / ${currencyName(it)}")
-            out += Col(x + 110f, x + 175f, "الرصيد / ${currencyName(it)}")
-            out += Col(x + 175f, x + 220f, "العمليات")
-            x += 220f
-        }
+        val out = mutableListOf(Col(24f, 110f, "الشخص"))
+        var x = 110f
+        currencies.forEach { x.let { s -> out += listOf(Col(s, s + 59f, "عليه"), Col(s + 59f, s + 118f, "له"), Col(s + 118f, s + 177f, "الرصيد"), Col(s + 177f, s + 207f, "العمليات")) }; x += 207f }
         return out
     }
 
     private fun detailedColumns(): List<Col> {
-        val out = mutableListOf(
-            Col(24f, 84f, "التاريخ"),
-            Col(84f, 174f, "الشخص"),
-            Col(174f, 278f, "البيان")
-        )
-        var x = 278f
-        currencies.forEach {
-            out += Col(x, x + 94f, "عليه / ${currencyName(it)}")
-            out += Col(x + 94f, x + 188f, "له / ${currencyName(it)}")
-            out += Col(x + 188f, x + 282f, "الرصيد / ${currencyName(it)}")
-            x += 180f
-        }
+        val out = mutableListOf(Col(24f, 82f, "التاريخ"), Col(82f, 160f, "الشخص"), Col(160f, 235f, "البيان"))
+        var x = 235f
+        currencies.forEach { x.let { s -> out += listOf(Col(s, s + 69f, "عليه"), Col(s + 69f, s + 138f, "له"), Col(s + 138f, s + 207f, "الرصيد")) }; x += 207f }
         return out
     }
 
     private fun summaryColumns() = peopleColumns()
 
     private fun personColumns(): List<Col> {
-        val out = mutableListOf(Col(24f, 94f, "التاريخ"), Col(94f, 224f, "البيان"))
-        var x = 224f
-        currencies.forEach {
-            out += Col(x, x + 90f, "عليه / ${currencyName(it)}")
-            out += Col(x + 90f, x + 180f, "له / ${currencyName(it)}")
-            out += Col(x + 180f, x + 270f, "الرصيد / ${currencyName(it)}")
-            x += 180f
-        }
+        val out = mutableListOf(Col(24f, 90f, "التاريخ"), Col(90f, 180f, "البيان"))
+        var x = 180f
+        currencies.forEach { x.let { s -> out += listOf(Col(s, s + 69f, "عليه"), Col(s + 69f, s + 138f, "له"), Col(s + 138f, s + 207f, "الرصيد")) }; x += 207f }
         return out
     }
 
     private fun header(c: Canvas, title: String, info: String) {
-        val t = paint(18f, true, Color.rgb(30, 30, 30))
-        c.drawText(title, RIGHT, 34f, t)
+        c.drawText(title, RIGHT, 34f, paint(18f, true, Color.rgb(30, 30, 30)))
         c.drawText(info, RIGHT, 58f, paint(9f, false, Color.DKGRAY))
         c.drawLine(LEFT, 70f, RIGHT, 70f, line())
     }
 
-    private fun tableHeader(c: Canvas, y: Float, cols: List<Col>) {
-        val p = paint(8f, true, Color.WHITE)
+    private fun tableHeader(c: Canvas, y: Float, cols: List<Col>, baseCount: Int, groupSize: Int) {
         val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BLUE }
-        cols.forEach { col ->
-            c.drawRect(col.left, y - 18f, col.right, y + 18f, bg)
-            c.drawText(col.title, (col.left + col.right) / 2f, y + 3f, centerPaint(p))
+        val white = paint(8f, true, Color.WHITE)
+        val groupY = y - 28f
+        val subY = y + 1f
+        cols.take(baseCount).forEach { col ->
+            c.drawRect(col.left, groupY, col.right, y + 18f, bg)
+            c.drawText(col.title, (col.left + col.right) / 2f, y - 3f, centerPaint(white))
         }
+        var index = baseCount
+        currencies.forEach { cur ->
+            val first = cols[index]
+            val last = cols[index + groupSize - 1]
+            c.drawRect(first.left, groupY, last.right, y - 9f, bg)
+            c.drawText(currencyName(cur), (first.left + last.right) / 2f, groupY + 14f, centerPaint(white))
+            for (j in 0 until groupSize) {
+                val col = cols[index + j]
+                c.drawRect(col.left, y - 9f, col.right, y + 18f, bg)
+                c.drawText(col.title, (col.left + col.right) / 2f, y + 9f, centerPaint(white))
+            }
+            index += groupSize
+        }
+        cols.forEach { col -> c.drawLine(col.left, groupY, col.left, y + 18f, line()) }
         c.drawLine(LEFT, y + 18f, RIGHT, y + 18f, line())
     }
 
@@ -254,17 +217,8 @@ object MultiCurrencyReportPdfExporter {
         cols.forEachIndexed { i, col ->
             c.drawLine(col.left, y - 18f, col.left, y + 18f, line())
             val v = values.getOrNull(i).orEmpty()
-            val color = when {
-                v.startsWith("عليه") -> RED
-                v.startsWith("له") -> GREEN
-                else -> Color.rgb(35, 35, 35)
-            }
-            c.drawText(
-                single(v, col.right - 5f, col.right - col.left - 8f),
-                col.right - 5f,
-                y + 4f,
-                paint(8f, true, color)
-            )
+            val color = if (v.contains("عليه")) RED else if (v.contains("له")) GREEN else Color.rgb(35, 35, 35)
+            c.drawText(single(v, col.right - 4f, col.right - col.left - 6f), col.right - 4f, y + 4f, paint(8f, true, color))
         }
         c.drawLine(LEFT, y + 18f, RIGHT, y + 18f, line())
     }
@@ -272,9 +226,7 @@ object MultiCurrencyReportPdfExporter {
     private fun totalPeople(c: Canvas, y: Float, cols: List<Col>, data: List<CurrencyReportPersonRowWithCurrency>) {
         val values = mutableListOf("المجموع")
         currencies.forEach { cur ->
-            val x = data.filter { it.currencyCode == cur }
-            val a = x.sumOf { it.totalReceivableMinor }
-            val l = x.sumOf { it.totalPayableMinor }
+            val x = data.filter { it.currencyCode == cur }; val a = x.sumOf { it.totalReceivableMinor }; val l = x.sumOf { it.totalPayableMinor }
             values += listOf(format(a), format(l), balanceText(a - l), x.sumOf { it.transactionCount }.toString())
         }
         row(c, y, cols, values)
@@ -282,119 +234,48 @@ object MultiCurrencyReportPdfExporter {
 
     private fun totalDetailed(c: Canvas, y: Float, cols: List<Col>, summaries: List<CurrencyReportSummary>) {
         val values = mutableListOf("المجموع", "", "")
-        currencies.forEach { cur ->
-            val x = summaries.firstOrNull { it.currencyCode == cur }
-            values += listOf(
-                format(x?.totalReceivableMinor ?: 0),
-                format(x?.totalPayableMinor ?: 0),
-                balanceText(x?.balanceMinor ?: 0)
-            )
-        }
+        currencies.forEach { cur -> val x = summaries.firstOrNull { it.currencyCode == cur }; values += listOf(format(x?.totalReceivableMinor ?: 0), format(x?.totalPayableMinor ?: 0), balanceText(x?.balanceMinor ?: 0)) }
         row(c, y, cols, values)
     }
 
     private fun totalSummary(c: Canvas, y: Float, cols: List<Col>, data: List<PersonCurrencySummaryRow>) {
         val values = mutableListOf("المجموع")
-        currencies.forEach { cur ->
-            val x = data.filter { it.currencyCode == cur }
-            val a = x.sumOf { it.totalReceivableMinor }
-            val l = x.sumOf { it.totalPayableMinor }
-            values += listOf(format(a), format(l), balanceText(a - l), x.sumOf { it.transactionCount }.toString())
-        }
+        currencies.forEach { cur -> val x = data.filter { it.currencyCode == cur }; val a = x.sumOf { it.totalReceivableMinor }; val l = x.sumOf { it.totalPayableMinor }; values += listOf(format(a), format(l), balanceText(a - l), x.sumOf { it.transactionCount }.toString()) }
         row(c, y, cols, values)
     }
 
     private fun totalPerson(c: Canvas, y: Float, cols: List<Col>, report: MultiCurrencyPersonReport) {
         val values = mutableListOf("المجموع", "")
-        currencies.forEach { cur ->
-            val s = report.reports.firstOrNull { it.currencyCode == cur }?.summary
-            val a = s?.periodReceivableMinor ?: 0
-            val l = s?.periodPayableMinor ?: 0
-            values += listOf(format(a), format(l), balanceText(a - l))
-        }
+        currencies.forEach { cur -> val s = report.reports.firstOrNull { it.currencyCode == cur }?.summary; val a = s?.periodReceivableMinor ?: 0; val l = s?.periodPayableMinor ?: 0; values += listOf(format(a), format(l), balanceText(a - l)) }
         row(c, y, cols, values)
     }
 
-    private fun footer(c: Canvas, page: Int, total: Int) {
-        c.drawLine(LEFT, H - 28f, RIGHT, H - 28f, line())
-        c.drawText("صفحة $page من $total", RIGHT, H - 10f, paint(8f, false, Color.DKGRAY))
-    }
+    private fun footer(c: Canvas, page: Int, total: Int) { c.drawLine(LEFT, H - 28f, RIGHT, H - 28f, line()); c.drawText("صفحة $page من $total", RIGHT, H - 10f, paint(8f, false, Color.DKGRAY)) }
 
     private fun save(context: Context, title: String, document: PdfDocument): Result<String> = try {
         val fileName = "MyAccounts_${safe(title)}_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.pdf"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
-                put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts")
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
+            val values = ContentValues().apply { put(MediaStore.Downloads.DISPLAY_NAME, fileName); put(MediaStore.Downloads.MIME_TYPE, "application/pdf"); put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts"); put(MediaStore.Downloads.IS_PENDING, 1) }
             val resolver = context.contentResolver
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: throw IllegalStateException("تعذر إنشاء ملف PDF.")
-            try {
-                resolver.openOutputStream(uri).use { out ->
-                    if (out == null) throw IllegalStateException("تعذر فتح ملف PDF.")
-                    document.writeTo(out)
-                }
-                resolver.update(
-                    uri,
-                    ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) },
-                    null,
-                    null
-                )
-            } catch (e: Exception) {
-                resolver.delete(uri, null, null)
-                throw e
-            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: throw IllegalStateException("تعذر إنشاء ملف PDF.")
+            try { resolver.openOutputStream(uri).use { out -> if (out == null) throw IllegalStateException("تعذر فتح ملف PDF."); document.writeTo(out) }; resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null) }
+            catch (e: Exception) { resolver.delete(uri, null, null); throw e }
             Result.success("تم حفظ تقرير PDF في مجلد التنزيلات/MyAccounts")
         } else {
-            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
-            if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("تعذر إنشاء مجلد التقرير.")
-            File(dir, fileName).also {
-                FileOutputStream(it).use { out -> document.writeTo(out) }
-            }
+            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts"); if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("تعذر إنشاء مجلد التقرير.")
+            File(dir, fileName).also { FileOutputStream(it).use { out -> document.writeTo(out) } }
             Result.success("تم حفظ تقرير PDF في مجلد MyAccounts")
         }
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
+    } catch (e: Exception) { Result.failure(e) }
 
-    private fun paint(size: Float, bold: Boolean, color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.textSize = size
-        this.color = color
-        typeface = Typeface.create("sans-serif", if (bold) Typeface.BOLD else Typeface.NORMAL)
-        textAlign = Paint.Align.RIGHT
-    }
-
+    private fun paint(size: Float, bold: Boolean, color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; this.color = color; typeface = Typeface.create("sans-serif", if (bold) Typeface.BOLD else Typeface.NORMAL); textAlign = Paint.Align.RIGHT }
     private fun centerPaint(base: Paint) = Paint(base).apply { textAlign = Paint.Align.CENTER }
-
-    private fun line() = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(205, 205, 205)
-        strokeWidth = 1f
-    }
-
-    private fun single(value: String, right: Float, width: Float): String {
-        var text = value
-        val p = paint(8f, false, Color.BLACK)
-        while (text.length > 1 && p.measureText(text) > width) text = text.dropLast(1)
-        return if (text == value) text else text.dropLast(1) + "…"
-    }
-
-    private fun balanceText(value: Long) = when {
-        value > 0L -> "عليه ${format(value)}"
-        value < 0L -> "له ${format(-value)}"
-        else -> "متعادل 0"
-    }
-
+    private fun line() = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(205, 205, 205); strokeWidth = 1f }
+    private fun single(value: String, right: Float, width: Float): String { var text = value; val p = paint(8f, false, Color.BLACK); while (text.length > 1 && p.measureText(text) > width) text = text.dropLast(1); return if (text == value) text else text.dropLast(1) + "…" }
+    private fun balanceText(value: Long) = when { value > 0L -> "عليه ${format(value)}"; value < 0L -> "له ${format(-value)}"; else -> "متعادل 0" }
     private fun format(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun date(value: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(value))
     private fun range(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::date) ?: "غير محدد"} - ${end?.let { date(it - 1) } ?: "غير محدد"}"
-    private fun currencyName(code: String) = when (code) {
-        "YER" -> "الريال اليمني"
-        "SAR" -> "الريال السعودي"
-        "USD" -> "الدولار الأمريكي"
-        else -> code
-    }
+    private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
     private fun safe(value: String) = value.replace(Regex("[^\\u0600-\\u06FFA-Za-z0-9_-]+"), "_").take(50)
 }
