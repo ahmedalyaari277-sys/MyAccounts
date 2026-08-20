@@ -124,7 +124,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
                 }
             }
             result.fold(
-                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") },
+                { snackbar.showSnackbar("تعذر إنشاء التقرير.") },
                 { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") }
             )
         }
@@ -139,7 +139,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         scope.launch {
             ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
-                { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") },
+                { snackbar.showSnackbar("تعذر مشاركة التقرير.") },
                 { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
             )
         }
