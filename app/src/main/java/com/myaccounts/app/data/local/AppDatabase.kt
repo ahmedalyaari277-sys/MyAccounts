@@ -18,9 +18,11 @@ import com.myaccounts.app.data.reports.ReportDao
         PersonEntity::class,
         CurrencyAccountEntity::class,
         TransactionEntity::class,
-        TransactionAttachmentEntity::class
+        TransactionAttachmentEntity::class,
+        ArchivedTransactionSnapshotEntity::class,
+        ArchivedTransactionAttachmentSnapshotEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(TransactionConverters::class)
@@ -40,7 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "myaccounts_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build()
                     .also { INSTANCE = it }
             }
@@ -116,6 +118,41 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE transactions ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_isArchived ON transactions(isArchived)")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS archived_transaction_snapshots (
+                        transactionId INTEGER NOT NULL PRIMARY KEY,
+                        accountId INTEGER NOT NULL,
+                        personId INTEGER NOT NULL,
+                        personName TEXT NOT NULL,
+                        personPhone TEXT NOT NULL,
+                        personAddress TEXT NOT NULL,
+                        personNotes TEXT NOT NULL,
+                        currencyCode TEXT NOT NULL,
+                        type TEXT NOT NULL,
+                        amountMinor INTEGER NOT NULL,
+                        description TEXT NOT NULL,
+                        transactionDate INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        archivedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS archived_transaction_attachment_snapshots (
+                        attachmentId INTEGER NOT NULL PRIMARY KEY,
+                        transactionId INTEGER NOT NULL,
+                        fileName TEXT NOT NULL,
+                        mimeType TEXT NOT NULL,
+                        relativePath TEXT NOT NULL,
+                        sizeBytes INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_archived_transaction_attachment_snapshots_transactionId ON archived_transaction_attachment_snapshots(transactionId)")
             }
         }
     }
