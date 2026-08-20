@@ -150,15 +150,15 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
                 }
             }
             result.fold(
-                { snackbar.showSnackbar("تعذر إنشاء التقرير.") },
-                {
+                { _ ->
                     val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     ReportShareUtil.findLatestReport(context, reportPrefix(), mimeType).fold(
-                        { snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة.") },
-                        { uri -> if (pdf) lastPdfUri = uri else lastExcelUri = uri }
+                        { exception -> snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") },
+                        { resolvedUri -> if (pdf) lastPdfUri = resolvedUri else lastExcelUri = resolvedUri }
                     )
                     snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")
-                }
+                },
+                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }
             )
         }
     }
@@ -172,7 +172,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
         scope.launch {
             ReportShareUtil.shareReport(context, uri, mimeType).fold(
-                { snackbar.showSnackbar("تعذر مشاركة التقرير.") },
+                { exception -> snackbar.showSnackbar("تعذر مشاركة التقرير: ${exception.message ?: "خطأ غير معروف"}") },
                 { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
             )
         }
