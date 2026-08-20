@@ -108,46 +108,24 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
             val allCurrencies = state.selectedCurrencyCode == "ALL"
             val result = if (allCurrencies) {
                 when (reportType) {
-                    ReportType.PEOPLE -> if (pdf) {
-                        MultiCurrencyReportPdfExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
-                    } else {
-                        MultiCurrencyReportExcelExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
-                    }
-                    ReportType.DETAILED -> if (pdf) {
-                        MultiCurrencyReportPdfExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    } else {
-                        MultiCurrencyReportExcelExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    }
-                    ReportType.SUMMARY -> if (pdf) {
-                        MultiCurrencyReportPdfExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
-                    } else {
-                        MultiCurrencyReportExcelExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
-                    }
+                    ReportType.PEOPLE -> if (pdf) MultiCurrencyReportPdfExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
+                    ReportType.DETAILED -> if (pdf) MultiCurrencyReportPdfExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
+                    ReportType.SUMMARY -> if (pdf) MultiCurrencyReportPdfExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
                 }
             } else {
                 val currency = state.selectedCurrencyCode
                 when (reportType) {
                     ReportType.PEOPLE -> {
                         val summary = state.currencySummary
-                        if (summary == null) Result.failure(IllegalStateException("لم تكتمل بيانات التقرير بعد."))
-                        else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive)
-                        else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive)
+                        if (summary == null) Result.failure(IllegalStateException("لم تكتمل بيانات التقرير بعد.")) else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive)
                     }
-                    ReportType.DETAILED -> if (pdf) {
-                        GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    } else {
-                        GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    }
-                    ReportType.SUMMARY -> if (pdf) {
-                        GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
-                    } else {
-                        GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
-                    }
+                    ReportType.DETAILED -> if (pdf) GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
+                    ReportType.SUMMARY -> if (pdf) GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
                 }
             }
             result.fold(
-                { snackbar.showSnackbar(it) },
-                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") }
+                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") },
+                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") }
             )
         }
     }
@@ -167,192 +145,49 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("التقارير العامة", fontWeight = FontWeight.Bold) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } },
-                actions = {
-                    TextButton(onClick = { showCurrencyMenu = true }) { Text("المزيد ⋮") }
-                    DropdownMenu(expanded = showCurrencyMenu, onDismissRequest = { showCurrencyMenu = false }) {
-                        DropdownMenuItem(text = { Text("جميع العملات") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("ALL") })
-                        DropdownMenuItem(text = { Text("الريال اليمني") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("YER") })
-                        DropdownMenuItem(text = { Text("الريال السعودي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("SAR") })
-                        DropdownMenuItem(text = { Text("الدولار الأمريكي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("USD") })
-                    }
-                }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbar) }
-    ) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text("التقارير العامة", fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } }, actions = { TextButton(onClick = { showCurrencyMenu = true }) { Text("المزيد ⋮") }; DropdownMenu(expanded = showCurrencyMenu, onDismissRequest = { showCurrencyMenu = false }) { DropdownMenuItem(text = { Text("جميع العملات") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("ALL") }); DropdownMenuItem(text = { Text("الريال اليمني") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("YER") }); DropdownMenuItem(text = { Text("الريال السعودي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("SAR") }); DropdownMenuItem(text = { Text("الدولار الأمريكي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("USD") }) } }) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 Text("التقارير العامة", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    if (state.selectedCurrencyCode == "ALL") "التقرير الكامل يعرض العملات الثلاث مستقلة."
-                    else "تقرير منفصل: ${currencyName(state.selectedCurrencyCode)}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(if (state.selectedCurrencyCode == "ALL") "التقرير الكامل يعرض العملات الثلاث مستقلة." else "تقرير منفصل: ${currencyName(state.selectedCurrencyCode)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp)); PeriodSelector(period, ::choose)
+                if (period == Period.CUSTOM) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { showStart = true }, Modifier.weight(1f)) { Text("من: ${formatDate(customStart)}") }; OutlinedButton(onClick = { showEnd = true }, Modifier.weight(1f)) { Text("إلى: ${formatDate(customEnd)}") } }
                 Spacer(Modifier.height(6.dp))
-                PeriodSelector(period, ::choose)
-                if (period == Period.CUSTOM) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { showStart = true }, Modifier.weight(1f)) { Text("من: ${formatDate(customStart)}") }
-                        OutlinedButton(onClick = { showEnd = true }, Modifier.weight(1f)) { Text("إلى: ${formatDate(customEnd)}") }
-                    }
-                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") }); FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التقرير العام") }); FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("أرصدة الحسابات") }) }
                 Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") })
-                    FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التقرير العام") })
-                    FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("أرصدة الحسابات") })
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }
-                    Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { share(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة Excel") }
-                    OutlinedButton(onClick = { share(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة PDF") }
-                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }; Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") } }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { share(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة Excel") }; OutlinedButton(onClick = { share(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة PDF") } }
             }
-
             if (state.selectedCurrencyCode == "ALL") {
                 item { CurrencyTotals(state.allCurrencySummaries) }
                 when (reportType) {
-                    ReportType.PEOPLE -> {
-                        item { Text("الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                        items(state.allCurrencyPeople) { p -> PersonCard(p.personName, p.currencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) }
-                    }
-                    ReportType.DETAILED -> {
-                        item { Text("التقرير العام للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                        items(state.allCurrencyGeneralTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) }
-                    }
-                    ReportType.SUMMARY -> {
-                        item { Text("أرصدة الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                        items(state.allCurrencyPersonSummaries) { r -> PersonCard(r.personName, r.currencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) }
-                    }
+                    ReportType.PEOPLE -> { item { Text("الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.allCurrencyPeople) { p -> PersonCard(p.personName, p.currencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) } }
+                    ReportType.DETAILED -> { item { Text("التقرير العام للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.allCurrencyGeneralTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) } }
+                    ReportType.SUMMARY -> { item { Text("أرصدة الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.allCurrencyPersonSummaries) { r -> PersonCard(r.personName, r.currencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) } }
                 }
             } else {
                 item { SingleCurrencyTotals(state.currencySummary) }
                 when (reportType) {
-                    ReportType.PEOPLE -> {
-                        item { Text("الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                        items(state.people) { p -> PersonCard(p.personName, state.selectedCurrencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) }
-                    }
-                    ReportType.DETAILED -> {
-                        item { Text("التقرير العام للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                        items(state.generalTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) }
-                    }
-                    ReportType.SUMMARY -> {
-                        item { Text("أرصدة الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-                        items(state.personCurrencySummaries) { r -> PersonCard(r.personName, state.selectedCurrencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) }
-                    }
+                    ReportType.PEOPLE -> { item { Text("الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.people) { p -> PersonCard(p.personName, state.selectedCurrencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) } }
+                    ReportType.DETAILED -> { item { Text("التقرير العام للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.generalTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) } }
+                    ReportType.SUMMARY -> { item { Text("أرصدة الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.personCurrencySummaries) { r -> PersonCard(r.personName, state.selectedCurrencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) } }
                 }
             }
             if (state.errorMessage != null) item { Text(state.errorMessage!!, color = MaterialTheme.colorScheme.error) }
         }
     }
-
-    if (showStart) DatePickerDialog(onDismissRequest = { showStart = false }, confirmButton = { TextButton({ showStart = false }) { Text("إغلاق") } }) {
-        val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customStart)
-        DatePicker(picker)
-        LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customStart = it; if (customEnd != null) viewModel.setDateRange(dayStart(it), dayEnd(customEnd!!)) } }
-    }
-    if (showEnd) DatePickerDialog(onDismissRequest = { showEnd = false }, confirmButton = { TextButton({ showEnd = false }) { Text("إغلاق") } }) {
-        val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customEnd)
-        DatePicker(picker)
-        LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customEnd = it; if (customStart != null) viewModel.setDateRange(dayStart(customStart!!), dayEnd(it)) } }
-    }
+    if (showStart) DatePickerDialog(onDismissRequest = { showStart = false }, confirmButton = { TextButton({ showStart = false }) { Text("إغلاق") } }) { val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customStart); DatePicker(picker); LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customStart = it; if (customEnd != null) viewModel.setDateRange(dayStart(it), dayEnd(customEnd!!)) } } }
+    if (showEnd) DatePickerDialog(onDismissRequest = { showEnd = false }, confirmButton = { TextButton({ showEnd = false }) { Text("إغلاق") } }) { val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customEnd); DatePicker(picker); LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customEnd = it; if (customStart != null) viewModel.setDateRange(dayStart(customStart!!), dayEnd(it)) } } }
 }
 
-@Composable
-private fun PersonCard(name: String, currency: String, receivable: Long, payable: Long, balanceValue: Long, transactionCount: Int, onClick: (() -> Unit)?) {
-    Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
-                Text(name, fontWeight = FontWeight.Bold)
-                Text(currencyName(currency), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Column {
-                Text("عليه ${amount(receivable)}", color = MaterialTheme.colorScheme.error)
-                Text("له ${amount(payable)}", color = MaterialTheme.colorScheme.secondary)
-                Text(balance(balanceValue), fontWeight = FontWeight.Bold)
-                Text("العمليات: $transactionCount")
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransactionCard(date: Long, personName: String, description: String, currency: String, type: String, value: Long) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Text("${formatDate(date)} — $personName", fontWeight = FontWeight.Bold)
-            Text(description.ifBlank { "—" })
-            Text(currencyName(currency), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(if (type == "RECEIVABLE") "عليه ${amount(value)}" else "له ${amount(value)}", color = if (type == "RECEIVABLE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
-        }
-    }
-}
-
-@Composable
-private fun PeriodSelector(selected: Period, onSelect: (Period) -> Unit) {
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            FilterChip(selected == Period.ALL, { onSelect(Period.ALL) }, label = { Text("كل الحساب") })
-            FilterChip(selected == Period.TODAY, { onSelect(Period.TODAY) }, label = { Text("اليوم") })
-            FilterChip(selected == Period.WEEK, { onSelect(Period.WEEK) }, label = { Text("هذا الأسبوع") })
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            FilterChip(selected == Period.MONTH, { onSelect(Period.MONTH) }, label = { Text("هذا الشهر") })
-            FilterChip(selected == Period.CUSTOM, { onSelect(Period.CUSTOM) }, label = { Text("فترة مخصصة") })
-        }
-    }
-}
-
-@Composable
-private fun CurrencyTotals(summaries: List<com.myaccounts.app.data.reports.CurrencyReportSummary>) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        summaries.forEach { s ->
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(currencyName(s.currencyCode), fontWeight = FontWeight.Bold)
-                    Text("عليه ${amount(s.totalReceivableMinor)}", color = MaterialTheme.colorScheme.error)
-                    Text("له ${amount(s.totalPayableMinor)}", color = MaterialTheme.colorScheme.secondary)
-                    Text(balance(s.balanceMinor), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SingleCurrencyTotals(summary: com.myaccounts.app.data.reports.CurrencyReportSummary?) {
-    if (summary == null) return
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(currencyName(summary.currencyCode), fontWeight = FontWeight.Bold)
-            Text("عليه ${amount(summary.totalReceivableMinor)}", color = MaterialTheme.colorScheme.error)
-            Text("له ${amount(summary.totalPayableMinor)}", color = MaterialTheme.colorScheme.secondary)
-            Text(balance(summary.balanceMinor), fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
+@Composable private fun PersonCard(name: String, currency: String, receivable: Long, payable: Long, balanceValue: Long, transactionCount: Int, onClick: (() -> Unit)?) { Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(name, fontWeight = FontWeight.Bold); Text(currencyName(currency), color = MaterialTheme.colorScheme.onSurfaceVariant) }; Column { Text("عليه ${amount(receivable)}", color = MaterialTheme.colorScheme.error); Text("له ${amount(payable)}", color = MaterialTheme.colorScheme.secondary); Text(balance(balanceValue), fontWeight = FontWeight.Bold); Text("العمليات: $transactionCount") } } } }
+@Composable private fun TransactionCard(date: Long, personName: String, description: String, currency: String, type: String, value: Long) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) { Text("${formatDate(date)} — $personName", fontWeight = FontWeight.Bold); Text(description.ifBlank { "—" }); Text(currencyName(currency), color = MaterialTheme.colorScheme.onSurfaceVariant); Text(if (type == "RECEIVABLE") "عليه ${amount(value)}" else "له ${amount(value)}", color = if (type == "RECEIVABLE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary) } } }
+@Composable private fun PeriodSelector(selected: Period, onSelect: (Period) -> Unit) { Column { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) { FilterChip(selected == Period.ALL, { onSelect(Period.ALL) }, label = { Text("كل الحساب") }); FilterChip(selected == Period.TODAY, { onSelect(Period.TODAY) }, label = { Text("اليوم") }); FilterChip(selected == Period.WEEK, { onSelect(Period.WEEK) }, label = { Text("هذا الأسبوع") }) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) { FilterChip(selected == Period.MONTH, { onSelect(Period.MONTH) }, label = { Text("هذا الشهر") }); FilterChip(selected == Period.CUSTOM, { onSelect(Period.CUSTOM) }, label = { Text("فترة مخصصة") }) } } }
+@Composable private fun CurrencyTotals(summaries: List<com.myaccounts.app.data.reports.CurrencyReportSummary>) { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { summaries.forEach { s -> Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) { Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(currencyName(s.currencyCode), fontWeight = FontWeight.Bold); Text("عليه ${amount(s.totalReceivableMinor)}", color = MaterialTheme.colorScheme.error); Text("له ${amount(s.totalPayableMinor)}", color = MaterialTheme.colorScheme.secondary); Text(balance(s.balanceMinor), fontWeight = FontWeight.Bold) } } } } }
+@Composable private fun SingleCurrencyTotals(summary: com.myaccounts.app.data.reports.CurrencyReportSummary?) { if (summary == null) return; Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) { Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(currencyName(summary.currencyCode), fontWeight = FontWeight.Bold); Text("عليه ${amount(summary.totalReceivableMinor)}", color = MaterialTheme.colorScheme.error); Text("له ${amount(summary.totalPayableMinor)}", color = MaterialTheme.colorScheme.secondary); Text(balance(summary.balanceMinor), fontWeight = FontWeight.Bold) } } }
 private fun amount(v: Long) = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
-private fun balance(v: Long) = when {
-    v > 0L -> "عليه ${amount(v)}"
-    v < 0L -> "له ${amount(-v)}"
-    else -> "متعادل 0"
-}
-private fun currencyName(c: String) = when (c) {
-    "YER" -> "الريال اليمني"
-    "SAR" -> "الريال السعودي"
-    "USD" -> "الدولار الأمريكي"
-    else -> c
-}
+private fun balance(v: Long) = when { v > 0L -> "عليه ${amount(v)}"; v < 0L -> "له ${amount(-v)}"; else -> "متعادل 0" }
+private fun currencyName(c: String) = when (c) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> c }
 private fun formatDate(v: Long?) = v?.let { SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(it)) } ?: "—"
 private fun addDays(v: Long, d: Int) = Calendar.getInstance().apply { timeInMillis = v; add(Calendar.DAY_OF_MONTH, d) }.timeInMillis
 private fun addMonths(v: Long, d: Int) = Calendar.getInstance().apply { timeInMillis = v; add(Calendar.MONTH, d) }.timeInMillis
