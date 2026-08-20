@@ -10,7 +10,11 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object ReportShareUtil {
-    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> = try {
+    fun findLatestReport(
+        context: Context,
+        fileNamePrefix: String,
+        mimeType: String
+    ): Result<Uri> = try {
         val expectedExtension = extensionForMime(mimeType)
         val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
@@ -19,7 +23,12 @@ object ReportShareUtil {
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it)
             }
         } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
+        Result.success(uri)
+    } catch (exception: Exception) {
+        Result.failure(exception)
+    }
 
+    fun shareReport(context: Context, uri: Uri, mimeType: String): Result<Unit> = try {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
@@ -34,30 +43,29 @@ object ReportShareUtil {
         Result.failure(exception)
     }
 
+    /** Compatibility entry point for callers that have not yet retained the generated URI. */
+    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> =
+        findLatestReport(context, fileNamePrefix, mimeType).fold(
+            { Result.failure(it) },
+            { shareReport(context, it, mimeType) }
+        )
+
     private fun extensionForMime(mimeType: String): String = when (mimeType.lowercase()) {
         "application/pdf" -> ".pdf"
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> ".xlsx"
         else -> throw IllegalArgumentException("نوع ملف التقرير غير مدعوم للمشاركة.")
     }
 
-    /**
-     * Exporters currently use two filename conventions:
-     * general reports keep the Arabic title, while multi-currency reports
-     * sanitize the Arabic title/person name into underscores. We search both
-     * conventions and the known historical aliases through one shared path.
-     */
     private fun candidatePrefixes(prefix: String): List<String> = buildList {
         val aliases = buildList {
             add(prefix)
             add(prefix.replace(" ", "_"))
-
-            // Multi-currency exporter titles.
             when {
                 prefix.contains("تقرير_الأشخاص") || prefix.contains("تقرير الأشخاص") -> {
                     add("MyAccounts_تقرير الأشخاص")
                     add("MyAccounts_تقرير_الأشخاص")
                 }
-                prefix.contains("التقرير_التفصيلي") -> {
+                prefix.contains("التقرير_التفصيلي") || prefix.contains("التقرير العام") -> {
                     add("MyAccounts_التقرير العام")
                     add("MyAccounts_التقرير_العام")
                     add("MyAccounts_التقرير_التفصيلي")
@@ -68,13 +76,10 @@ object ReportShareUtil {
                     add("MyAccounts_ملخص_الأشخاص")
                 }
             }
-
-            // Historical aliases.
             if (prefix == "MyAccounts_التقرير_العام") add("MyAccounts_التقرير_التفصيلي")
             if (prefix == "MyAccounts_أرصدة_الحسابات") add("MyAccounts_ملخص_الأشخاص")
             if (prefix == "MyAccounts_ملخص_تقرير_الأشخاص") add("MyAccounts_ملخص_الأشخاص")
         }
-
         aliases.forEach { alias ->
             add(alias)
             add(sanitizeForFilename(alias))
@@ -96,7 +101,6 @@ object ReportShareUtil {
         var latestId: Long? = null
         var latestDate = Long.MIN_VALUE
         val candidates = candidatePrefixes(prefix)
-
         resolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             projection,
@@ -117,9 +121,7 @@ object ReportShareUtil {
                 }
             }
         }
-        return latestId?.let {
-            Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString())
-        }
+        return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
     }
 
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
@@ -127,9 +129,7 @@ object ReportShareUtil {
         val candidates = candidatePrefixes(prefix)
         return directory.listFiles()
             ?.filter { file ->
-                file.isFile &&
-                    file.name.endsWith(extension, ignoreCase = true) &&
-                    candidates.any { file.name.startsWith(it) }
+                file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) }
             }
             ?.maxByOrNull { it.lastModified() }
     }
