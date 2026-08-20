@@ -61,8 +61,12 @@ object MultiCurrencyReportPdfExporter {
             val page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, i + 1).create()); val c = page.canvas
             header(c, "التقرير العام — جميع العملات", "الفترة: ${range(start, end)}")
             val cols = detailedColumns(); tableHeader(c, 105f, cols, 3, 3); var y = 143f; val balances = mutableMapOf<String, Long>()
+            transactions.take(i * 10).forEach { t ->
+                val key = "${t.personName}|${t.currencyCode}"
+                balances[key] = (balances[key] ?: 0L) + if (t.type == "RECEIVABLE") t.amountMinor else -t.amountMinor
+            }
             chunk.forEach { t ->
-                val key = "${t.personName}|${t.currencyCode}"; val next = (balances[key] ?: 0) + if (t.type == "RECEIVABLE") t.amountMinor else -t.amountMinor; balances[key] = next
+                val key = "${t.personName}|${t.currencyCode}"; val next = (balances[key] ?: 0L) + if (t.type == "RECEIVABLE") t.amountMinor else -t.amountMinor; balances[key] = next
                 val cells = mutableListOf(date(t.transactionDate), t.personName, t.description.ifBlank { "—" })
                 currencies.forEach { cur -> if (cur == t.currencyCode) cells += listOf(if (t.type == "RECEIVABLE") format(t.amountMinor) else "—", if (t.type == "PAYABLE") format(t.amountMinor) else "—", balanceText(next)) else cells += listOf("—", "—", "—") }
                 row(c, y, cols, cells); y += 36f
@@ -106,37 +110,23 @@ object MultiCurrencyReportPdfExporter {
 
     private data class Col(val left: Float, val right: Float, val title: String)
 
-    // RTL: the first/base columns are placed at the right edge, then currency groups extend leftward.
     private fun peopleColumns(): List<Col> {
         val out = mutableListOf(Col(732f, 818f, "الشخص"))
         var right = 732f
         currencies.forEach {
             val left = right - 228f
-            out += listOf(
-                Col(left, left + 57f, "عليه"),
-                Col(left + 57f, left + 114f, "له"),
-                Col(left + 114f, left + 171f, "الرصيد"),
-                Col(left + 171f, right, "العمليات")
-            )
+            out += listOf(Col(left, left + 57f, "عليه"), Col(left + 57f, left + 114f, "له"), Col(left + 114f, left + 171f, "الرصيد"), Col(left + 171f, right, "العمليات"))
             right = left
         }
         return out
     }
 
     private fun detailedColumns(): List<Col> {
-        val out = mutableListOf(
-            Col(760f, 818f, "التاريخ"),
-            Col(694f, 760f, "الشخص"),
-            Col(631f, 694f, "البيان")
-        )
+        val out = mutableListOf(Col(760f, 818f, "التاريخ"), Col(694f, 760f, "الشخص"), Col(631f, 694f, "البيان"))
         var right = 631f
         currencies.forEach {
             val left = right - 194f
-            out += listOf(
-                Col(left, left + 64.666f, "عليه"),
-                Col(left + 64.666f, left + 129.333f, "له"),
-                Col(left + 129.333f, right, "الرصيد")
-            )
+            out += listOf(Col(left, left + 64.666f, "عليه"), Col(left + 64.666f, left + 129.333f, "له"), Col(left + 129.333f, right, "الرصيد"))
             right = left
         }
         return out
@@ -145,18 +135,11 @@ object MultiCurrencyReportPdfExporter {
     private fun summaryColumns() = peopleColumns()
 
     private fun personColumns(): List<Col> {
-        val out = mutableListOf(
-            Col(728f, 818f, "التاريخ"),
-            Col(638f, 728f, "البيان")
-        )
+        val out = mutableListOf(Col(728f, 818f, "التاريخ"), Col(638f, 728f, "البيان"))
         var right = 638f
         currencies.forEach {
             val left = right - 207f
-            out += listOf(
-                Col(left, left + 69f, "عليه"),
-                Col(left + 69f, left + 138f, "له"),
-                Col(left + 138f, right, "الرصيد")
-            )
+            out += listOf(Col(left, left + 69f, "عليه"), Col(left + 69f, left + 138f, "له"), Col(left + 138f, right, "الرصيد"))
             right = left
         }
         return out
