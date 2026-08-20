@@ -41,7 +41,13 @@ object ReportShareUtil {
         add(prefix)
         val normalized = prefix.replace(" ", "_")
         if (normalized != prefix) add(normalized)
-        if (normalized.contains("ملخص_تقرير_الأشخاص")) add(normalized.replace("ملخص_تقرير_الأشخاص", "ملخص_الأشخاص"))
+
+        // Keep compatibility with report names produced by earlier versions.
+        when (normalized) {
+            "MyAccounts_التقرير_العام" -> add("MyAccounts_التقرير_التفصيلي")
+            "MyAccounts_أرصدة_الحسابات" -> add("MyAccounts_ملخص_الأشخاص")
+            "MyAccounts_ملخص_تقرير_الأشخاص" -> add("MyAccounts_ملخص_الأشخاص")
+        }
     }.distinct()
 
     private fun findLatestDownloadUri(context: Context, prefix: String, extension: String): Uri? {
