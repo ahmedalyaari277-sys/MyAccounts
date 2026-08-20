@@ -78,10 +78,11 @@ fun PersonReportScreen(
             } else {
                 MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
             }
-            result.fold(
-                { snackbar.showSnackbar("تعذر إنشاء التقرير.") },
-                { snackbar.showSnackbar(it) }
-            )
+            result.onFailure {
+                snackbar.showSnackbar("تعذر إنشاء التقرير.")
+            }.onSuccess {
+                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")
+            }
         }
     }
 
@@ -90,10 +91,11 @@ fun PersonReportScreen(
         val prefix = "MyAccounts_تقرير حساب ${report.personName}"
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         scope.launch {
-            ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
-                { snackbar.showSnackbar("تعذر مشاركة التقرير. قم بإصدار التقرير أولاً.") },
-                { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
-            )
+            ReportShareUtil.shareLatestReport(context, prefix, mimeType).onFailure {
+                snackbar.showSnackbar("تعذر مشاركة التقرير. قم بإصدار التقرير أولاً.")
+            }.onSuccess {
+                snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.")
+            }
         }
     }
 
