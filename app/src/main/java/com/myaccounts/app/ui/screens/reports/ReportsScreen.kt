@@ -73,18 +73,8 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         lastExcelUri = null
     }
 
-    fun dayStart(v: Long) = Calendar.getInstance().apply {
-        timeInMillis = v
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-    fun dayEnd(v: Long) = Calendar.getInstance().apply {
-        timeInMillis = dayStart(v)
-        add(Calendar.DAY_OF_MONTH, 1)
-    }.timeInMillis
+    fun dayStart(v: Long) = Calendar.getInstance().apply { timeInMillis = v; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+    fun dayEnd(v: Long) = Calendar.getInstance().apply { timeInMillis = dayStart(v); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
 
     fun choose(p: Period) {
         period = p
@@ -92,38 +82,22 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         when (p) {
             Period.ALL -> viewModel.setAllTime()
             Period.TODAY -> viewModel.setDateRange(dayStart(now), dayEnd(now))
-            Period.WEEK -> {
-                val start = Calendar.getInstance().apply {
-                    timeInMillis = dayStart(now)
-                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
-                }.timeInMillis
-                viewModel.setDateRange(start, addDays(start, 7))
-            }
-            Period.MONTH -> {
-                val start = Calendar.getInstance().apply {
-                    timeInMillis = dayStart(now)
-                    set(Calendar.DAY_OF_MONTH, 1)
-                }.timeInMillis
-                viewModel.setDateRange(start, addMonths(start, 1))
-            }
+            Period.WEEK -> { val start = Calendar.getInstance().apply { timeInMillis = dayStart(now); set(Calendar.DAY_OF_WEEK, firstDayOfWeek) }.timeInMillis; viewModel.setDateRange(start, addDays(start, 7)) }
+            Period.MONTH -> { val start = Calendar.getInstance().apply { timeInMillis = dayStart(now); set(Calendar.DAY_OF_MONTH, 1) }.timeInMillis; viewModel.setDateRange(start, addMonths(start, 1)) }
             Period.CUSTOM -> showStart = true
         }
     }
 
     fun reportPrefix(): String {
         val allCurrencies = state.selectedCurrencyCode == "ALL"
-        return if (allCurrencies) {
-            when (reportType) {
-                ReportType.PEOPLE -> "MyAccounts_تقرير الأشخاص"
-                ReportType.DETAILED -> "MyAccounts_التقرير العام"
-                ReportType.SUMMARY -> "MyAccounts_أرصدة الحسابات"
-            }
-        } else {
-            when (reportType) {
-                ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"
-                ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"
-                ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
-            }
+        return if (allCurrencies) when (reportType) {
+            ReportType.PEOPLE -> "MyAccounts_تقرير الأشخاص"
+            ReportType.DETAILED -> "MyAccounts_التقرير العام"
+            ReportType.SUMMARY -> "MyAccounts_أرصدة الحسابات"
+        } else when (reportType) {
+            ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"
+            ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"
+            ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
         }
     }
 
@@ -131,6 +105,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         scope.launch {
             lastPdfUri = if (pdf) null else lastPdfUri
             lastExcelUri = if (!pdf) null else lastExcelUri
+            val exportStartedAt = System.currentTimeMillis()
             val allCurrencies = state.selectedCurrencyCode == "ALL"
             val result = if (allCurrencies) {
                 when (reportType) {
@@ -152,7 +127,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
             result.fold(
                 { _ ->
                     val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    ReportShareUtil.findLatestReport(context, reportPrefix(), mimeType).fold(
+                    ReportShareUtil.findLatestReportAfter(context, reportPrefix(), mimeType, exportStartedAt).fold(
                         { resolvedUri -> if (pdf) lastPdfUri = resolvedUri else lastExcelUri = resolvedUri },
                         { exception -> snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }
                     )
@@ -166,16 +141,8 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
     fun share(pdf: Boolean) {
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         val uri = if (pdf) lastPdfUri else lastExcelUri
-        if (uri == null) {
-            scope.launch { snackbar.showSnackbar("أنشئ التقرير المطلوب أولاً قبل مشاركته.") }
-            return
-        }
-        scope.launch {
-            ReportShareUtil.shareReport(context, uri, mimeType).fold(
-                { _ -> snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
-                { exception -> snackbar.showSnackbar("تعذر مشاركة التقرير: ${exception.message ?: "خطأ غير معروف"}") }
-            )
-        }
+        if (uri == null) { scope.launch { snackbar.showSnackbar("أنشئ التقرير المطلوب أولاً قبل مشاركته.") }; return }
+        scope.launch { ReportShareUtil.shareReport(context, uri, mimeType).fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { exception -> snackbar.showSnackbar("تعذر مشاركة التقرير: ${exception.message ?: "خطأ غير معروف"}") }) }
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("التقارير العامة", fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } }, actions = { TextButton(onClick = { showCurrencyMenu = true }) { Text("المزيد ⋮") }; DropdownMenu(expanded = showCurrencyMenu, onDismissRequest = { showCurrencyMenu = false }) { DropdownMenuItem(text = { Text("جميع العملات") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("ALL") }); DropdownMenuItem(text = { Text("الريال اليمني") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("YER") }); DropdownMenuItem(text = { Text("الريال السعودي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("SAR") }); DropdownMenuItem(text = { Text("الدولار الأمريكي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("USD") }) } }) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
