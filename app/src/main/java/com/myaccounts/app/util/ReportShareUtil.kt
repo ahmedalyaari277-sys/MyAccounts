@@ -10,11 +10,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object ReportShareUtil {
-    fun findLatestReport(
-        context: Context,
-        fileNamePrefix: String,
-        mimeType: String
-    ): Result<Uri> = try {
+    fun findLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Uri> = try {
         val expectedExtension = extensionForMime(mimeType)
         val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
@@ -34,16 +30,12 @@ object ReportShareUtil {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(
-            Intent.createChooser(intent, "مشاركة التقرير")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
+        context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         Result.success(Unit)
     } catch (exception: Exception) {
         Result.failure(exception)
     }
 
-    /** Compatibility entry point for callers that have not yet retained the generated URI. */
     fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> =
         findLatestReport(context, fileNamePrefix, mimeType).fold(
             { Result.failure(it) },
@@ -86,28 +78,17 @@ object ReportShareUtil {
         }
     }.distinct()
 
-    private fun sanitizeForFilename(value: String): String =
-        value.replace(Regex("[^A-Za-z0-9_-]"), "_")
+    private fun sanitizeForFilename(value: String): String = value.replace(Regex("[^A-Za-z0-9_-]"), "_")
 
     private fun findLatestDownloadUri(context: Context, prefix: String, extension: String): Uri? {
         val resolver = context.contentResolver
-        val projection = arrayOf(
-            MediaStore.Downloads._ID,
-            MediaStore.Downloads.DISPLAY_NAME,
-            MediaStore.Downloads.DATE_ADDED
-        )
+        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED)
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
         val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
         var latestId: Long? = null
         var latestDate = Long.MIN_VALUE
         val candidates = candidatePrefixes(prefix)
-        resolver.query(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            projection,
-            selection,
-            selectionArgs,
-            "${MediaStore.Downloads.DATE_ADDED} DESC"
-        )?.use { cursor ->
+        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
             val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
@@ -115,9 +96,10 @@ object ReportShareUtil {
                 val name = cursor.getString(nameIndex) ?: continue
                 if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
                 val dateAdded = cursor.getLong(dateIndex)
-                if (dateAdded >= latestDate) {
+                val id = cursor.getLong(idIndex)
+                if (dateAdded > latestDate || (dateAdded == latestDate && (latestId == null || id > latestId!!))) {
                     latestDate = dateAdded
-                    latestId = cursor.getLong(idIndex)
+                    latestId = id
                 }
             }
         }
@@ -127,10 +109,8 @@ object ReportShareUtil {
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
         val candidates = candidatePrefixes(prefix)
-        return directory.listFiles()
-            ?.filter { file ->
-                file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) }
-            }
-            ?.maxByOrNull { it.lastModified() }
+        return directory.listFiles()?.filter { file ->
+            file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) }
+        }?.maxByOrNull { it.lastModified() }
     }
 }
