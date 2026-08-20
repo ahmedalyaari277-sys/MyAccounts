@@ -1,0 +1,164 @@
+name: Apply direct report URI migration
+
+on:
+  push:
+    branches:
+      - fix/report-sharing-archive-restore
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/report-sharing-archive-restore
+          fetch-depth: 0
+
+      - name: Apply verified direct URI migration
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          import subprocess
+
+          root = Path.cwd()
+          files = [
+              "app/src/main/java/com/myaccounts/app/util/GeneralReportsPdfExporter.kt",
+              "app/src/main/java/com/myaccounts/app/util/GeneralReportsExcelExporter.kt",
+              "app/src/main/java/com/myaccounts/app/util/MultiCurrencyReportPdfExporter.kt",
+              "app/src/main/java/com/myaccounts/app/util/MultiCurrencyReportExcelExporter.kt",
+              "app/src/main/java/com/myaccounts/app/util/PersonReportPdfExporter.kt",
+              "app/src/main/java/com/myaccounts/app/util/PersonReportExcelExporter.kt",
+          ]
+          expected_counts = {
+              files[0]: 4,
+              files[1]: 4,
+              files[2]: 5,
+              files[3]: 5,
+              files[4]: 2,
+              files[5]: 2,
+          }
+
+          def add_uri_import(text):
+              if "import android.net.Uri" not in text:
+                  marker = "import android.content.Context\n"
+                  if marker not in text:
+                      raise SystemExit("Missing Context import while adding Uri import")
+                  text = text.replace(marker, marker + "import android.net.Uri\n", 1)
+              return text
+
+          def migrate_exporter(rel):
+              path = root / rel
+              text = path.read_text(encoding="utf-8")
+              count = text.count("Result<String>")
+              if count != expected_counts[rel]:
+                  raise SystemExit(f"{rel}: expected {expected_counts[rel]} Result<String> occurrences, found {count}")
+              text = add_uri_import(text)
+              text = text.replace("Result<String>", "Result<Uri>")
+
+              # Android 10+: return the exact MediaStore URI created by this export.
+              q_success = re.compile(r'Result\.success\("([^"]*)"\)')
+              matches = list(q_success.finditer(text))
+              if len(matches) != 2:
+                  raise SystemExit(f"{rel}: expected exactly 2 success-message expressions in save(), found {len(matches)}")
+              first = matches[0]
+              second = matches[1]
+              text = text[:first.start()] + "Result.success(uri)" + text[first.end():]
+              # Recompute the second match after the first replacement.
+              matches2 = list(q_success.finditer(text))
+              if len(matches2) != 1:
+                  raise SystemExit(f"{rel}: expected exactly 1 remaining success-message expression after Q migration")
+              second = matches2[0]
+
+              # Legacy branch: ensure the actual file is captured, then return a file URI.
+              before = text[:second.start()]
+              after = text[second.end():]
+              if "File(dir, fileName).also" in before[before.rfind("else"):]:
+                  old = "File(dir, fileName).also"
+                  segment_start = before.rfind(old)
+                  before = before[:segment_start] + "val file = File(dir, fileName).also" + before[segment_start + len(old):]
+                  text = before + "Result.success(Uri.fromFile(file))" + after
+              else:
+                  # The other exporters already bind the legacy File to `file`.
+                  if "val file = File(dir, fileName)" not in before[before.rfind("else"):]:
+                      raise SystemExit(f"{rel}: could not identify legacy output file variable")
+                  text = before + "Result.success(Uri.fromFile(file))" + after
+              path.write_text(text, encoding="utf-8")
+
+          for rel in files:
+              migrate_exporter(rel)
+
+          # ReportsScreen: consume the URI returned by the exporter directly.
+          reports = root / "app/src/main/java/com/myaccounts/app/ui/screens/reports/ReportsScreen.kt"
+          text = reports.read_text(encoding="utf-8")
+          if text.count("findLatestReportAfter") != 1:
+              raise SystemExit(f"ReportsScreen.kt: expected exactly 1 findLatestReportAfter call")
+          text = text.replace("            val exportStartedAt = System.currentTimeMillis()\n", "", 1)
+          old = '''            result.fold(\n                { _ ->\n                    val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n                    ReportShareUtil.findLatestReportAfter(context, reportPrefix(), mimeType, exportStartedAt).fold(\n                        { resolvedUri -> if (pdf) lastPdfUri = resolvedUri else lastExcelUri = resolvedUri },\n                        { exception -> snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }\n                    )\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
+          new = '''            result.fold(\n                { uri ->\n                    if (pdf) lastPdfUri = uri else lastExcelUri = uri\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
+          if old not in text:
+              raise SystemExit("ReportsScreen.kt: exact export result block was not found")
+          text = text.replace(old, new, 1)
+          reports.write_text(text, encoding="utf-8")
+
+          # PersonReportScreen: consume the URI returned by the exporter directly.
+          person = root / "app/src/main/java/com/myaccounts/app/ui/screens/reports/PersonReportScreen.kt"
+          text = person.read_text(encoding="utf-8")
+          if text.count("findLatestReportAfter") != 1:
+              raise SystemExit("PersonReportScreen.kt: expected exactly 1 findLatestReportAfter call")
+          text = text.replace("            val exportStartedAt = System.currentTimeMillis()\n", "", 1)
+          old = '''            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }.onSuccess {\n                val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n                val prefix = "MyAccounts_تقرير حساب ${report.personName}"\n                ReportShareUtil.findLatestReportAfter(context, prefix, mimeType, exportStartedAt).fold(\n                    { uri -> if (pdf) { lastPdfUri = uri; lastPdfExportAt = exportStartedAt } else { lastExcelUri = uri; lastExcelExportAt = exportStartedAt } },\n                    { exception -> snackbar.showSnackbar("تم تصدير التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }\n                )\n                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n            }'''
+          new = '''            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }.onSuccess { uri ->\n                if (pdf) { lastPdfUri = uri; lastPdfExportAt = System.currentTimeMillis() } else { lastExcelUri = uri; lastExcelExportAt = System.currentTimeMillis() }\n                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n            }'''
+          if old not in text:
+              raise SystemExit("PersonReportScreen.kt: exact export result block was not found")
+          text = text.replace(old, new, 1)
+          person.write_text(text, encoding="utf-8")
+
+          # Normalize legacy file:// URIs before sharing; MediaStore content:// URIs pass through unchanged.
+          share = root / "app/src/main/java/com/myaccounts/app/util/ReportShareUtil.kt"
+          text = share.read_text(encoding="utf-8")
+          old = '''    fun shareReport(context: Context, uri: Uri, mimeType: String): Result<Unit> = try {\n        val intent = Intent(Intent.ACTION_SEND).apply {\n            type = mimeType\n            putExtra(Intent.EXTRA_STREAM, uri)\n            clipData = ClipData.newRawUri("MyAccounts report", uri)\n            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)\n        }\n        val chooser = Intent.createChooser(intent, "مشاركة التقرير").apply {\n            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)\n            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)\n        }\n        context.packageManager.queryIntentActivities(intent, 0).forEach { info -> context.grantUriPermission(info.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }\n        context.startActivity(chooser)\n        Result.success(Unit)\n    } catch (exception: Exception) { Result.failure(exception) }'''
+          new = '''    fun shareReport(context: Context, uri: Uri, mimeType: String): Result<Unit> = try {\n        val shareUri = if (uri.scheme == "file") {\n            val path = uri.path ?: throw IllegalArgumentException("مسار ملف التقرير غير صالح.")\n            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(path))\n        } else {\n            uri\n        }\n        val intent = Intent(Intent.ACTION_SEND).apply {\n            type = mimeType\n            putExtra(Intent.EXTRA_STREAM, shareUri)\n            clipData = ClipData.newRawUri("MyAccounts report", shareUri)\n            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)\n        }\n        val chooser = Intent.createChooser(intent, "مشاركة التقرير").apply {\n            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)\n            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)\n        }\n        context.packageManager.queryIntentActivities(intent, 0).forEach { info -> context.grantUriPermission(info.activityInfo.packageName, shareUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }\n        context.startActivity(chooser)\n        Result.success(Unit)\n    } catch (exception: Exception) { Result.failure(exception) }'''
+          if old not in text:
+              raise SystemExit("ReportShareUtil.kt: shareReport block did not match exactly")
+          text = text.replace(old, new, 1)
+          share.write_text(text, encoding="utf-8")
+
+          # Hard verification before any commit.
+          for rel in files:
+              text = (root / rel).read_text(encoding="utf-8")
+              if "Result<String>" in text:
+                  raise SystemExit(f"Verification failed: {rel} still contains Result<String>")
+              if text.count("Result.success(uri)") != 1:
+                  raise SystemExit(f"Verification failed: {rel} does not have exactly one Q-branch Result.success(uri)")
+              if "Result.success(Uri.fromFile(file))" not in text:
+                  raise SystemExit(f"Verification failed: {rel} has no legacy Uri.fromFile(file) result")
+          if "findLatestReportAfter" in reports.read_text(encoding="utf-8"):
+              raise SystemExit("Verification failed: ReportsScreen still resolves latest report")
+          if "findLatestReportAfter" in person.read_text(encoding="utf-8"):
+              raise SystemExit("Verification failed: PersonReportScreen still resolves latest report")
+
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git", "add", *[str(root / p) for p in files], str(reports), str(person), str(share)], check=True)
+          subprocess.run(["git", "status", "--short"], check=True)
+          subprocess.run(["git", "commit", "-m", "fix(reports): return exact exported URI for sharing"], check=True)
+          subprocess.run(["git", "push", "origin", "HEAD:fix/report-sharing-archive-restore"], check=True)
+
+      - name: Remove migration workflow from final branch
+        if: success()
+        run: |
+          git fetch origin fix/report-sharing-archive-restore
+          git checkout fix/report-sharing-archive-restore
+          if [ -f .github/workflows/direct-uri-migration.yml ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git rm .github/workflows/direct-uri-migration.yml
+            git commit -m "chore(ci): remove one-time URI migration workflow"
+            git push origin HEAD:fix/report-sharing-archive-restore
+          fi
