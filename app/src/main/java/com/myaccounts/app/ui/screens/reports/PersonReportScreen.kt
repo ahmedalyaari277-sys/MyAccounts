@@ -41,6 +41,7 @@ import com.myaccounts.app.data.reports.MultiCurrencyPersonReport
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.util.MultiCurrencyReportExcelExporter
 import com.myaccounts.app.util.MultiCurrencyReportPdfExporter
+import com.myaccounts.app.util.ReportShareUtil
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
@@ -73,14 +74,24 @@ fun PersonReportScreen(
     fun export(pdf: Boolean) {
         val report = state.selectedPersonMultiCurrencyReport ?: return
         scope.launch {
-            // The combined exporter remains the canonical export path for now.
-            // Single-currency export formatting is finalized together with the report exporters.
             val result = if (pdf) {
                 MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
             } else {
                 MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
             }
-            result.fold({ snackbar.showSnackbar(it) }, { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") })
+            result.fold({ snackbar.showSnackbar(it) }, { snackbar.showSnackbar(it) })
+        }
+    }
+
+    fun share(pdf: Boolean) {
+        val report = state.selectedPersonMultiCurrencyReport ?: return
+        val prefix = "MyAccounts_تقرير حساب ${report.personName}"
+        val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        scope.launch {
+            ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
+                { snackbar.showSnackbar("تعذر مشاركة التقرير. قم بإصدار التقرير أولاً.") },
+                { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
+            )
         }
     }
 
@@ -102,6 +113,11 @@ fun PersonReportScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ export(true) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("PDF") }
                 Button({ export(false) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("Excel") }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton({ share(true) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("مشاركة PDF") }
+                OutlinedButton({ share(false) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("مشاركة Excel") }
             }
             Spacer(Modifier.height(10.dp))
             if (state.isLoading) Text("جاري تحميل التقرير...") else state.selectedPersonMultiCurrencyReport?.let { report ->
