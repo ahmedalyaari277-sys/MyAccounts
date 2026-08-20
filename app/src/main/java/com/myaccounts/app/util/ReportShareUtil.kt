@@ -25,7 +25,10 @@ object ReportShareUtil {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(
+            Intent.createChooser(intent, "مشاركة التقرير")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
         Result.success(Unit)
     } catch (exception: Exception) {
         Result.failure(exception)
@@ -37,12 +40,28 @@ object ReportShareUtil {
         else -> throw IllegalArgumentException("نوع ملف التقرير غير مدعوم للمشاركة.")
     }
 
+    /**
+     * Exporters use two filename conventions:
+     * - general reports keep the Arabic title in the filename;
+     * - multi-currency reports sanitize Arabic/person names to underscores.
+     *
+     * Sharing must therefore search for both forms. This keeps one sharing
+     * implementation for all report screens instead of duplicating filename logic.
+     */
     private fun candidatePrefixes(prefix: String): List<String> = buildList {
         add(prefix)
         val normalized = prefix.replace(" ", "_")
         if (normalized != prefix) add(normalized)
 
-        // Keep compatibility with report names produced by earlier versions.
+        val sanitized = sanitizeForFilename(prefix)
+        if (sanitized != prefix) add(sanitized)
+
+        val sanitizedNormalized = sanitizeForFilename(normalized)
+        if (sanitizedNormalized != prefix && sanitizedNormalized != sanitized) {
+            add(sanitizedNormalized)
+        }
+
+        // Compatibility with report names produced by earlier versions.
         when (normalized) {
             "MyAccounts_التقرير_العام" -> add("MyAccounts_التقرير_التفصيلي")
             "MyAccounts_أرصدة_الحسابات" -> add("MyAccounts_ملخص_الأشخاص")
@@ -50,16 +69,29 @@ object ReportShareUtil {
         }
     }.distinct()
 
+    private fun sanitizeForFilename(value: String): String =
+        value.replace(Regex("[^A-Za-z0-9_-]"), "_")
+
     private fun findLatestDownloadUri(context: Context, prefix: String, extension: String): Uri? {
         val resolver = context.contentResolver
-        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED)
+        val projection = arrayOf(
+            MediaStore.Downloads._ID,
+            MediaStore.Downloads.DISPLAY_NAME,
+            MediaStore.Downloads.DATE_ADDED
+        )
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
         val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
         var latestId: Long? = null
         var latestDate = Long.MIN_VALUE
         val candidates = candidatePrefixes(prefix)
 
-        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            "${MediaStore.Downloads.DATE_ADDED} DESC"
+        )?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
             val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
@@ -73,14 +105,20 @@ object ReportShareUtil {
                 }
             }
         }
-        return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
+        return latestId?.let {
+            Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString())
+        }
     }
 
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
         val candidates = candidatePrefixes(prefix)
         return directory.listFiles()
-            ?.filter { file -> file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } }
+            ?.filter { file ->
+                file.isFile &&
+                    file.name.endsWith(extension, ignoreCase = true) &&
+                    candidates.any { file.name.startsWith(it) }
+            }
             ?.maxByOrNull { it.lastModified() }
     }
 }
