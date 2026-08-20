@@ -1,0 +1,168 @@
+name: Final direct report URI migration
+
+on:
+  push:
+    branches:
+      - fix/report-sharing-archive-restore
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: contains(github.event.head_commit.message, '[run-direct-uri-final]') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make deterministic source migration
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+          exporter_paths = [
+              'app/src/main/java/com/myaccounts/app/util/GeneralReportsPdfExporter.kt',
+              'app/src/main/java/com/myaccounts/app/util/GeneralReportsExcelExporter.kt',
+              'app/src/main/java/com/myaccounts/app/util/MultiCurrencyReportPdfExporter.kt',
+              'app/src/main/java/com/myaccounts/app/util/MultiCurrencyReportExcelExporter.kt',
+              'app/src/main/java/com/myaccounts/app/util/PersonReportPdfExporter.kt',
+              'app/src/main/java/com/myaccounts/app/util/PersonReportExcelExporter.kt',
+          ]
+
+          for rel in exporter_paths:
+              path = root / rel
+              text = path.read_text(encoding='utf-8')
+              original = text
+
+              string_successes = list(re.finditer(r'Result\\.success\\("(?:[^"\\]|\\.)*"\\)', text))
+              for match in string_successes:
+                  before = text[max(0, match.start() - 2500):match.start()]
+                  if 'val uri = resolver.insert' not in before:
+                      raise SystemExit(f'Unsafe string success outside MediaStore export in {rel}: {match.group(0)}')
+
+              file_successes = list(re.finditer(r'Result\\.success\\(file\\.absolutePath\\)', text))
+              for match in file_successes:
+                  before = text[max(0, match.start() - 2500):match.start()]
+                  if 'val file = File(' not in before:
+                      raise SystemExit(f'Unsafe legacy file success in {rel}: {match.group(0)}')
+
+              if not string_successes and not file_successes:
+                  raise SystemExit(f'No export result sites found in {rel}; refusing blind migration')
+
+              text = text.replace('Result<String>', 'Result<Uri>')
+              text = re.sub(r'Result\\.success\\("(?:[^"\\]|\\.)*"\\)', 'Result.success(uri)', text)
+              text = text.replace('Result.success(file.absolutePath)', 'Result.success(ReportShareUtil.fileToShareUri(context, file))')
+
+              if 'import android.net.Uri' not in text:
+                  marker = 'import android.content.Context\n'
+                  if marker not in text:
+                      raise SystemExit(f'Cannot place Uri import safely in {rel}')
+                  text = text.replace(marker, marker + 'import android.net.Uri\n', 1)
+
+              if 'import com.myaccounts.app.util.ReportShareUtil' not in text:
+                  package_line = 'package com.myaccounts.app.util\n\n'
+                  if package_line not in text:
+                      raise SystemExit(f'Cannot place ReportShareUtil import safely in {rel}')
+                  text = text.replace(package_line, package_line + 'import com.myaccounts.app.util.ReportShareUtil\n\n', 1)
+
+              if 'Result<String>' in text or 'Result.success(file.absolutePath)' in text or re.search(r'Result\\.success\\("', text):
+                  raise SystemExit(f'Unsafe migration residue remains in {rel}')
+
+              path.write_text(text, encoding='utf-8')
+              print(f'Migrated {rel}: {len(string_successes)} MediaStore success site(s), {len(file_successes)} legacy success site(s)')
+
+          util = root / 'app/src/main/java/com/myaccounts/app/util/ReportShareUtil.kt'
+          text = util.read_text(encoding='utf-8')
+          helper = '''    fun fileToShareUri(context: Context, file: File): Uri =\n        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)\n\n'''
+          if 'fun fileToShareUri(' not in text:
+              anchor = 'object ReportShareUtil {\n'
+              if anchor not in text:
+                  raise SystemExit('ReportShareUtil object anchor not found')
+              text = text.replace(anchor, anchor + helper, 1)
+          util.write_text(text, encoding='utf-8')
+
+          reports = root / 'app/src/main/java/com/myaccounts/app/ui/screens/reports/ReportsScreen.kt'
+          text = reports.read_text(encoding='utf-8')
+          if 'ReportShareUtil.findLatestReportAfter' not in text:
+              raise SystemExit('ReportsScreen is already migrated or has unexpected structure')
+          text = text.replace('            val exportStartedAt = System.currentTimeMillis()\n', '', 1)
+          old_fold = '''            result.fold(\n                { _ ->\n                    val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n                    ReportShareUtil.findLatestReportAfter(context, reportPrefix(), mimeType, exportStartedAt).fold(\n                        { resolvedUri -> if (pdf) lastPdfUri = resolvedUri else lastExcelUri = resolvedUri },\n                        { exception -> snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }\n                    )\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
+          new_fold = '''            result.fold(\n                { uri ->\n                    if (pdf) lastPdfUri = uri else lastExcelUri = uri\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
+          if old_fold not in text:
+              raise SystemExit('ReportsScreen export result block does not match the verified current source')
+          text = text.replace(old_fold, new_fold, 1)
+          reports.write_text(text, encoding='utf-8')
+
+          person = root / 'app/src/main/java/com/myaccounts/app/ui/screens/reports/PersonReportScreen.kt'
+          text = person.read_text(encoding='utf-8')
+          if 'ReportShareUtil.findLatestReportAfter' not in text:
+              raise SystemExit('PersonReportScreen is already migrated or has unexpected structure')
+          text = text.replace('            val exportStartedAt = System.currentTimeMillis()\n', '', 1)
+          old_success = '''            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }.onSuccess {\n                val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n                val prefix = "MyAccounts_تقرير حساب ${report.personName}"\n                ReportShareUtil.findLatestReportAfter(context, prefix, mimeType, exportStartedAt).fold(\n                    { uri -> if (pdf) { lastPdfUri = uri; lastPdfExportAt = exportStartedAt } else { lastExcelUri = uri; lastExcelExportAt = exportStartedAt } },\n                    { exception -> snackbar.showSnackbar("تم تصدير التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }\n                )\n                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n            }'''
+          new_success = '''            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }.onSuccess { uri ->\n                if (pdf) { lastPdfUri = uri } else { lastExcelUri = uri }\n                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n            }'''
+          if old_success not in text:
+              raise SystemExit('PersonReportScreen export result block does not match the verified current source')
+          text = text.replace(old_success, new_success, 1)
+          text = text.replace('    var lastPdfExportAt by remember { mutableStateOf<Long?>(null) }\n', '', 1)
+          text = text.replace('    var lastExcelExportAt by remember { mutableStateOf<Long?>(null) }\n', '', 1)
+          text = text.replace('        lastPdfExportAt = null\n', '', 1)
+          text = text.replace('        lastExcelExportAt = null\n', '', 1)
+          person.write_text(text, encoding='utf-8')
+
+          for rel in exporter_paths:
+              text = (root / rel).read_text(encoding='utf-8')
+              if 'Result<String>' in text or 'Result.success(file.absolutePath)' in text:
+                  raise SystemExit(f'Exporter verification failed: {rel}')
+              if re.search(r'Result\\.success\\("', text):
+                  raise SystemExit(f'String Result.success remains: {rel}')
+
+          for rel in [
+              'app/src/main/java/com/accounts/app/ui/screens/reports/ReportsScreen.kt'
+          ]:
+              pass
+
+          reports_text = reports.read_text(encoding='utf-8')
+          person_text = person.read_text(encoding='utf-8')
+          if 'ReportShareUtil.findLatestReportAfter' in reports_text or 'ReportShareUtil.findLatestReportAfter' in person_text:
+              raise SystemExit('Latest-file discovery remains in report screens')
+          if 'Result<Uri>' not in reports_text or 'Result<Uri>' not in person_text:
+              raise SystemExit('Report screen migration verification failed')
+          if 'fun fileToShareUri(' not in util.read_text(encoding='utf-8'):
+              raise SystemExit('FileProvider helper missing')
+
+          print('SOURCE MIGRATION VALIDATION PASSED')
+      
+      - name: Kotlin compile validation
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:compileDebugKotlin --no-daemon
+
+      - name: Diff validation
+        run: |
+          git diff --check
+          git diff --stat
+          git diff -- app/src/main/java/com/myaccounts/app/util app/src/main/java/com/myaccounts/app/ui/screens/reports
+
+      - name: Commit verified migration
+        run: |
+          if git diff --quiet; then
+            echo 'No source changes were produced; refusing to create a migration commit.'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/myaccounts/app/util app/src/main/java/com/myaccounts/app/ui/screens/reports
+          git commit -m 'fix(reports): pass exported URI directly to sharing [verified-direct-uri]'
+          git push
