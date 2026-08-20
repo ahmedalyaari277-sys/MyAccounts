@@ -5,6 +5,7 @@ on:
     branches:
       - "main"
       - "master"
+      - "fix/report-sharing-archive-restore"
 
   workflow_dispatch:
 
