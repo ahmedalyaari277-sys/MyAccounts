@@ -1,5 +1,6 @@
 package com.myaccounts.app.util
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -28,9 +29,17 @@ object ReportShareUtil {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newRawUri("MyAccounts report", uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val chooser = Intent.createChooser(intent, "مشاركة التقرير").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.packageManager.queryIntentActivities(intent, 0).forEach { info ->
+            context.grantUriPermission(info.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(chooser)
         Result.success(Unit)
     } catch (exception: Exception) {
         Result.failure(exception)
@@ -82,27 +91,50 @@ object ReportShareUtil {
 
     private fun findLatestDownloadUri(context: Context, prefix: String, extension: String): Uri? {
         val resolver = context.contentResolver
-        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED)
-        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
-        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
-        var latestId: Long? = null
-        var latestDate = Long.MIN_VALUE
+        val projection = arrayOf(
+            MediaStore.Downloads._ID,
+            MediaStore.Downloads.DISPLAY_NAME,
+            MediaStore.Downloads.DATE_ADDED,
+            MediaStore.Downloads.DATE_MODIFIED,
+            MediaStore.Downloads.IS_PENDING,
+            MediaStore.Downloads.SIZE
+        )
+        val selection = "${MediaStore.Downloads.RELATIVE_PATH} = ? AND ${MediaStore.Downloads.IS_PENDING} = 0"
+        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts/")
         val candidates = candidatePrefixes(prefix)
-        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
+        var latestId: Long? = null
+        var latestTimestamp = Long.MIN_VALUE
+
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            "${MediaStore.Downloads.DATE_ADDED} DESC, ${MediaStore.Downloads._ID} DESC"
+        )?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
-            val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
+            val addedIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
+            val modifiedIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_MODIFIED)
+            val pendingIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.IS_PENDING)
+            val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+
             while (cursor.moveToNext()) {
+                if (cursor.getInt(pendingIndex) != 0) continue
+                if (cursor.getLong(sizeIndex) <= 0L) continue
                 val name = cursor.getString(nameIndex) ?: continue
-                if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
-                val dateAdded = cursor.getLong(dateIndex)
+                if (!name.endsWith(extension, ignoreCase = true)) continue
+                if (candidates.none { name.startsWith(it) }) continue
+
+                val timestamp = maxOf(cursor.getLong(addedIndex), cursor.getLong(modifiedIndex))
                 val id = cursor.getLong(idIndex)
-                if (dateAdded > latestDate || (dateAdded == latestDate && (latestId == null || id > latestId!!))) {
-                    latestDate = dateAdded
+                if (timestamp > latestTimestamp || (timestamp == latestTimestamp && (latestId == null || id > latestId!!))) {
+                    latestTimestamp = timestamp
                     latestId = id
                 }
             }
         }
+
         return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
     }
 
@@ -110,7 +142,7 @@ object ReportShareUtil {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
         val candidates = candidatePrefixes(prefix)
         return directory.listFiles()?.filter { file ->
-            file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) }
+            file.isFile && file.length() > 0L && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) }
         }?.maxByOrNull { it.lastModified() }
     }
 }
