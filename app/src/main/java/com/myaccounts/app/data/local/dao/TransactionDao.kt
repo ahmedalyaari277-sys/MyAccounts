@@ -152,6 +152,9 @@ interface TransactionDao {
     @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1")
     suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?
 
+    @Query("UPDATE people SET isActive = 1 WHERE id = :personId")
+    suspend fun restorePersonById(personId: Long)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPerson(person: PersonEntity): Long
 
@@ -218,6 +221,10 @@ interface TransactionDao {
                     isActive = true
                 )
             )
+        } else if (!person.isActive) {
+            // A normal person deletion is a soft delete. Restoring its transaction
+            // must reactivate the person so the restored account is visible again.
+            restorePersonById(snapshot.personId)
         }
 
         val account = getCurrencyAccountById(snapshot.accountId)
