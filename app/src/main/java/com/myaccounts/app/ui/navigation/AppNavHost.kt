@@ -15,6 +15,7 @@ import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.screens.ArchiveScreen
 import com.myaccounts.app.ui.screens.ArchivedPersonDetailScreen
 import com.myaccounts.app.ui.screens.BackupRestoreScreen
+import com.myaccounts.app.ui.screens.DetailsScreen
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.SettingsScreen
@@ -100,6 +101,13 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
             )
         }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
-        composable(Routes.SETTINGS) { SettingsScreen(security = security, onBack = { navController.popBackStack() }) }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                security = security,
+                onBack = { navController.popBackStack() },
+                onDetailsClick = { navController.navigate(Routes.DETAILS) }
+            )
+        }
+        composable(Routes.DETAILS) { DetailsScreen(onBack = { navController.popBackStack() }) }
     }
 }
