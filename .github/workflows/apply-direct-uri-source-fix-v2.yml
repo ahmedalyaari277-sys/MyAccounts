@@ -1,0 +1,175 @@
+name: Apply verified URI source fix v2
+
+on:
+  push:
+    branches:
+      - fix/report-sharing-archive-restore
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Apply verified source migration
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+          base = root / 'app/src/main/java/com/myaccounts/app'
+          util = base / 'util'
+          screens = base / 'ui/screens/reports'
+
+          expected = {
+              'GeneralReportsPdfExporter.kt': 4,
+              'GeneralReportsExcelExporter.kt': 4,
+              'MultiCurrencyReportPdfExporter.kt': 5,
+              'MultiCurrencyReportExcelExporter.kt': 5,
+              'PersonReportPdfExporter.kt': 2,
+              'PersonReportExcelExporter.kt': 1,
+          }
+
+          exporters = [util / name for name in expected]
+
+          for path in exporters:
+              text = path.read_text(encoding='utf-8')
+              name = path.name
+              count = text.count('Result<String>')
+              if count != expected[name]:
+                  raise SystemExit(f'{name}: expected {expected[name]} Result<String>, found {count}; refusing edit')
+              if text.count('Result.success("') != 1:
+                  raise SystemExit(f'{name}: expected exactly one Android 10+ success-message expression')
+
+              if 'import android.net.Uri' not in text:
+                  anchor = 'import android.content.Context\n'
+                  if text.count(anchor) != 1:
+                      raise SystemExit(f'{name}: Context import anchor is not unique')
+                  text = text.replace(anchor, anchor + 'import android.net.Uri\n', 1)
+
+              text = text.replace('Result<String>', 'Result<Uri>')
+              text = re.sub(r'Result\.success\("[^"]*"\)', 'Result.success(uri)', text, count=1)
+
+              if 'Result.success(file.absolutePath)' in text:
+                  text = text.replace('Result.success(file.absolutePath)', 'Result.success(ReportShareUtil.fileToShareUri(context, file))', 1)
+              elif 'File(dir, fileName).also { FileOutputStream(it).use { out -> document.writeTo(out) } }; Result.success(' in text:
+                  old = 'File(dir, fileName).also { FileOutputStream(it).use { out -> document.writeTo(out) } }; Result.success('
+                  new = 'val file = File(dir, fileName); FileOutputStream(file).use { out -> document.writeTo(out) }; Result.success(ReportShareUtil.fileToShareUri(context, file))'
+                  text = text.replace(old, new, 1)
+              elif 'File(dir, fileName).also { FileOutputStream(it).use { out -> writeWorkbook(out, sheet) } }; Result.success(' in text:
+                  old = 'File(dir, fileName).also { FileOutputStream(it).use { out -> writeWorkbook(out, sheet) } }; Result.success('
+                  new = 'val file = File(dir, fileName); FileOutputStream(file).use { out -> writeWorkbook(out, sheet) }; Result.success(ReportShareUtil.fileToShareUri(context, file))'
+                  text = text.replace(old, new, 1)
+              else:
+                  raise SystemExit(f'{name}: verified legacy output branch not found')
+
+              if 'Result<String>' in text or 'Result.success("' in text or 'Result.success(file.absolutePath)' in text:
+                  raise SystemExit(f'{name}: migration residue remains')
+              if text.count('Result.success(uri)') != 1:
+                  raise SystemExit(f'{name}: expected exactly one Result.success(uri)')
+              if text.count('ReportShareUtil.fileToShareUri(context, file)') != 1:
+                  raise SystemExit(f'{name}: expected exactly one FileProvider URI return')
+              path.write_text(text, encoding='utf-8')
+
+          share = util / 'ReportShareUtil.kt'
+          text = share.read_text(encoding='utf-8')
+          if 'fun fileToShareUri(' not in text:
+              anchor = 'object ReportShareUtil {\n'
+              if text.count(anchor) != 1:
+                  raise SystemExit('ReportShareUtil object anchor is not unique')
+              helper = '''    fun fileToShareUri(context: Context, file: File): Uri =
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+'''
+              text = text.replace(anchor, anchor + helper, 1)
+              share.write_text(text, encoding='utf-8')
+
+          reports = screens / 'ReportsScreen.kt'
+          text = reports.read_text(encoding='utf-8')
+          if text.count('ReportShareUtil.findLatestReportAfter') != 1:
+              raise SystemExit('ReportsScreen: expected exactly one legacy lookup')
+          old = '''            val exportStartedAt = System.currentTimeMillis()\n'''
+          if text.count(old) != 1:
+              raise SystemExit('ReportsScreen: expected exactly one export timestamp')
+          text = text.replace(old, '', 1)
+          old_block = '''            result.fold(\n                { _ ->\n                    val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n                    ReportShareUtil.findLatestReportAfter(context, reportPrefix(), mimeType, exportStartedAt).fold(\n                        { resolvedUri -> if (pdf) lastPdfUri = resolvedUri else lastExcelUri = resolvedUri },\n                        { exception -> snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }\n                    )\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
+          new_block = '''            result.fold(\n                { uri ->\n                    if (pdf) lastPdfUri = uri else lastExcelUri = uri\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
+          if old_block not in text:
+              raise SystemExit('ReportsScreen: exact verified export block not found')
+          text = text.replace(old_block, new_block, 1)
+          report_prefix = '''    fun reportPrefix(): String {\n        val allCurrencies = state.selectedCurrencyCode == "ALL"\n        return if (allCurrencies) when (reportType) {\n            ReportType.PEOPLE -> "MyAccounts_تقرير الأشخاص"\n            ReportType.DETAILED -> "MyAccounts_التقرير العام"\n            ReportType.SUMMARY -> "MyAccounts_أرصدة الحسابات"\n        } else when (reportType) {\n            ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"\n            ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"\n            ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"\n        }\n    }\n\n'''
+          if report_prefix not in text:
+              raise SystemExit('ReportsScreen: verified obsolete reportPrefix block not found')
+          text = text.replace(report_prefix, '', 1)
+          if 'ReportShareUtil.findLatestReportAfter' in text:
+              raise SystemExit('ReportsScreen: legacy lookup remains')
+          reports.write_text(text, encoding='utf-8')
+
+          person = screens / 'PersonReportScreen.kt'
+          text = person.read_text(encoding='utf-8')
+          if text.count('ReportShareUtil.findLatestReportAfter') != 1:
+              raise SystemExit('PersonReportScreen: expected exactly one legacy lookup')
+          if text.count('            val exportStartedAt = System.currentTimeMillis()\n') != 1:
+              raise SystemExit('PersonReportScreen: expected exactly one export timestamp')
+          text = text.replace('            val exportStartedAt = System.currentTimeMillis()\n', '', 1)
+          old_block = '''            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }.onSuccess {\n                val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n                val prefix = "MyAccounts_تقرير حساب ${report.personName}"\n                ReportShareUtil.findLatestReportAfter(context, prefix, mimeType, exportStartedAt).fold(\n                    { uri -> if (pdf) { lastPdfUri = uri; lastPdfExportAt = exportStartedAt } else { lastExcelUri = uri; lastExcelExportAt = exportStartedAt } },\n                    { exception -> snackbar.showSnackbar("تم تصدير التقرير، لكن تعذر ربطه بالمشاركة: ${exception.message ?: "خطأ غير معروف"}") }\n                )\n                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n            }'''
+          new_block = '''            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }.onSuccess { uri ->\n                if (pdf) lastPdfUri = uri else lastExcelUri = uri\n                snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n            }'''
+          if old_block not in text:
+              raise SystemExit('PersonReportScreen: exact verified export block not found')
+          text = text.replace(old_block, new_block, 1)
+          for line in [
+              '    var lastPdfExportAt by remember { mutableStateOf<Long?>(null) }\n',
+              '    var lastExcelExportAt by remember { mutableStateOf<Long?>(null) }\n',
+              '        lastPdfExportAt = null\n',
+              '        lastExcelExportAt = null\n',
+          ]:
+              text = text.replace(line, '', 1)
+          if 'ReportShareUtil.findLatestReportAfter' in text:
+              raise SystemExit('PersonReportScreen: legacy lookup remains')
+          person.write_text(text, encoding='utf-8')
+
+          for path in exporters:
+              text = path.read_text(encoding='utf-8')
+              if 'Result<String>' in text or text.count('Result.success(uri)') != 1 or text.count('ReportShareUtil.fileToShareUri(context, file)') != 1:
+                  raise SystemExit(f'{path.name}: final exporter verification failed')
+          if 'ReportShareUtil.findLatestReportAfter' in reports.read_text(encoding='utf-8'):
+              raise SystemExit('ReportsScreen: final verification failed')
+          if 'ReportShareUtil.findLatestReportAfter' in person.read_text(encoding='utf-8'):
+              raise SystemExit('PersonReportScreen: final verification failed')
+          if 'fun fileToShareUri(' not in share.read_text(encoding='utf-8'):
+              raise SystemExit('ReportShareUtil: FileProvider helper missing')
+          print('SOURCE VERIFICATION PASSED')
+
+      - name: Compile Kotlin
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:compileDebugKotlin --no-daemon
+
+      - name: Build APK
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Check diff
+        run: git diff --check
+
+      - name: Commit verified source fix and remove one-time workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-direct-uri-source-fix-v2.yml
+          git add app/src/main/java/com/myaccounts/app/util app/src/main/java/com/myaccounts/app/ui/screens/reports
+          git commit -m 'fix(reports): pass exported URI directly to sharing [direct-uri-verified]'
+          git push origin HEAD:fix/report-sharing-archive-restore
