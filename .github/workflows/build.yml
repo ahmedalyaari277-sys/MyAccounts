@@ -9,136 +9,18 @@ on:
 
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
+
     runs-on: ubuntu-latest
+
     steps:
+
+      # 1. تنزيل المشروع
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Apply verified report URI refactor
-        shell: python
-        run: |
-          from pathlib import Path
-          import re
-          import subprocess
-
-          root = Path('.')
-          util = root / 'app/src/main/java/com/myaccounts/app/util'
-          reports = root / 'app/src/main/java/com/myaccounts/app/ui/screens/reports'
-
-          def fail(message):
-              raise SystemExit('REFACTOR GUARD FAILED: ' + message)
-
-          def block_end(text, start):
-              open_pos = text.find('{', start)
-              if open_pos < 0: fail('opening brace not found')
-              depth = 0; string = False; escaped = False; line = False; block = False
-              i = open_pos
-              while i < len(text):
-                  ch = text[i]; nx = text[i + 1] if i + 1 < len(text) else ''
-                  if line:
-                      if ch == '\n': line = False
-                  elif block:
-                      if ch == '*' and nx == '/': block = False; i += 1
-                  elif string:
-                      if escaped: escaped = False
-                      elif ch == '\\': escaped = True
-                      elif ch == '"': string = False
-                  else:
-                      if ch == '/' and nx == '/': line = True; i += 1
-                      elif ch == '/' and nx == '*': block = True; i += 1
-                      elif ch == '"': string = True
-                      elif ch == '{': depth += 1
-                      elif ch == '}':
-                          depth -= 1
-                          if depth == 0: return i + 1
-                  i += 1
-              fail('unbalanced braces')
-
-          def add_import(text, line, marker='import android.content.Context\n'):
-              if line in text: return text
-              if marker not in text: fail('import marker missing: ' + line)
-              return text.replace(marker, marker + line, 1)
-
-          exporters = [
-              'GeneralReportsPdfExporter.kt',
-              'GeneralReportsExcelExporter.kt',
-              'MultiCurrencyReportPdfExporter.kt',
-              'MultiCurrencyReportExcelExporter.kt',
-          ]
-          for name in exporters:
-              p = util / name
-              text = p.read_text(encoding='utf-8')
-              text = add_import(text, 'import android.net.Uri\n')
-              text = text.replace('Result<String>', 'Result<Uri>')
-              m = re.search(r'(?m)^\s*(?:private\s+)?fun\s+save\s*\(', text)
-              if not m: fail(name + ': save not found')
-              end = block_end(text, m.start())
-              prefix, block, suffix = text[:m.start()], text[m.start():end], text[end:]
-              if not re.search(r'Result\.success\(\s*"', block): fail(name + ': save success string not found')
-              block = re.sub(r'Result\.success\(\s*"(?:[^"\\]|\\.)*"\s*\)', 'Result.success(uri)', block)
-              if 'Result.success(file.absolutePath)' in block:
-                  combined = add_import(prefix + block + suffix, 'import androidx.core.content.FileProvider\n')
-                  pos = combined.find(block)
-                  prefix, block, suffix = combined[:pos], combined[pos:pos + len(block)], combined[pos + len(block):]
-                  block = block.replace('Result.success(file.absolutePath)', 'Result.success(FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file))')
-              p.write_text(prefix + block + suffix, encoding='utf-8')
-
-          p = reports / 'ReportsScreen.kt'
-          text = p.read_text(encoding='utf-8')
-          text, n = re.subn(r'\n    fun reportPrefix\(\): String \{.*?\n    \}\n\n    fun export\(pdf: Boolean\)', '\n    fun export(pdf: Boolean)', text, count=1, flags=re.S)
-          if n != 1: fail('ReportsScreen: reportPrefix not found')
-          s = text.find('            result.fold(\n                { _ ->')
-          e = text.find('\n            }\n        }\n    }\n\n    fun share(pdf: Boolean)', s)
-          if s < 0 or e < 0: fail('ReportsScreen: export result block not found')
-          replacement = '''            result.fold(\n                { uri ->\n                    if (pdf) lastPdfUri = uri else lastExcelUri = uri\n                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")\n                },\n                { exception -> snackbar.showSnackbar("تعذر إنشاء التقرير: ${exception.message ?: "خطأ غير معروف"}") }\n            )'''
-          text = text[:s] + replacement + text[e + len('\n            }'):]
-          p.write_text(text, encoding='utf-8')
-
-          p = reports / 'PersonReportScreen.kt'
-          text = p.read_text(encoding='utf-8')
-          marker = '    var showEnd by remember { mutableStateOf(false) }\n'
-          if marker not in text: fail('PersonReportScreen: state marker not found')
-          text = text.replace(marker, marker + '    var lastPdfUri by remember { mutableStateOf<android.net.Uri?>(null) }\n    var lastExcelUri by remember { mutableStateOf<android.net.Uri?>(null) }\n', 1)
-          s = text.find('    fun export(pdf: Boolean) {'); e = text.find('\n    fun share(pdf: Boolean) {', s)
-          if s < 0 or e < 0: fail('PersonReportScreen: export/share not found')
-          export_fn = '''    fun export(pdf: Boolean) {\n        val report = state.selectedPersonMultiCurrencyReport ?: return\n        scope.launch {\n            val result = if (pdf) {\n                MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)\n            } else {\n                MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)\n            }\n            result.onFailure { snackbar.showSnackbar("تعذر إنشاء التقرير.") }\n                .onSuccess { uri ->\n                    if (pdf) lastPdfUri = uri else lastExcelUri = uri\n                    snackbar.showSnackbar("تم تصدير التقرير بنجاح.")\n                }\n        }\n    }\n'''
-          text = text[:s] + export_fn + text[e:]
-          s = text.find('    fun share(pdf: Boolean) {'); e = text.find('\n\n    Scaffold(', s)
-          if s < 0 or e < 0: fail('PersonReportScreen: share/Scaffold not found')
-          share_fn = '''    fun share(pdf: Boolean) {\n        val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"\n        val uri = if (pdf) lastPdfUri else lastExcelUri\n        if (uri == null) {\n            scope.launch { snackbar.showSnackbar("أنشئ التقرير المطلوب أولاً قبل مشاركته.") }\n            return\n        }\n        scope.launch {\n            ReportShareUtil.shareReport(context, uri, mimeType).onFailure {\n                snackbar.showSnackbar("تعذر مشاركة التقرير.")\n            }.onSuccess {\n                snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.")\n            }\n        }\n    }\n'''
-          text = text[:s] + share_fn + text[e:]
-          p.write_text(text, encoding='utf-8')
-
-          p = util / 'ReportShareUtil.kt'
-          text = p.read_text(encoding='utf-8')
-          for fn in ['shareLatestReport', 'findLatestReport', 'findLatestDownloadUri', 'findLatestLegacyFile', 'candidatePrefixes', 'sanitizeForFilename']:
-              m = re.search(r'(?m)^\s*(?:private\s+|suspend\s+)?fun\s+' + re.escape(fn) + r'\s*\(', text)
-              if m:
-                  text = text[:m.start()] + text[block_end(text, m.start()):]
-          p.write_text(text, encoding='utf-8')
-
-          for path in [reports / 'ReportsScreen.kt', reports / 'PersonReportScreen.kt']:
-              t = path.read_text(encoding='utf-8')
-              if 'findLatestReport(' in t or 'shareLatestReport(' in t: fail(str(path) + ': obsolete API remains')
-          for name in exporters:
-              t = (util / name).read_text(encoding='utf-8')
-              if 'Result<String>' in t or 'file.absolutePath' in t or 'Result.success(uri)' not in t: fail(name + ': URI contract guard failed')
-
-          # Remove this temporary workflow and restore build.yml before committing.
-          subprocess.run(['git', 'checkout', '--', '.github/workflows/build.yml'], check=True)
-          subprocess.run(['git', 'rm', '-f', '.github/workflows/repair-export-share.yml'], check=True)
-          subprocess.run(['git', 'diff', '--check'], check=True)
-          subprocess.run(['git', 'config', 'user.name', 'github-actions[bot]'], check=True)
-          subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
-          subprocess.run(['git', 'add', 'app/src/main/java/com/myaccounts/app/util', 'app/src/main/java/com/myaccounts/app/ui/screens/reports/ReportsScreen.kt', 'app/src/main/java/com/myaccounts/app/ui/screens/reports/PersonReportScreen.kt', '.github/workflows/build.yml', '.github/workflows/repair-export-share.yml'], check=True)
-          subprocess.run(['git', 'commit', '-m', 'fix(reports): return exact exported URI for sharing'], check=True)
-          subprocess.run(['git', 'push', 'origin', 'HEAD:fix/report-sharing-archive-restore'], check=True)
-
+      # 2. إعداد Java 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -146,14 +28,20 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
+      # 3. إعداد Gradle
+      #
+      # نستخدم Gradle 8.2 لأنه متوافق
+      # مع Android Gradle Plugin 8.2.2
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.2"
 
+      # 4. بناء التطبيق
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
 
+      # 5. رفع ملف APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
