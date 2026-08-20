@@ -45,6 +45,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import android.net.Uri
 
 private enum class ReportType { PEOPLE, DETAILED, SUMMARY }
 private enum class Period { ALL, TODAY, WEEK, MONTH, CUSTOM }
@@ -63,8 +64,14 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
     var showStart by remember { mutableStateOf(false) }
     var showEnd by remember { mutableStateOf(false) }
     var showCurrencyMenu by remember { mutableStateOf(false) }
+    var lastPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var lastExcelUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) { viewModel.selectCurrency("ALL") }
+    LaunchedEffect(reportType, state.selectedCurrencyCode, period, customStart, customEnd) {
+        lastPdfUri = null
+        lastExcelUri = null
+    }
 
     fun dayStart(v: Long) = Calendar.getInstance().apply {
         timeInMillis = v
@@ -103,8 +110,27 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
     }
 
+    fun reportPrefix(): String {
+        val allCurrencies = state.selectedCurrencyCode == "ALL"
+        return if (allCurrencies) {
+            when (reportType) {
+                ReportType.PEOPLE -> "MyAccounts_تقرير الأشخاص"
+                ReportType.DETAILED -> "MyAccounts_التقرير العام"
+                ReportType.SUMMARY -> "MyAccounts_أرصدة الحسابات"
+            }
+        } else {
+            when (reportType) {
+                ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"
+                ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"
+                ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
+            }
+        }
+    }
+
     fun export(pdf: Boolean) {
         scope.launch {
+            lastPdfUri = if (pdf) null else lastPdfUri
+            lastExcelUri = if (!pdf) null else lastExcelUri
             val allCurrencies = state.selectedCurrencyCode == "ALL"
             val result = if (allCurrencies) {
                 when (reportType) {
@@ -125,20 +151,27 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
             }
             result.fold(
                 { snackbar.showSnackbar("تعذر إنشاء التقرير.") },
-                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") }
+                {
+                    val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    ReportShareUtil.findLatestReport(context, reportPrefix(), mimeType).fold(
+                        { snackbar.showSnackbar("تم إنشاء التقرير، لكن تعذر ربطه بالمشاركة.") },
+                        { uri -> if (pdf) lastPdfUri = uri else lastExcelUri = uri }
+                    )
+                    snackbar.showSnackbar("تم إنشاء التقرير بنجاح.")
+                }
             )
         }
     }
 
     fun share(pdf: Boolean) {
-        val prefix = when (reportType) {
-            ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"
-            ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"
-            ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
-        }
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        val uri = if (pdf) lastPdfUri else lastExcelUri
+        if (uri == null) {
+            scope.launch { snackbar.showSnackbar("أنشئ التقرير المطلوب أولاً قبل مشاركته.") }
+            return
+        }
         scope.launch {
-            ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
+            ReportShareUtil.shareReport(context, uri, mimeType).fold(
                 { snackbar.showSnackbar("تعذر مشاركة التقرير.") },
                 { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
             )
