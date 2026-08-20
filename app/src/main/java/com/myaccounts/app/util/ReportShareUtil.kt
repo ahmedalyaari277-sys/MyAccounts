@@ -41,31 +41,43 @@ object ReportShareUtil {
     }
 
     /**
-     * Exporters use two filename conventions:
-     * - general reports keep the Arabic title in the filename;
-     * - multi-currency reports sanitize Arabic/person names to underscores.
-     *
-     * Sharing must therefore search for both forms. This keeps one sharing
-     * implementation for all report screens instead of duplicating filename logic.
+     * Exporters currently use two filename conventions:
+     * general reports keep the Arabic title, while multi-currency reports
+     * sanitize the Arabic title/person name into underscores. We search both
+     * conventions and the known historical aliases through one shared path.
      */
     private fun candidatePrefixes(prefix: String): List<String> = buildList {
-        add(prefix)
-        val normalized = prefix.replace(" ", "_")
-        if (normalized != prefix) add(normalized)
+        val aliases = buildList {
+            add(prefix)
+            add(prefix.replace(" ", "_"))
 
-        val sanitized = sanitizeForFilename(prefix)
-        if (sanitized != prefix) add(sanitized)
+            // Multi-currency exporter titles.
+            when {
+                prefix.contains("تقرير_الأشخاص") || prefix.contains("تقرير الأشخاص") -> {
+                    add("MyAccounts_تقرير الأشخاص")
+                    add("MyAccounts_تقرير_الأشخاص")
+                }
+                prefix.contains("التقرير_التفصيلي") -> {
+                    add("MyAccounts_التقرير العام")
+                    add("MyAccounts_التقرير_العام")
+                    add("MyAccounts_التقرير_التفصيلي")
+                }
+                prefix.contains("ملخص_الأشخاص") || prefix.contains("أرصدة_الحسابات") -> {
+                    add("MyAccounts_أرصدة الحسابات")
+                    add("MyAccounts_أرصدة_الحسابات")
+                    add("MyAccounts_ملخص_الأشخاص")
+                }
+            }
 
-        val sanitizedNormalized = sanitizeForFilename(normalized)
-        if (sanitizedNormalized != prefix && sanitizedNormalized != sanitized) {
-            add(sanitizedNormalized)
+            // Historical aliases.
+            if (prefix == "MyAccounts_التقرير_العام") add("MyAccounts_التقرير_التفصيلي")
+            if (prefix == "MyAccounts_أرصدة_الحسابات") add("MyAccounts_ملخص_الأشخاص")
+            if (prefix == "MyAccounts_ملخص_تقرير_الأشخاص") add("MyAccounts_ملخص_الأشخاص")
         }
 
-        // Compatibility with report names produced by earlier versions.
-        when (normalized) {
-            "MyAccounts_التقرير_العام" -> add("MyAccounts_التقرير_التفصيلي")
-            "MyAccounts_أرصدة_الحسابات" -> add("MyAccounts_ملخص_الأشخاص")
-            "MyAccounts_ملخص_تقرير_الأشخاص" -> add("MyAccounts_ملخص_الأشخاص")
+        aliases.forEach { alias ->
+            add(alias)
+            add(sanitizeForFilename(alias))
         }
     }.distinct()
 
