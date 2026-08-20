@@ -5,6 +5,7 @@ on:
     branches:
       - "main"
       - "master"
+      - "fix/report-sharing-archive-restore"
 
   workflow_dispatch:
 
@@ -41,6 +42,7 @@ jobs:
         run: gradle assembleDebug --no-daemon --stacktrace
 
       # 5. رفع ملف APK
+      - name: Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
