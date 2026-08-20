@@ -38,8 +38,8 @@ object ReportShareUtil {
 
     fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> =
         findLatestReport(context, fileNamePrefix, mimeType).fold(
-            { Result.failure(it) },
-            { shareReport(context, it, mimeType) }
+            { uri -> shareReport(context, uri, mimeType) },
+            { exception -> Result.failure(exception) }
         )
 
     private fun extensionForMime(mimeType: String): String = when (mimeType.lowercase()) {
