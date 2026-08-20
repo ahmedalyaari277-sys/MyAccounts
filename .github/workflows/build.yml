@@ -43,7 +43,6 @@ jobs:
 
       # 5. رفع ملف APK
       - name: Upload APK
-      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: myaccounts-app-debug
