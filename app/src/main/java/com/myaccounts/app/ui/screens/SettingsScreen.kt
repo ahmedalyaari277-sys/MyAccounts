@@ -30,7 +30,8 @@ private const val PIN_LENGTH = 9
 @Composable
 fun SettingsScreen(
     security: AppSecurityManager,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onDetailsClick: () -> Unit
 ) {
     var protectionEnabled by remember { mutableStateOf(security.isProtectionEnabled()) }
     var showSetup by remember { mutableStateOf(false) }
@@ -70,6 +71,16 @@ fun SettingsScreen(
                         }
                     }
                 )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Card(modifier = Modifier.fillMaxWidth()) {
+            TextButton(
+                onClick = onDetailsClick,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("تفاصيل التطبيق", modifier = Modifier.fillMaxWidth())
             }
         }
 
