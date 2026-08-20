@@ -1,0 +1,39 @@
+name: Apply report balance fix
+
+on:
+  push:
+    branches:
+      - "fix/report-sharing-archive-restore"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, 'fix(reports): carry detailed PDF balance across pages')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch PDF detailed report balance continuity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("app/src/main/java/com/myaccounts/app/util/MultiCurrencyReportPdfExporter.kt")
+          text = path.read_text(encoding="utf-8")
+          old = 'val page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, i + 1).create()); val c = page.canvas\n            header(c, "التقرير العام — جميع العملات", "الفترة: ${range(start, end)}")\n            val cols = detailedColumns(); tableHeader(c, 105f, cols, 3, 3); var y = 143f; val balances = mutableMapOf<String, Long>()'
+          new = 'val page = doc.startPage(PdfDocument.PageInfo.Builder(W, H, i + 1).create()); val c = page.canvas\n            header(c, "التقرير العام — جميع العملات", "الفترة: ${range(start, end)}")\n            val cols = detailedColumns(); tableHeader(c, 105f, cols, 3, 3); var y = 143f; val balances = mutableMapOf<String, Long>()\n            transactions.take(i * 10).forEach { t ->\n                val key = "${t.personName}|${t.currencyCode}"\n                balances[key] = (balances[key] ?: 0L) + if (t.type == "RECEIVABLE") t.amountMinor else -t.amountMinor\n            }'
+          if old not in text:
+              raise SystemExit("Expected PDF buildDetailed block was not found; refusing to modify the repository.")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app/src/main/java/com/myaccounts/app/util/MultiCurrencyReportPdfExporter.kt .github/workflows/apply-report-balance-fix.yml
+          git rm -- .github/workflows/apply-report-balance-fix.yml
+          git commit -m "fix(reports): carry detailed PDF balance across pages"
+          git push
