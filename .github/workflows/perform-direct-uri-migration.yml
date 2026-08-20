@@ -18,11 +18,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply source-level direct URI migration
+      - name: Apply and validate source migration
         shell: python
         run: |
           from pathlib import Path
-          import re
           import subprocess
 
           root = Path('.')
@@ -47,16 +46,25 @@ jobs:
               'PersonReportExcelExporter.kt': 1,
           }
 
+          def replace_one_success_literal(text, name):
+              marker = 'Result.success("'
+              start = text.find(marker)
+              if start < 0 or text.find(marker, start + 1) >= 0:
+                  raise SystemExit(f'{name}: expected exactly one string Result.success branch')
+              end = text.find('")', start + len(marker))
+              if end < 0:
+                  raise SystemExit(f'{name}: unterminated Result.success string branch')
+              return text[:start] + 'Result.success(uri)' + text[end + 2:]
+
           for name in exporter_names:
               path = util / name
               text = path.read_text(encoding='utf-8')
               if text.count('Result<String>') != expected_result_counts[name]:
                   raise SystemExit(f'{name}: unexpected Result<String> count; refusing migration')
-              success_literals = re.findall(r'Result\\.success\\("[^"]*"\\)', text)
-              if len(success_literals) != 1:
-                  raise SystemExit(f'{name}: expected exactly one string success branch; found {len(success_literals)}')
-              if 'Result.success(file.absolutePath)' not in text:
-                  raise SystemExit(f'{name}: expected legacy absolute-path branch was not found')
+              if text.count('Result.success("') != 1:
+                  raise SystemExit(f'{name}: expected exactly one MediaStore string success branch')
+              if text.count('Result.success(file.absolutePath)') != 1:
+                  raise SystemExit(f'{name}: expected exactly one legacy absolute-path success branch')
               if 'import android.net.Uri' not in text:
                   anchor = 'import android.content.Context\n'
                   if text.count(anchor) != 1:
@@ -68,10 +76,12 @@ jobs:
                       raise SystemExit(f'{name}: Uri import anchor is not unique')
                   text = text.replace(marker, marker + 'import androidx.core.content.FileProvider\n', 1)
               text = text.replace('Result<String>', 'Result<Uri>')
-              text = re.sub(r'Result\\.success\\("[^"]*"\\)', 'Result.success(uri)', text, count=1)
+              text = replace_one_success_literal(text, name)
               text = text.replace('Result.success(file.absolutePath)', 'Result.success(FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file))', 1)
               if 'Result<String>' in text or 'Result.success("' in text or 'Result.success(file.absolutePath)' in text:
                   raise SystemExit(f'{name}: migration residue remains')
+              if text.count('Result<Uri>') != expected_result_counts[name]:
+                  raise SystemExit(f'{name}: Result<Uri> count is not exact')
               if text.count('Result.success(uri)') != 1:
                   raise SystemExit(f'{name}: expected exactly one MediaStore URI return')
               if text.count('FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)') != 1:
@@ -131,9 +141,11 @@ jobs:
           for name in exporter_names:
               text = (util / name).read_text(encoding='utf-8')
               if 'Result<String>' in text or 'Result.success("' in text or 'Result.success(file.absolutePath)' in text:
-                  raise SystemExit(f'{name}: final validation failed')
-              if text.count('Result<Uri>') != expected_result_counts[name] or 'FileProvider.getUriForFile' not in text:
-                  raise SystemExit(f'{name}: final direct URI validation failed')
+                  raise SystemExit(f'{name}: final source validation failed')
+              if text.count('Result<Uri>') != expected_result_counts[name]:
+                  raise SystemExit(f'{name}: final Result<Uri> count mismatch')
+              if text.count('Result.success(uri)') != 1 or text.count('FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)') != 1:
+                  raise SystemExit(f'{name}: final direct URI branch validation failed')
           for path in [reports, person]:
               text = path.read_text(encoding='utf-8')
               if 'findLatestReportAfter' in text or 'exportStartedAt' in text:
