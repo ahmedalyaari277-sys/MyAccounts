@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.util.DatabaseBackupManager
 import com.myaccounts.app.util.ManualSyncManager
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +65,7 @@ fun BackupRestoreScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val security = remember { AppSecurityManager(context) }
     val snackbarHostState = remember { SnackbarHostState() }
     val preferences = remember { context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE) }
     var busy by remember { mutableStateOf(false) }
@@ -286,7 +288,10 @@ fun BackupRestoreScreen(
             }
 
             OutlinedButton(
-                onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
+                onClick = {
+                    security.markExternalActivityPending()
+                    openDocumentLauncher.launch(arrayOf("*/*"))
+                },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) {
