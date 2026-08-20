@@ -7,6 +7,11 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.myaccounts.app.data.local.ArchivedTransactionAttachmentSnapshotEntity
+import com.myaccounts.app.data.local.ArchivedTransactionSnapshotEntity
+import com.myaccounts.app.data.local.CurrencyAccountEntity
+import com.myaccounts.app.data.local.PersonEntity
+import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -70,9 +75,97 @@ interface TransactionDao {
         INNER JOIN currency_accounts ca ON ca.id = t.accountId
         INNER JOIN people p ON p.id = ca.personId
         WHERE t.isArchived = 1
-        ORDER BY t.transactionDate DESC, t.id DESC
+
+        UNION ALL
+
+        SELECT s.transactionId AS transactionId, s.accountId AS accountId, s.personName AS personName,
+               s.currencyCode AS currencyCode, s.type AS type, s.amountMinor AS amountMinor,
+               s.description AS description, s.transactionDate AS transactionDate
+        FROM archived_transaction_snapshots s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM transactions t WHERE t.id = s.transactionId
+        )
+
+        ORDER BY transactionDate DESC, transactionId DESC
     """)
     fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
+
+    @Query("""
+        INSERT OR REPLACE INTO archived_transaction_snapshots (
+            transactionId, accountId, personId, personName, personPhone, personAddress, personNotes,
+            currencyCode, type, amountMinor, description, transactionDate, createdAt, archivedAt
+        )
+        SELECT t.id, t.accountId, p.id, p.name, p.phone, p.address, p.notes,
+               ca.currencyCode, t.type, t.amountMinor, t.description, t.transactionDate, t.createdAt, :archivedAt
+        FROM transactions t
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
+        WHERE t.id = :transactionId
+    """)
+    suspend fun snapshotArchivedTransaction(transactionId: Long, archivedAt: Long = System.currentTimeMillis())
+
+    @Query("""
+        INSERT OR REPLACE INTO archived_transaction_attachment_snapshots (
+            attachmentId, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt
+        )
+        SELECT id, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt
+        FROM transaction_attachments
+        WHERE transactionId = :transactionId
+    """)
+    suspend fun snapshotTransactionAttachments(transactionId: Long)
+
+    @Query("""
+        INSERT OR REPLACE INTO archived_transaction_snapshots (
+            transactionId, accountId, personId, personName, personPhone, personAddress, personNotes,
+            currencyCode, type, amountMinor, description, transactionDate, createdAt, archivedAt
+        )
+        SELECT t.id, t.accountId, p.id, p.name, p.phone, p.address, p.notes,
+               ca.currencyCode, t.type, t.amountMinor, t.description, t.transactionDate, t.createdAt, :archivedAt
+        FROM transactions t
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        INNER JOIN people p ON p.id = ca.personId
+        WHERE ca.personId = :personId AND t.isArchived = 1
+    """)
+    suspend fun snapshotArchivedTransactionsForPerson(personId: Long, archivedAt: Long = System.currentTimeMillis())
+
+    @Query("""
+        INSERT OR REPLACE INTO archived_transaction_attachment_snapshots (
+            attachmentId, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt
+        )
+        SELECT a.id, a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt
+        FROM transaction_attachments a
+        INNER JOIN transactions t ON t.id = a.transactionId
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        WHERE ca.personId = :personId AND t.isArchived = 1
+    """)
+    suspend fun snapshotArchivedAttachmentsForPerson(personId: Long)
+
+    @Query("SELECT * FROM archived_transaction_snapshots WHERE transactionId = :transactionId LIMIT 1")
+    suspend fun getArchivedSnapshot(transactionId: Long): ArchivedTransactionSnapshotEntity?
+
+    @Query("SELECT * FROM archived_transaction_attachment_snapshots WHERE transactionId = :transactionId ORDER BY attachmentId")
+    suspend fun getArchivedAttachmentSnapshots(transactionId: Long): List<ArchivedTransactionAttachmentSnapshotEntity>
+
+    @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")
+    suspend fun getPersonById(personId: Long): PersonEntity?
+
+    @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1")
+    suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPerson(person: PersonEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCurrencyAccount(account: CurrencyAccountEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTransactionAttachment(attachment: TransactionAttachmentEntity): Long
+
+    @Query("DELETE FROM archived_transaction_snapshots WHERE transactionId = :transactionId")
+    suspend fun deleteArchivedSnapshot(transactionId: Long)
+
+    @Query("DELETE FROM archived_transaction_attachment_snapshots WHERE transactionId = :transactionId")
+    suspend fun deleteArchivedAttachmentSnapshots(transactionId: Long)
 
     @Transaction
     suspend fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
@@ -93,6 +186,8 @@ interface TransactionDao {
     suspend fun archiveTransactionAndUpdateBalance(transactionId: Long) {
         val transaction = getTransaction(transactionId)
         if (transaction != null && !transaction.isArchived) {
+            snapshotArchivedTransaction(transactionId)
+            snapshotTransactionAttachments(transactionId)
             archiveTransaction(transactionId)
             recalculateBalance(transaction.accountId)
         }
@@ -103,12 +198,78 @@ interface TransactionDao {
         val transaction = getTransaction(transactionId)
         if (transaction != null && transaction.isArchived) {
             restoreTransaction(transactionId)
+            deleteArchivedSnapshot(transactionId)
+            deleteArchivedAttachmentSnapshots(transactionId)
             recalculateBalance(transaction.accountId)
+            return
         }
+
+        val snapshot = getArchivedSnapshot(transactionId) ?: return
+        val person = getPersonById(snapshot.personId)
+        if (person == null) {
+            insertPerson(
+                PersonEntity(
+                    id = snapshot.personId,
+                    name = snapshot.personName,
+                    phone = snapshot.personPhone,
+                    address = snapshot.personAddress,
+                    notes = snapshot.personNotes,
+                    createdAt = snapshot.createdAt,
+                    isActive = true
+                )
+            )
+        }
+
+        val account = getCurrencyAccountById(snapshot.accountId)
+        if (account == null) {
+            insertCurrencyAccount(
+                CurrencyAccountEntity(
+                    id = snapshot.accountId,
+                    personId = snapshot.personId,
+                    currencyCode = snapshot.currencyCode,
+                    balanceMinor = 0L,
+                    createdAt = snapshot.createdAt,
+                    updatedAt = snapshot.createdAt
+                )
+            )
+        }
+
+        insertTransaction(
+            TransactionEntity(
+                id = snapshot.transactionId,
+                accountId = snapshot.accountId,
+                type = enumValueOf(snapshot.type),
+                amountMinor = snapshot.amountMinor,
+                description = snapshot.description,
+                transactionDate = snapshot.transactionDate,
+                createdAt = snapshot.createdAt,
+                isArchived = false
+            )
+        )
+
+        getArchivedAttachmentSnapshots(transactionId).forEach { attachment ->
+            insertTransactionAttachment(
+                TransactionAttachmentEntity(
+                    id = attachment.attachmentId,
+                    transactionId = attachment.transactionId,
+                    fileName = attachment.fileName,
+                    mimeType = attachment.mimeType,
+                    relativePath = attachment.relativePath,
+                    sizeBytes = attachment.sizeBytes,
+                    createdAt = attachment.createdAt
+                )
+            )
+        }
+
+        deleteArchivedSnapshot(transactionId)
+        deleteArchivedAttachmentSnapshots(transactionId)
+        recalculateBalance(snapshot.accountId)
     }
 
     @Transaction
     suspend fun deleteTransactionAndUpdateBalance(transaction: TransactionEntity) {
+        deleteArchivedSnapshot(transaction.id)
+        deleteArchivedAttachmentSnapshots(transaction.id)
         deleteTransaction(transaction)
         recalculateBalance(transaction.accountId)
     }
@@ -116,6 +277,8 @@ interface TransactionDao {
     @Transaction
     suspend fun deleteTransactionByIdAndUpdateBalance(transactionId: Long) {
         val transaction = getTransaction(transactionId)
+        deleteArchivedSnapshot(transactionId)
+        deleteArchivedAttachmentSnapshots(transactionId)
         deleteTransactionById(transactionId)
         transaction?.let { recalculateBalance(it.accountId) }
     }
