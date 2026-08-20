@@ -79,7 +79,10 @@ fun PersonReportScreen(
             } else {
                 MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
             }
-            result.fold({ snackbar.showSnackbar(it) }, { snackbar.showSnackbar(it) })
+            result.fold(
+                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") },
+                { snackbar.showSnackbar(it) }
+            )
         }
     }
 
