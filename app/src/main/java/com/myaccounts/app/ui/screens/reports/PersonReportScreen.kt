@@ -66,8 +66,7 @@ fun PersonReportScreen(
 
     LaunchedEffect(personId, currencyCode) {
         viewModel.selectPerson(personId)
-        if (currencyCode != "ALL") viewModel.selectCurrency(currencyCode)
-        else viewModel.selectCurrency("ALL")
+        if (currencyCode != "ALL") viewModel.selectCurrency(currencyCode) else viewModel.selectCurrency("ALL")
         viewModel.setAllTime()
     }
 
@@ -80,7 +79,7 @@ fun PersonReportScreen(
                 MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
             }
             result.fold(
-                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") },
+                { snackbar.showSnackbar("تعذر إنشاء التقرير.") },
                 { snackbar.showSnackbar(it) }
             )
         }
