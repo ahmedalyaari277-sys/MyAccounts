@@ -1,0 +1,145 @@
+name: Apply archive rules
+on:
+  push:
+    branches: [fix/report-sharing-archive-restore]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply verified archive logic
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          root=Path('.')
+          base=root/'app/src/main/java/com/myaccounts/app'
+          dao=base/'data/local/dao/TransactionDao.kt'
+          text=dao.read_text(encoding='utf-8')
+          text=text.replace('    @Query("UPDATE transactions SET isArchived = 0 WHERE id = :transactionId")\n    suspend fun restoreTransaction(transactionId: Long)\n', '    @Query("UPDATE transactions SET isArchived = 0 WHERE id = :transactionId")\n    suspend fun restoreTransaction(transactionId: Long)\n\n    @Query("UPDATE transactions SET accountId = :accountId WHERE id = :transactionId")\n    suspend fun moveTransactionToAccount(transactionId: Long, accountId: Long)\n')
+          text=text.replace('    @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")\n    suspend fun getPersonById(personId: Long): PersonEntity?\n', '    @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")\n    suspend fun getPersonById(personId: Long): PersonEntity?\n\n    @Query("SELECT * FROM people WHERE isActive = 1 AND name = :name LIMIT 1")\n    suspend fun getActivePersonByName(name: String): PersonEntity?\n')
+          text=text.replace('    @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1")\n    suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?\n', '    @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1")\n    suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?\n\n    @Query("SELECT * FROM currency_accounts WHERE personId = :personId AND currencyCode = :currencyCode LIMIT 1")\n    suspend fun getCurrencyAccountForPerson(personId: Long, currencyCode: String): CurrencyAccountEntity?\n\n    @Insert(onConflict = OnConflictStrategy.IGNORE)\n    suspend fun insertCurrencyAccount(account: CurrencyAccountEntity): Long\n')
+          start=text.index('    @Transaction\n    suspend fun restoreTransactionAndUpdateBalance')
+          end=text.index('\n    @Transaction\n    suspend fun deleteTransactionAndUpdateBalance', start)
+          new='''    @Transaction
+    suspend fun restoreTransactionAndUpdateBalance(transactionId: Long) {
+        val transaction = getTransaction(transactionId)
+        if (transaction != null && transaction.isArchived) {
+            val originalAccount = getCurrencyAccountById(transaction.accountId)
+            val originalPerson = originalAccount?.let { getPersonById(it.personId) }
+            val targetPerson = when {
+                originalPerson?.isActive == true -> originalPerson
+                originalPerson != null -> getActivePersonByName(originalPerson.name)
+                else -> null
+            }
+            if (targetPerson != null && targetPerson.id != originalPerson?.id) {
+                val targetAccount = getCurrencyAccountForPerson(targetPerson.id, originalAccount!!.currencyCode)
+                    ?: run {
+                        insertCurrencyAccount(CurrencyAccountEntity(personId = targetPerson.id, currencyCode = originalAccount.currencyCode))
+                        getCurrencyAccountForPerson(targetPerson.id, originalAccount.currencyCode)!!
+                    }
+                moveTransactionToAccount(transactionId, targetAccount.id)
+                restoreTransaction(transactionId)
+                deleteArchivedSnapshot(transactionId)
+                deleteArchivedAttachmentSnapshots(transactionId)
+                recalculateBalance(targetAccount.id)
+                recalculateBalance(originalAccount.id)
+            } else {
+                if (originalPerson != null && !originalPerson.isActive) restorePersonById(originalPerson.id)
+                restoreTransaction(transactionId)
+                deleteArchivedSnapshot(transactionId)
+                deleteArchivedAttachmentSnapshots(transactionId)
+                recalculateBalance(transaction.accountId)
+            }
+            return
+        }
+
+        val snapshot = getArchivedSnapshot(transactionId) ?: return
+        val originalPerson = getPersonById(snapshot.personId)
+        val targetPerson = when {
+            originalPerson?.isActive == true -> originalPerson
+            originalPerson != null -> getActivePersonByName(originalPerson.name)
+            else -> getActivePersonByName(snapshot.personName)
+        }
+        val resolvedPerson = targetPerson ?: if (originalPerson != null) {
+            restorePersonById(originalPerson.id)
+            getPersonById(originalPerson.id)!!
+        } else {
+            val insertedId = insertPerson(PersonEntity(id=snapshot.personId, name=snapshot.personName, phone=snapshot.personPhone, address=snapshot.personAddress, notes=snapshot.personNotes, createdAt=snapshot.createdAt, isActive=true))
+            getPersonById(if (insertedId > 0) insertedId else snapshot.personId)!!
+        }
+        val targetAccount = getCurrencyAccountForPerson(resolvedPerson.id, snapshot.currencyCode) ?: run {
+            insertCurrencyAccount(CurrencyAccountEntity(personId=resolvedPerson.id, currencyCode=snapshot.currencyCode, createdAt=snapshot.createdAt, updatedAt=snapshot.createdAt))
+            getCurrencyAccountForPerson(resolvedPerson.id, snapshot.currencyCode)!!
+        }
+        insertTransaction(TransactionEntity(id=snapshot.transactionId, accountId=targetAccount.id, type=enumValueOf(snapshot.type), amountMinor=snapshot.amountMinor, description=snapshot.description, transactionDate=snapshot.transactionDate, createdAt=snapshot.createdAt, isArchived=false))
+        getArchivedAttachmentSnapshots(transactionId).forEach { attachment -> insertTransactionAttachment(TransactionAttachmentEntity(id=attachment.attachmentId, transactionId=attachment.transactionId, fileName=attachment.fileName, mimeType=attachment.mimeType, relativePath=attachment.relativePath, sizeBytes=attachment.sizeBytes, createdAt=attachment.createdAt)) }
+        deleteArchivedSnapshot(transactionId)
+        deleteArchivedAttachmentSnapshots(transactionId)
+        recalculateBalance(targetAccount.id)
+    }
+'''
+          text=text[:start]+new+text[end:]
+          dao.write_text(text,encoding='utf-8')
+
+          ledger=base/'data/local/dao/LedgerDao.kt'
+          text=ledger.read_text(encoding='utf-8')
+          marker='    @Update\n    suspend fun updatePerson(person: PersonEntity)\n'
+          if 'suspend fun getActivePersonByName(name: String)' not in text:
+              text=text.replace(marker, marker+'\n    @Query("SELECT * FROM people WHERE isActive = 1 AND name = :name LIMIT 1")\n    suspend fun getActivePersonByName(name: String): PersonEntity?\n',1)
+          ledger.write_text(text,encoding='utf-8')
+
+          vm=base/'ui/viewmodel/LedgerViewModel.kt'
+          text=vm.read_text(encoding='utf-8')
+          old='''    fun addPerson(name: String, phone: String = "", address: String = "", notes: String = "") {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            repository.insertPerson(
+                PersonEntity(
+                    name = name.trim(),
+                    phone = phone.trim(),
+                    address = address.trim(),
+                    notes = notes.trim()
+                )
+            )
+        }
+    }
+'''
+          new='''    suspend fun addPerson(name: String, phone: String = "", address: String = "", notes: String = ""): Boolean {
+        val normalized = name.trim()
+        if (normalized.isBlank()) return false
+        if (repository.getActivePersonByName(normalized) != null) return false
+        repository.insertPerson(PersonEntity(name=normalized, phone=phone.trim(), address=address.trim(), notes=notes.trim()))
+        return true
+    }
+'''
+          if old not in text: raise SystemExit('LedgerViewModel addPerson block not found')
+          text=text.replace(old,new,1)
+          vm.write_text(text,encoding='utf-8')
+
+          contract=base/'data/repository/LedgerRepositoryContract.kt'
+          text=contract.read_text(encoding='utf-8')
+          if 'suspend fun getActivePersonByName' not in text:
+              text=text.replace('    suspend fun insertPerson(person: PersonEntity): Long\n','    suspend fun insertPerson(person: PersonEntity): Long\n    suspend fun getActivePersonByName(name: String): PersonEntity?\n',1)
+          contract.write_text(text,encoding='utf-8')
+
+          repo=base/'data/repository/LedgerRepository.kt'
+          text=repo.read_text(encoding='utf-8')
+          if 'override suspend fun getActivePersonByName' not in text:
+              text=text.replace('    override suspend fun insertPerson(person: PersonEntity): Long =\n','    override suspend fun getActivePersonByName(name: String): PersonEntity? = dao.getActivePersonByName(name)\n\n    override suspend fun insertPerson(person: PersonEntity): Long =\n',1)
+          repo.write_text(text,encoding='utf-8')
+
+          subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
+          subprocess.run(['git','add','--','app/src/main/java/com/myaccounts/app/data/local/dao/TransactionDao.kt','app/src/main/java/com/myaccounts/app/data/local/dao/LedgerDao.kt','app/src/main/java/com/myaccounts/app/ui/viewmodel/LedgerViewModel.kt','app/src/main/java/com/myaccounts/app/data/repository/LedgerRepositoryContract.kt','app/src/main/java/com/myaccounts/app/data/repository/LedgerRepository.kt'],check=True)
+          subprocess.run(['git','commit','-m','fix(archive): restore to matching active account and block duplicate names'],check=True)
+          subprocess.run(['git','push'],check=True)
+          Path('.github/workflows/one-shot-archive-rules.yml').unlink()
+          subprocess.run(['git','add','--','.github/workflows/one-shot-archive-rules.yml'],check=True)
+          subprocess.run(['git','commit','-m','chore(ci): remove archive migration workflow'],check=True)
+          subprocess.run(['git','push'],check=True)
