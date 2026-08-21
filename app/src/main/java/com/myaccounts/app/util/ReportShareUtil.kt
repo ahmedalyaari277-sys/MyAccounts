@@ -11,19 +11,43 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object ReportShareUtil {
-    fun findLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Uri> = findReport(context, fileNamePrefix, mimeType, null)
+    fun findLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Uri> =
+        findReport(context, fileNamePrefix, mimeType, null)
 
-    fun findLatestReportAfter(context: Context, fileNamePrefix: String, mimeType: String, exportedAtMillis: Long): Result<Uri> = findReport(context, fileNamePrefix, mimeType, exportedAtMillis)
+    /**
+     * Resolves the file created by the export that just completed.
+     *
+     * The exporters historically return a human-readable success String rather
+     * than the URI, so this method deliberately uses the export timestamp,
+     * MIME type, non-pending state and non-zero size as the authoritative
+     * identity of the newly-created file. Filename prefixes are only used by
+     * the legacy findLatestReport() path.
+     */
+    fun findLatestReportAfter(
+        context: Context,
+        fileNamePrefix: String,
+        mimeType: String,
+        exportedAtMillis: Long
+    ): Result<Uri> = findReport(context, fileNamePrefix, mimeType, exportedAtMillis)
 
-    private fun findReport(context: Context, fileNamePrefix: String, mimeType: String, exportedAtMillis: Long?): Result<Uri> = try {
+    private fun findReport(
+        context: Context,
+        fileNamePrefix: String,
+        mimeType: String,
+        exportedAtMillis: Long?
+    ): Result<Uri> = try {
         val expectedExtension = extensionForMime(mimeType)
         val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            findLatestDownloadUri(context, fileNamePrefix, expectedExtension, exportedAtMillis)
+            findLatestDownloadUri(context, fileNamePrefix, expectedExtension, mimeType, exportedAtMillis)
         } else {
-            findLatestLegacyFile(context, fileNamePrefix, expectedExtension, exportedAtMillis)?.let { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) }
+            findLatestLegacyFile(context, fileNamePrefix, expectedExtension, exportedAtMillis)?.let {
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it)
+            }
         } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
         Result.success(uri)
-    } catch (exception: Exception) { Result.failure(exception) }
+    } catch (exception: Exception) {
+        Result.failure(exception)
+    }
 
     fun shareReport(context: Context, uri: Uri, mimeType: String): Result<Unit> = try {
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -32,16 +56,34 @@ object ReportShareUtil {
             clipData = ClipData.newRawUri("MyAccounts report", uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+        val targets = context.packageManager.queryIntentActivities(intent, 0)
+        if (targets.isEmpty()) throw IllegalStateException("لا يوجد تطبيق يمكنه مشاركة هذا الملف.")
+        targets.forEach { info ->
+            context.grantUriPermission(
+                info.activityInfo.packageName,
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
         val chooser = Intent.createChooser(intent, "مشاركة التقرير").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newRawUri("MyAccounts report", uri)
         }
-        context.packageManager.queryIntentActivities(intent, 0).forEach { info -> context.grantUriPermission(info.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         context.startActivity(chooser)
         Result.success(Unit)
-    } catch (exception: Exception) { Result.failure(exception) }
+    } catch (exception: Exception) {
+        Result.failure(exception)
+    }
 
-    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> = findLatestReport(context, fileNamePrefix, mimeType).fold({ uri -> shareReport(context, uri, mimeType) }, { exception -> Result.failure(exception) })
+    fun shareLatestReport(
+        context: Context,
+        fileNamePrefix: String,
+        mimeType: String
+    ): Result<Unit> = findLatestReport(context, fileNamePrefix, mimeType).fold(
+        onSuccess = { uri -> shareReport(context, uri, mimeType) },
+        onFailure = { exception -> Result.failure(exception) }
+    )
 
     private fun extensionForMime(mimeType: String): String = when (mimeType.lowercase()) {
         "application/pdf" -> ".pdf"
@@ -51,53 +93,122 @@ object ReportShareUtil {
 
     private fun candidatePrefixes(prefix: String): List<String> = buildList {
         val aliases = buildList {
-            add(prefix); add(prefix.replace(" ", "_"))
+            add(prefix)
+            add(prefix.replace(" ", "_"))
             when {
-                prefix.contains("تقرير_الأشخاص") || prefix.contains("تقرير الأشخاص") -> { add("MyAccounts_تقرير الأشخاص"); add("MyAccounts_تقرير_الأشخاص") }
-                prefix.contains("التقرير_التفصيلي") || prefix.contains("التقرير العام") -> { add("MyAccounts_التقرير العام"); add("MyAccounts_التقرير_العام"); add("MyAccounts_التقرير_التفصيلي") }
-                prefix.contains("ملخص_الأشخاص") || prefix.contains("أرصدة_الحسابات") -> { add("MyAccounts_أرصدة الحسابات"); add("MyAccounts_أرصدة_الحسابات"); add("MyAccounts_ملخص_الأشخاص") }
+                prefix.contains("تقرير_الأشخاص") || prefix.contains("تقرير الأشخاص") -> {
+                    add("MyAccounts_تقرير الأشخاص")
+                    add("MyAccounts_تقرير_الأشخاص")
+                }
+                prefix.contains("التقرير_التفصيلي") || prefix.contains("التقرير العام") -> {
+                    add("MyAccounts_التقرير العام")
+                    add("MyAccounts_التقرير_العام")
+                    add("MyAccounts_التقرير_التفصيلي")
+                }
+                prefix.contains("ملخص_الأشخاص") || prefix.contains("أرصدة_الحسابات") -> {
+                    add("MyAccounts_أرصدة الحسابات")
+                    add("MyAccounts_أرصدة_الحسابات")
+                    add("MyAccounts_ملخص_الأشخاص")
+                }
             }
             if (prefix == "MyAccounts_التقرير_العام") add("MyAccounts_التقرير_التفصيلي")
             if (prefix == "MyAccounts_أرصدة_الحسابات") add("MyAccounts_ملخص_الأشخاص")
             if (prefix == "MyAccounts_ملخص_تقرير_الأشخاص") add("MyAccounts_ملخص_الأشخاص")
         }
-        aliases.forEach { alias -> add(alias); add(sanitizeForFilename(alias)) }
+        aliases.forEach { alias ->
+            add(alias)
+            add(sanitizeForFilename(alias))
+        }
     }.distinct()
 
-    private fun sanitizeForFilename(value: String): String = value.replace(Regex("[^A-Za-z0-9_-]"), "_")
+    private fun sanitizeForFilename(value: String): String =
+        value.replace(Regex("[^A-Za-z0-9_-]"), "_")
 
-    private fun findLatestDownloadUri(context: Context, prefix: String, extension: String, exportedAtMillis: Long?): Uri? {
+    private fun findLatestDownloadUri(
+        context: Context,
+        prefix: String,
+        extension: String,
+        mimeType: String,
+        exportedAtMillis: Long?
+    ): Uri? {
         val resolver = context.contentResolver
-        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED, MediaStore.Downloads.DATE_MODIFIED, MediaStore.Downloads.IS_PENDING, MediaStore.Downloads.SIZE)
+        val projection = arrayOf(
+            MediaStore.Downloads._ID,
+            MediaStore.Downloads.DISPLAY_NAME,
+            MediaStore.Downloads.MIME_TYPE,
+            MediaStore.Downloads.DATE_ADDED,
+            MediaStore.Downloads.DATE_MODIFIED,
+            MediaStore.Downloads.IS_PENDING,
+            MediaStore.Downloads.SIZE
+        )
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} = ? AND ${MediaStore.Downloads.IS_PENDING} = 0"
         val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts/")
         val candidates = candidatePrefixes(prefix)
         val lowerBoundSeconds = exportedAtMillis?.let { (it / 1000L) - 2L }
+        val requirePrefix = exportedAtMillis == null
         var latestId: Long? = null
         var latestTimestamp = Long.MIN_VALUE
-        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC, ${MediaStore.Downloads._ID} DESC")?.use { cursor ->
+
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            "${MediaStore.Downloads.DATE_ADDED} DESC, ${MediaStore.Downloads._ID} DESC"
+        )?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+            val mimeIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.MIME_TYPE)
             val addedIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
             val modifiedIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_MODIFIED)
             val pendingIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.IS_PENDING)
             val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+
             while (cursor.moveToNext()) {
                 if (cursor.getInt(pendingIndex) != 0 || cursor.getLong(sizeIndex) <= 0L) continue
+                if (!mimeType.equals(cursor.getString(mimeIndex), ignoreCase = true)) continue
+
                 val name = cursor.getString(nameIndex) ?: continue
-                if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
+                if (!name.endsWith(extension, ignoreCase = true)) continue
+                if (requirePrefix && candidates.none { name.startsWith(it) }) continue
+
                 val timestamp = maxOf(cursor.getLong(addedIndex), cursor.getLong(modifiedIndex))
                 if (lowerBoundSeconds != null && timestamp < lowerBoundSeconds) continue
+
                 val id = cursor.getLong(idIndex)
-                if (timestamp > latestTimestamp || (timestamp == latestTimestamp && (latestId == null || id > latestId!!))) { latestTimestamp = timestamp; latestId = id }
+                if (timestamp > latestTimestamp ||
+                    (timestamp == latestTimestamp && (latestId == null || id > latestId!!))
+                ) {
+                    latestTimestamp = timestamp
+                    latestId = id
+                }
             }
         }
-        return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
+
+        return latestId?.let {
+            Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString())
+        }
     }
 
-    private fun findLatestLegacyFile(context: Context, prefix: String, extension: String, exportedAtMillis: Long?): File? {
-        val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
+    private fun findLatestLegacyFile(
+        context: Context,
+        prefix: String,
+        extension: String,
+        exportedAtMillis: Long?
+    ): File? {
+        val directory = File(
+            context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+            "MyAccounts"
+        )
         val candidates = candidatePrefixes(prefix)
-        return directory.listFiles()?.filter { file -> file.isFile && file.length() > 0L && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } && (exportedAtMillis == null || file.lastModified() >= exportedAtMillis - 2000L) }?.maxByOrNull { it.lastModified() }
+        return directory.listFiles()
+            ?.filter { file ->
+                file.isFile &&
+                    file.length() > 0L &&
+                    file.name.endsWith(extension, ignoreCase = true) &&
+                    (exportedAtMillis == null || file.lastModified() >= exportedAtMillis - 2000L) &&
+                    (exportedAtMillis != null || candidates.any { file.name.startsWith(it) })
+            }
+            ?.maxWithOrNull(compareBy<File> { it.lastModified() }.thenBy { it.name })
     }
 }
