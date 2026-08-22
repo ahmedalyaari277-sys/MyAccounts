@@ -51,11 +51,7 @@ class AccountNameUniquenessInvariantTest {
             }
         }
 
-        assertEquals("Ahmed", ledger.observePerson(firstId).let { flow ->
-            var value: PersonEntity? = null
-            flow.collect { value = it; throw StopCollection }
-            value!!.name
-        })
+        assertEquals(firstId, ledger.findActivePersonIdByName("Ahmed"))
     }
 
     @Test
@@ -66,8 +62,6 @@ class AccountNameUniquenessInvariantTest {
         val activeId = repository.insertPerson(PersonEntity(name = " علي "))
 
         assertNotEquals(archivedId, activeId)
-        assertEquals(1, ledger.findActivePersonIdByName("علي"))
+        assertEquals(activeId, ledger.findActivePersonIdByName("علي"))
     }
-
-    private object StopCollection : Throwable()
 }
