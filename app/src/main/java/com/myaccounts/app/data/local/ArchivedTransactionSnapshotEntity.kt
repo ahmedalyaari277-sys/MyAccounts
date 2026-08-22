@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
  * Durable snapshot of an archived transaction.
  *
  * It deliberately has no foreign keys to people/accounts/transactions so an
- * archived transaction survives permanent deletion of its original owner.
+ * individually archived transaction survives permanent deletion of its owner.
  */
 @Entity(tableName = "archived_transaction_snapshots")
 data class ArchivedTransactionSnapshotEntity(
@@ -25,6 +25,8 @@ data class ArchivedTransactionSnapshotEntity(
     val description: String,
     val transactionDate: Long,
     val createdAt: Long,
+    /** True when the snapshot belongs to an archived account/person. */
+    val archivedWithPerson: Boolean = false,
     val archivedAt: Long = System.currentTimeMillis()
 )
 
