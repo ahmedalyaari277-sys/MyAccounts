@@ -22,6 +22,7 @@ import com.myaccounts.app.ui.screens.SettingsScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
 import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
+import com.myaccounts.app.ui.theme.ThemeMode
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModelFactory
@@ -29,7 +30,12 @@ import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 
 @Composable
-fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
+fun AppNavHost(
+    navController: NavHostController,
+    viewModel: LedgerViewModel,
+    themeMode: ThemeMode,
+    onThemeModeChanged: (ThemeMode) -> Unit
+) {
     val persons by viewModel.personsWithAccounts.collectAsState()
     val archivedPersons by viewModel.archivedPersonsWithAccounts.collectAsState()
     val context = LocalContext.current
@@ -113,6 +119,8 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 security = security,
+                themeMode = themeMode,
+                onThemeModeChanged = onThemeModeChanged,
                 onBack = { navController.popBackStack() },
                 onDetailsClick = { navController.navigate(Routes.DETAILS) }
             )
