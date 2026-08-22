@@ -10,6 +10,7 @@ interface TransactionRepositoryContract {
     suspend fun updateTransaction(transaction: TransactionEntity)
     fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>>
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
+    fun observeArchivedTransactionsForPerson(personId: Long): Flow<List<TransactionEntity>>
     fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
     suspend fun getTransactions(accountId: Long): List<TransactionEntity>
     suspend fun getTransaction(transactionId: Long): TransactionEntity?
