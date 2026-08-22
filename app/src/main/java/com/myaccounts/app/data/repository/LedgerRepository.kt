@@ -29,13 +29,26 @@ class LedgerRepository(
         )
 
     override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
-    override suspend fun deletePerson(personId: Long) = dao.softDeletePerson(personId)
-    override suspend fun restorePerson(personId: Long) = dao.restorePerson(personId)
 
+    /** Archive the account as a unit: all transactions existing at that moment move with it. */
+    override suspend fun deletePerson(personId: Long) {
+        transactionDao.archivePersonAndUpdateBalances(personId)
+    }
+
+    /** Restore the account as a unit and restore only the transactions still archived with it. */
+    override suspend fun restorePerson(personId: Long) {
+        transactionDao.restorePersonAndUpdateBalances(personId)
+    }
+
+    /**
+     * Permanent account deletion removes everything belonging to the account.
+     * Individually archived transactions keep their independent snapshots so they can
+     * still be restored later; transactions archived together with the account do not.
+     */
     override suspend fun permanentlyDeletePerson(personId: Long) {
         database.withTransaction {
-            transactionDao.snapshotArchivedTransactionsForPerson(personId)
-            transactionDao.snapshotArchivedAttachmentsForPerson(personId)
+            transactionDao.deletePersonArchiveAttachmentSnapshots(personId)
+            transactionDao.deletePersonArchiveSnapshots(personId)
             dao.permanentlyDeletePerson(personId)
         }
     }
