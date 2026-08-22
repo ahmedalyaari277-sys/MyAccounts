@@ -81,6 +81,15 @@ interface LedgerDao {
     suspend fun updatePerson(person: PersonEntity)
 
     @Query("""
+        SELECT id FROM people
+        WHERE isActive = 1
+          AND TRIM(name) = TRIM(:name) COLLATE NOCASE
+        ORDER BY id ASC
+        LIMIT 1
+    """)
+    suspend fun findActivePersonIdByName(name: String): Long?
+
+    @Query("""
         UPDATE people
         SET isActive = 0
         WHERE id = :personId
@@ -145,6 +154,9 @@ interface LedgerDao {
         person: PersonEntity,
         currencyCodes: List<String>
     ): Long {
+        require(findActivePersonIdByName(person.name) == null) {
+            "يوجد حساب نشط بهذا الاسم. غيّر الاسم أو استعد الحساب المؤرشف."
+        }
         val personId = insertPerson(person)
         insertCurrencyAccounts(
             currencyCodes.map { currencyCode ->
