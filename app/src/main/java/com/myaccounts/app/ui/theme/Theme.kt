@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -13,12 +14,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
 
-private val NavyPrimary = Color(0xFF173A5E)
+private val PrimaryBlue = Color(0xFF1565C0)
+private val PrimaryBlueDark = Color(0xFF5B9CFF)
 private val White = Color(0xFFFFFFFF)
-private val NavyPrimaryContainer = Color(0xFFD5E3F4)
-private val NavyOnPrimaryContainer = Color(0xFF001C33)
+private val PrimaryContainer = Color(0xFFD9E8FF)
+private val OnPrimaryContainer = Color(0xFF001B3D)
 
 private val GreenSecondary = Color(0xFF2E7D5B)
 private val GreenSecondaryContainer = Color(0xFFBCECCF)
@@ -31,17 +32,16 @@ private val RedError = Color(0xFFB3261E)
 private val RedErrorContainer = Color(0xFFF9DEDC)
 private val RedOnErrorContainer = Color(0xFF410E0B)
 
-private val LightBackground = Color(0xFFF5F7FA)
-private val LightOnBackground = Color(0xFF171A1F)
+private val LightBackground = Color(0xFFF7F9FC)
+private val LightOnBackground = Color(0xFF172033)
 private val LightSurface = Color(0xFFFFFFFF)
-private val LightOnSurface = Color(0xFF171A1F)
-private val LightSurfaceVariant = Color(0xFFE8EDF3)
-private val LightOnSurfaceVariant = Color(0xFF3F464F)
+private val LightOnSurface = Color(0xFF172033)
+private val LightSurfaceVariant = Color(0xFFE9EEF5)
+private val LightOnSurfaceVariant = Color(0xFF667085)
 
-private val NavyPrimaryDark = Color(0xFFA8C7E8)
-private val NavyOnPrimaryDark = Color(0xFF073353)
-private val NavyPrimaryContainerDark = Color(0xFF164A72)
-private val NavyOnPrimaryContainerDark = Color(0xFFD5E3F4)
+private val OnPrimaryDark = Color(0xFF00315F)
+private val PrimaryContainerDark = Color(0xFF004A8F)
+private val OnPrimaryContainerDark = Color(0xFFD9E8FF)
 
 private val GreenSecondaryDark = Color(0xFFA0D6B7)
 private val GreenOnSecondaryDark = Color(0xFF083821)
@@ -58,17 +58,17 @@ private val RedErrorContainerDark = Color(0xFF93000A)
 private val RedOnErrorContainerDark = Color(0xFFFFDAD6)
 
 private val DarkBackground = Color(0xFF101418)
-private val DarkOnBackground = Color(0xFFE1E2E6)
-private val DarkSurface = Color(0xFF101418)
-private val DarkOnSurface = Color(0xFFE1E2E6)
-private val DarkSurfaceVariant = Color(0xFF43474E)
-private val DarkOnSurfaceVariant = Color(0xFFC3C7CF)
+private val DarkOnBackground = Color(0xFFF1F5F9)
+private val DarkSurface = Color(0xFF181D23)
+private val DarkOnSurface = Color(0xFFF1F5F9)
+private val DarkSurfaceVariant = Color(0xFF2B333D)
+private val DarkOnSurfaceVariant = Color(0xFFAAB4C0)
 
 private val LightColorScheme = lightColorScheme(
-    primary = NavyPrimary,
+    primary = PrimaryBlue,
     onPrimary = White,
-    primaryContainer = NavyPrimaryContainer,
-    onPrimaryContainer = NavyOnPrimaryContainer,
+    primaryContainer = PrimaryContainer,
+    onPrimaryContainer = OnPrimaryContainer,
     secondary = GreenSecondary,
     onSecondary = White,
     secondaryContainer = GreenSecondaryContainer,
@@ -90,10 +90,10 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = NavyPrimaryDark,
-    onPrimary = NavyOnPrimaryDark,
-    primaryContainer = NavyPrimaryContainerDark,
-    onPrimaryContainer = NavyOnPrimaryContainerDark,
+    primary = PrimaryBlueDark,
+    onPrimary = OnPrimaryDark,
+    primaryContainer = PrimaryContainerDark,
+    onPrimaryContainer = OnPrimaryContainerDark,
     secondary = GreenSecondaryDark,
     onSecondary = GreenOnSecondaryDark,
     secondaryContainer = GreenSecondaryContainerDark,
