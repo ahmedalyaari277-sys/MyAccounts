@@ -154,7 +154,7 @@ interface TransactionDao {
     @Query("SELECT * FROM archived_transaction_attachment_snapshots WHERE transactionId = :transactionId ORDER BY attachmentId")
     suspend fun getArchivedAttachmentSnapshots(transactionId: Long): List<ArchivedTransactionAttachmentSnapshotEntity>
     @Query("SELECT * FROM people WHERE id = :personId LIMIT 1") suspend fun getPersonById(personId: Long): PersonEntity?
-    @Query("SELECT * FROM people WHERE name = :name AND isActive = 1 ORDER BY id ASC LIMIT 1") suspend fun getActivePersonByName(name: String): PersonEntity?
+    @Query("SELECT * FROM people WHERE TRIM(name) = TRIM(:name) COLLATE NOCASE AND isActive = 1 ORDER BY id ASC LIMIT 1") suspend fun getActivePersonByName(name: String): PersonEntity?
     @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1") suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?
     @Query("SELECT * FROM currency_accounts WHERE personId = :personId AND currencyCode = :currencyCode LIMIT 1") suspend fun getCurrencyAccountForPerson(personId: Long, currencyCode: String): CurrencyAccountEntity?
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertPerson(person: PersonEntity): Long
