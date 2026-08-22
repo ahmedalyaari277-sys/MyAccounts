@@ -7,6 +7,8 @@ import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
+import com.myaccounts.app.data.local.dao.LedgerDao
+import com.myaccounts.app.data.local.dao.TransactionDao
 import com.myaccounts.app.data.repository.LedgerRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -20,8 +22,8 @@ import org.junit.Test
 
 class ArchiveRestoreInvariantTest {
     private lateinit var database: AppDatabase
-    private lateinit var ledger: com.myaccounts.app.data.local.dao.LedgerDao
-    private lateinit var transactions: com.myaccounts.app.data.local.dao.TransactionDao
+    private lateinit var ledger: LedgerDao
+    private lateinit var transactions: TransactionDao
     private lateinit var repository: LedgerRepository
 
     @Before
@@ -50,13 +52,10 @@ class ArchiveRestoreInvariantTest {
         repository.deletePerson(personId)
         transactions.restoreTransactionAndUpdateBalance(first)
 
-        val person = ledger.observePerson(personId)
-        assertNotNull(person)
-        val restoredFirst = transactions.getTransaction(first)
-        val archivedSecond = transactions.getTransaction(second)
-        assertTrue(restoredFirst?.isArchived == false)
-        assertTrue(archivedSecond?.isArchived == true)
-        assertTrue(archivedSecond?.archivedWithPerson == true)
+        assertTrue(transactions.getPersonById(personId)?.isActive == true)
+        assertTrue(transactions.getTransaction(first)?.isArchived == false)
+        assertTrue(transactions.getTransaction(second)?.isArchived == true)
+        assertTrue(transactions.getTransaction(second)?.archivedWithPerson == true)
     }
 
     @Test
@@ -70,8 +69,7 @@ class ArchiveRestoreInvariantTest {
         transactions.restoreTransactionAndUpdateBalance(first)
         repository.restorePerson(personId)
 
-        val restoredPerson = ledger.observePerson(personId)
-        assertNotNull(restoredPerson)
+        assertTrue(transactions.getPersonById(personId)?.isActive == true)
         assertTrue(transactions.getTransaction(first)?.isArchived == false)
         assertTrue(transactions.getTransaction(second)?.isArchived == false)
         assertEquals(30000L, transactions.getBalance(accountId))
@@ -87,7 +85,7 @@ class ArchiveRestoreInvariantTest {
         transactions.archiveTransactionAndUpdateBalance(archivedTransactionId)
         repository.permanentlyDeletePerson(personId)
 
-        assertNull(ledger.observePerson(personId))
+        assertNull(transactions.getPersonById(personId))
         assertNotNull(transactions.getArchivedSnapshot(archivedTransactionId))
         assertNull(transactions.getTransaction(liveTransactionId))
 
@@ -116,7 +114,6 @@ class ArchiveRestoreInvariantTest {
 
         repository.restorePerson(archivedPersonId)
 
-        assertTrue(ledger.observePeople("").toString().isNotEmpty())
         assertNotNull(transactions.getPersonById(existingPersonId))
         assertNull(transactions.getPersonById(archivedPersonId))
         assertTrue(transactions.getTransaction(archivedTransactionId)?.isArchived == false)
