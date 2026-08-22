@@ -93,10 +93,10 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
         composable(Routes.ARCHIVED_PERSON, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
             val id = entry.arguments?.getLong("personId")
             val person = archivedPersons.firstOrNull { it.person.id == id }
-            val archivedPersonTransactions by if (id != null) {
+            val archivedPersonTransactions = if (id != null) {
                 transactionViewModel.observeArchivedTransactionsForPerson(id).collectAsState(initial = emptyList())
             } else {
-                androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(emptyList()) }
+                androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(emptyList<com.myaccounts.app.data.local.TransactionEntity>()) }
             }
             if (person != null) {
                 ArchivedPersonDetailScreen(
