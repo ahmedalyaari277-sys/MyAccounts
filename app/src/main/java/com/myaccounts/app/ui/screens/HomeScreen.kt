@@ -198,6 +198,7 @@ fun HomeScreen(
 
     if (showAddDialog) {
         AddPersonDialog(
+            existingNames = personsList.map { it.person.name },
             onDismiss = { showAddDialog = false },
             onSave = { name, phone, address, notes ->
                 onAddPerson(name, phone, address, notes)
@@ -295,19 +296,35 @@ private fun formatBalance(balance: Long): String = when {
 private fun formatAmount(amount: Long): String = BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
 
 @Composable
-private fun AddPersonDialog(onDismiss: () -> Unit, onSave: (String, String, String, String) -> Unit) {
+private fun AddPersonDialog(
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String) -> Unit
+) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
-    var nameError by remember { mutableStateOf(false) }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    val normalizedExistingNames = remember(existingNames) {
+        existingNames.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("إضافة شخص جديد", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                OutlinedTextField(name, { name = it; nameError = false }, Modifier.fillMaxWidth(), label = { Text("اسم الشخص") }, singleLine = true, isError = nameError, shape = RoundedCornerShape(12.dp))
-                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                OutlinedTextField(
+                    name,
+                    { name = it; nameError = null },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("اسم الشخص") },
+                    singleLine = true,
+                    isError = nameError != null,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                nameError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true, shape = RoundedCornerShape(12.dp))
                 Spacer(Modifier.height(10.dp))
@@ -316,7 +333,16 @@ private fun AddPersonDialog(onDismiss: () -> Unit, onSave: (String, String, Stri
                 OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, shape = RoundedCornerShape(12.dp))
             }
         },
-        confirmButton = { Button(onClick = { if (name.isBlank()) nameError = true else onSave(name.trim(), phone.trim(), address.trim(), notes.trim()) }) { Text("حفظ") } },
+        confirmButton = {
+            Button(onClick = {
+                val trimmedName = name.trim()
+                when {
+                    trimmedName.isBlank() -> nameError = "اسم الشخص مطلوب"
+                    normalizedExistingNames.contains(trimmedName) -> nameError = "يوجد حساب نشط بهذا الاسم. غيّر الاسم أو اضغط إلغاء."
+                    else -> onSave(trimmedName, phone.trim(), address.trim(), notes.trim())
+                }
+            }) { Text("حفظ") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )
 }
