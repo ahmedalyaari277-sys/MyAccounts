@@ -93,12 +93,21 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
         composable(Routes.ARCHIVED_PERSON, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
             val id = entry.arguments?.getLong("personId")
             val person = archivedPersons.firstOrNull { it.person.id == id }
-            if (person != null) ArchivedPersonDetailScreen(
-                personWithAccounts = person,
-                onBack = { navController.popBackStack() },
-                onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) },
-                onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }
-            )
+            val archivedPersonTransactions by if (id != null) {
+                transactionViewModel.observeArchivedTransactionsForPerson(id).collectAsState(initial = emptyList())
+            } else {
+                androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(emptyList()) }
+            }
+            if (person != null) {
+                ArchivedPersonDetailScreen(
+                    personWithAccounts = person,
+                    archivedTransactions = archivedPersonTransactions.value,
+                    onBack = { navController.popBackStack() },
+                    onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) },
+                    onRestoreTransaction = { transactionViewModel.restoreTransaction(it); navController.popBackStack(Routes.ARCHIVE, false) },
+                    onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }
+                )
+            }
         }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.SETTINGS) {
