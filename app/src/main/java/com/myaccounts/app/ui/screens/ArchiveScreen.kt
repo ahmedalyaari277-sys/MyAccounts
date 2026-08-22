@@ -63,35 +63,20 @@ fun ArchiveScreen(
     var personToRestore by remember { mutableStateOf<PersonWithAccounts?>(null) }
     var transactionToDelete by remember { mutableStateOf<ArchivedTransactionRow?>(null) }
 
-    fun hasActiveSameName(person: PersonWithAccounts): Boolean =
-        activePersonNames.contains(normalizePersonName(person.person.name))
-
-    fun requestRestore(person: PersonWithAccounts) {
-        if (hasActiveSameName(person)) personToRestore = person else onRestore(person.person.id)
-    }
+    fun hasActiveSameName(person: PersonWithAccounts): Boolean = activePersonNames.contains(normalizePersonName(person.person.name))
+    fun requestRestore(person: PersonWithAccounts) { if (hasActiveSameName(person)) personToRestore = person else onRestore(person.person.id) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("الأرشيف", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                ),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع")
-                    }
-                }
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.primary),
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } }
             )
         }
     ) { paddingValues ->
         if (archivedPersons.isEmpty() && archivedTransactions.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+            Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Default.Restore, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.height(48.dp))
                 Spacer(Modifier.height(10.dp))
                 Text("الأرشيف فارغ", fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -99,34 +84,17 @@ fun ArchiveScreen(
                 Text("الأشخاص والعمليات التي تتم أرشفتها ستظهر هنا.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (archivedPersons.isNotEmpty()) {
-                    item {
-                        Text("الأشخاص المؤرشفون", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
-                    }
+                    item { Text("الأشخاص المؤرشفون", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
                     items(archivedPersons, key = { "person_${it.person.id}" }) { person ->
-                        ArchivedPersonCard(
-                            person = person,
-                            onOpen = { onPersonClick(person.person.id) },
-                            onRestore = { requestRestore(person) },
-                            onDelete = { personToDelete = person }
-                        )
+                        ArchivedPersonCard(person, onOpen = { onPersonClick(person.person.id) }, onRestore = { requestRestore(person) }, onDelete = { personToDelete = person })
                     }
                 }
-
                 if (archivedTransactions.isNotEmpty()) {
-                    item {
-                        Text("العمليات المؤرشفة", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp))
-                    }
+                    item { Text("العمليات المؤرشفة", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp)) }
                     items(archivedTransactions, key = { "transaction_${it.transactionId}" }) { transaction ->
-                        ArchivedTransactionCard(
-                            transaction = transaction,
-                            onRestore = { onRestoreTransaction(transaction.transactionId) },
-                            onDelete = { transactionToDelete = transaction }
-                        )
+                        ArchivedTransactionCard(transaction, onRestore = { onRestoreTransaction(transaction.transactionId) }, onDelete = { transactionToDelete = transaction })
                     }
                 }
             }
@@ -137,17 +105,8 @@ fun ArchiveScreen(
         AlertDialog(
             onDismissRequest = { personToRestore = null },
             title = { Text("تأكيد استعادة الحساب") },
-            text = {
-                Text(
-                    "يوجد بالفعل حساب نشط باسم «${person.person.name}». إذا تابعت، سيتم استخدام الحساب الموجود بدل إنشاء حساب جديد، وستُنقل إليه العمليات المحفوظة ضمن الحساب المؤرشف. هل تريد المتابعة؟"
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    personToRestore = null
-                    onRestore(person.person.id)
-                }) { Text("متابعة الاستعادة") }
-            },
+            text = { Text("يوجد بالفعل حساب نشط باسم «${person.person.name}». إذا تابعت، سيتم استخدام الحساب الموجود بدل إنشاء حساب جديد، وستُنقل إليه العمليات المحفوظة ضمن الحساب المؤرشف. هل تريد المتابعة؟") },
+            confirmButton = { Button(onClick = { personToRestore = null; onRestore(person.person.id) }) { Text("متابعة الاستعادة") } },
             dismissButton = { TextButton(onClick = { personToRestore = null }) { Text("إلغاء") } }
         )
     }
@@ -157,9 +116,7 @@ fun ArchiveScreen(
             onDismissRequest = { personToDelete = null },
             title = { Text("حذف نهائي") },
             text = { Text("سيتم حذف ${person.person.name} وجميع حساباته وحركاته نهائيًا. لا يمكن التراجع عن هذا الإجراء.") },
-            confirmButton = {
-                Button(onClick = { onPermanentDelete(person.person.id); personToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("حذف نهائي") }
-            },
+            confirmButton = { Button(onClick = { onPermanentDelete(person.person.id); personToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("حذف نهائي") } },
             dismissButton = { TextButton(onClick = { personToDelete = null }) { Text("إلغاء") } }
         )
     }
@@ -169,15 +126,13 @@ fun ArchiveScreen(
             onDismissRequest = { transactionToDelete = null },
             title = { Text("حذف العملية نهائيًا") },
             text = { Text("سيتم حذف العملية من الأرشيف ومرفقاتها نهائيًا. لا يمكن التراجع عن هذا الإجراء.") },
-            confirmButton = {
-                Button(onClick = { onPermanentDeleteTransaction(transaction.transactionId); transactionToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("حذف نهائي") }
-            },
+            confirmButton = { Button(onClick = { onPermanentDeleteTransaction(transaction.transactionId); transactionToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("حذف نهائي") } },
             dismissButton = { TextButton(onClick = { transactionToDelete = null }) { Text("إلغاء") } }
         )
     }
 }
 
-private fun normalizePersonName(name: String): String = name.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
+private fun normalizePersonName(name: String): String = name.trim().lowercase(Locale.ROOT)
 
 @Composable
 private fun ArchivedPersonCard(person: PersonWithAccounts, onOpen: () -> Unit, onRestore: () -> Unit, onDelete: () -> Unit) {
@@ -188,16 +143,8 @@ private fun ArchivedPersonCard(person: PersonWithAccounts, onOpen: () -> Unit, o
             if (person.person.address.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text("العنوان: ${person.person.address}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRestore, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Restore, contentDescription = null)
-                    Spacer(Modifier.padding(horizontal = 2.dp))
-                    Text("استعادة")
-                }
-                Button(onClick = onDelete, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null)
-                    Spacer(Modifier.padding(horizontal = 2.dp))
-                    Text("حذف نهائي")
-                }
+                Button(onClick = onRestore, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Restore, contentDescription = null); Spacer(Modifier.padding(horizontal = 2.dp)); Text("استعادة") }
+                Button(onClick = onDelete, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Default.DeleteForever, contentDescription = null); Spacer(Modifier.padding(horizontal = 2.dp)); Text("حذف نهائي") }
             }
         }
     }
@@ -220,16 +167,8 @@ private fun ArchivedTransactionCard(transaction: ArchivedTransactionRow, onResto
             if (transaction.description.isNotBlank()) Text("البيان: ${transaction.description}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRestore, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Restore, contentDescription = null)
-                    Spacer(Modifier.padding(horizontal = 2.dp))
-                    Text("استعادة")
-                }
-                Button(onClick = onDelete, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null)
-                    Spacer(Modifier.padding(horizontal = 2.dp))
-                    Text("حذف نهائي")
-                }
+                Button(onClick = onRestore, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Restore, contentDescription = null); Spacer(Modifier.padding(horizontal = 2.dp)); Text("استعادة") }
+                Button(onClick = onDelete, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Default.DeleteForever, contentDescription = null); Spacer(Modifier.padding(horizontal = 2.dp)); Text("حذف نهائي") }
             }
         }
     }
