@@ -5,10 +5,10 @@ import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import com.myaccounts.app.data.local.AppDatabase
+import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
-import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.TransactionDao
 import com.myaccounts.app.data.repository.LedgerRepository
@@ -213,10 +213,10 @@ class BackupRestoreRoundTripInvariantTest {
     }
 
     private fun invokePrivate(name: String, vararg args: Any): Any? {
-        val parameterTypes = args.map { it.javaClass.interfaces.firstOrNull() ?: it.javaClass }.toTypedArray()
         val method = DatabaseBackupManager::class.java.declaredMethods.firstOrNull { candidate ->
-            candidate.name == name && candidate.parameterTypes.size == args.size &&
-                candidate.parameterTypes.zip(parameterTypes).all { (expected, actual) -> expected.isAssignableFrom(actual) }
+            candidate.name == name &&
+                candidate.parameterTypes.size == args.size &&
+                candidate.parameterTypes.withIndex().all { (index, expected) -> expected.isInstance(args[index]) }
         } ?: error("Private method not found: $name")
         method.isAccessible = true
         return method.invoke(DatabaseBackupManager, *args)
