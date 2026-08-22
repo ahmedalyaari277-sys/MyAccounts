@@ -71,6 +71,16 @@ interface TransactionDao {
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
 
     @Query("""
+        SELECT t.* FROM transactions t
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        WHERE ca.personId = :personId
+          AND t.isArchived = 1
+          AND t.archivedWithPerson = 1
+        ORDER BY t.transactionDate DESC, t.id DESC
+    """)
+    fun observeArchivedTransactionsForPerson(personId: Long): Flow<List<TransactionEntity>>
+
+    @Query("""
         SELECT t.id AS transactionId, t.accountId AS accountId, p.name AS personName,
                ca.currencyCode AS currencyCode, t.type AS type, t.amountMinor AS amountMinor,
                t.description AS description, t.transactionDate AS transactionDate
@@ -231,8 +241,9 @@ interface TransactionDao {
         snapshotAllTransactionsForPerson(personId)
         snapshotAllAttachmentsForPerson(personId)
         archiveAllTransactionsForPerson(personId)
+        // Keep the last account balances visible in the archived-account record.
+        // They are recalculated only when the account is restored.
         archivePerson(personId)
-        getAccountsForPerson(personId).forEach { recalculateBalance(it.id) }
     }
 
     @Transaction
