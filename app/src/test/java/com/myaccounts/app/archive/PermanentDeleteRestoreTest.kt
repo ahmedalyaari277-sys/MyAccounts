@@ -77,7 +77,7 @@ class PermanentDeleteRestoreTest {
 
         repository.permanentlyDeletePerson(personId)
 
-        assertNull(ledger.getPersonById(personId))
+        assertNull(transactions.getPersonById(personId))
         assertNull(transactions.getTransaction(archivedWithPerson))
         assertNull(transactions.getTransaction(individuallyArchived))
 
@@ -88,7 +88,7 @@ class PermanentDeleteRestoreTest {
 
         transactions.restoreTransactionAndUpdateBalance(individuallyArchived)
 
-        val restoredPerson = ledger.getPersonById(personId)
+        val restoredPerson = transactions.getPersonById(personId)
         assertNotNull(restoredPerson)
         assertTrue(restoredPerson!!.isActive)
 
