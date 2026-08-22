@@ -118,6 +118,7 @@ interface TransactionDao {
         INNER JOIN currency_accounts ca ON ca.id = t.accountId
         INNER JOIN people p ON p.id = ca.personId
         WHERE ca.personId = :personId
+          AND t.isArchived = 0
     """)
     suspend fun snapshotAllTransactionsForPerson(personId: Long, archivedAt: Long = System.currentTimeMillis())
 
@@ -130,10 +131,11 @@ interface TransactionDao {
         INNER JOIN transactions t ON t.id = a.transactionId
         INNER JOIN currency_accounts ca ON ca.id = t.accountId
         WHERE ca.personId = :personId
+          AND t.isArchived = 0
     """)
     suspend fun snapshotAllAttachmentsForPerson(personId: Long)
 
-    @Query("UPDATE transactions SET isArchived = 1, archivedWithPerson = 1 WHERE accountId IN (SELECT id FROM currency_accounts WHERE personId = :personId)")
+    @Query("UPDATE transactions SET isArchived = 1, archivedWithPerson = 1 WHERE accountId IN (SELECT id FROM currency_accounts WHERE personId = :personId) AND isArchived = 0")
     suspend fun archiveAllTransactionsForPerson(personId: Long)
     @Query("UPDATE people SET isActive = 0 WHERE id = :personId") suspend fun archivePerson(personId: Long)
     @Query("UPDATE people SET isActive = 1 WHERE id = :personId") suspend fun restorePersonById(personId: Long)
