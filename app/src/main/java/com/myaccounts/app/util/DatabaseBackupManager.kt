@@ -15,9 +15,10 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 object DatabaseBackupManager {
-    private const val FORMAT_VERSION = 3
+    private const val FORMAT_VERSION = 4
     private const val LEGACY_FORMAT_VERSION = 1
     private const val PREVIOUS_FORMAT_VERSION = 2
+    private const val ARCHIVE_AWARE_FORMAT_VERSION = 4
     private const val BACKUP_TYPE = "myaccounts_full_backup"
     private const val DATABASE_ENTRY = "backup.json"
     private const val FILES_PREFIX = "files/"
@@ -66,7 +67,8 @@ object DatabaseBackupManager {
             requireBackupHasData(backup)
 
             val attachments = backup.optJSONArray("attachments") ?: JSONArray()
-            val filesToInstall = prepareAttachmentFiles(context, tempDirectory, attachments)
+            val archivedAttachmentSnapshots = backup.optJSONArray("archivedTransactionAttachmentSnapshots") ?: JSONArray()
+            val filesToInstall = prepareAttachmentFiles(context, tempDirectory, attachments, archivedAttachmentSnapshots)
             val database = AppDatabase.getInstance(context)
             val sqlite = database.openHelper.writableDatabase
             val oldAttachmentPaths = existingAttachmentPaths(sqlite)
@@ -82,9 +84,6 @@ object DatabaseBackupManager {
                     restoreIntoDatabase(database.openHelper.writableDatabase, backup)
                 }
 
-                // The restore intentionally uses SQL because it preserves IDs and
-                // the complete snapshot. Refresh Room's invalidation tracker so
-                // existing DAO/Flow observers immediately see the restored rows.
                 database.invalidationTracker.refreshVersionsAsync()
 
                 oldAttachmentPaths
@@ -108,7 +107,12 @@ object DatabaseBackupManager {
         val accounts = backup.optJSONArray("currencyAccounts") ?: JSONArray()
         val transactions = backup.optJSONArray("transactions") ?: JSONArray()
         val attachments = backup.optJSONArray("attachments") ?: JSONArray()
-        require(people.length() + accounts.length() + transactions.length() + attachments.length() > 0) {
+        val archivedSnapshots = backup.optJSONArray("archivedTransactionSnapshots") ?: JSONArray()
+        val archivedAttachmentSnapshots = backup.optJSONArray("archivedTransactionAttachmentSnapshots") ?: JSONArray()
+        require(
+            people.length() + accounts.length() + transactions.length() + attachments.length() +
+                archivedSnapshots.length() + archivedAttachmentSnapshots.length() > 0
+        ) {
             "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية."
         }
     }
@@ -184,7 +188,7 @@ object DatabaseBackupManager {
         })
 
         root.put("transactions", JSONArray().apply {
-            db.query("SELECT id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived FROM transactions ORDER BY id").use { c ->
+            db.query("SELECT id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived,archivedWithPerson FROM transactions ORDER BY id").use { c ->
                 while (c.moveToNext()) {
                     put(JSONObject()
                         .put("id", c.getLong(0))
@@ -194,7 +198,50 @@ object DatabaseBackupManager {
                         .put("description", c.getString(4))
                         .put("transactionDate", c.getLong(5))
                         .put("createdAt", c.getLong(6))
-                        .put("isArchived", c.getInt(7) != 0))
+                        .put("isArchived", c.getInt(7) != 0)
+                        .put("archivedWithPerson", c.getInt(8) != 0))
+                }
+            }
+        })
+
+        root.put("archivedTransactionSnapshots", JSONArray().apply {
+            db.query("""
+                SELECT transactionId,accountId,personId,personName,personPhone,personAddress,personNotes,
+                       currencyCode,type,amountMinor,description,transactionDate,createdAt,archivedWithPerson,archivedAt
+                FROM archived_transaction_snapshots ORDER BY transactionId
+            """.trimIndent()).use { c ->
+                while (c.moveToNext()) {
+                    put(JSONObject()
+                        .put("transactionId", c.getLong(0))
+                        .put("accountId", c.getLong(1))
+                        .put("personId", c.getLong(2))
+                        .put("personName", c.getString(3))
+                        .put("personPhone", c.getString(4))
+                        .put("personAddress", c.getString(5))
+                        .put("personNotes", c.getString(6))
+                        .put("currencyCode", c.getString(7))
+                        .put("type", c.getString(8))
+                        .put("amountMinor", c.getLong(9))
+                        .put("description", c.getString(10))
+                        .put("transactionDate", c.getLong(11))
+                        .put("createdAt", c.getLong(12))
+                        .put("archivedWithPerson", c.getInt(13) != 0)
+                        .put("archivedAt", c.getLong(14)))
+                }
+            }
+        })
+
+        root.put("archivedTransactionAttachmentSnapshots", JSONArray().apply {
+            db.query("SELECT attachmentId,transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt FROM archived_transaction_attachment_snapshots ORDER BY attachmentId").use { c ->
+                while (c.moveToNext()) {
+                    put(JSONObject()
+                        .put("attachmentId", c.getLong(0))
+                        .put("transactionId", c.getLong(1))
+                        .put("fileName", c.getString(2))
+                        .put("mimeType", c.getString(3))
+                        .put("relativePath", c.getString(4))
+                        .put("sizeBytes", c.getLong(5))
+                        .put("createdAt", c.getLong(6)))
                 }
             }
         })
@@ -218,22 +265,26 @@ object DatabaseBackupManager {
     }
 
     private fun addAttachmentFiles(context: Context, db: SupportSQLiteDatabase, zip: ZipOutputStream) {
+        val paths = linkedSetOf<String>()
         db.query("SELECT relativePath FROM transaction_attachments ORDER BY id").use { c ->
-            while (c.moveToNext()) {
-                val relativePath = safeZipPath(c.getString(0))
-                val file = File(context.filesDir, relativePath)
-                require(file.isFile) { "ملف المرفق غير موجود: $relativePath" }
-                zip.putNextEntry(ZipEntry(FILES_PREFIX + relativePath))
-                file.inputStream().buffered().use { it.copyTo(zip) }
-                zip.closeEntry()
-            }
+            while (c.moveToNext()) paths += safeZipPath(c.getString(0))
+        }
+        db.query("SELECT relativePath FROM archived_transaction_attachment_snapshots ORDER BY attachmentId").use { c ->
+            while (c.moveToNext()) paths += safeZipPath(c.getString(0))
+        }
+        paths.forEach { relativePath ->
+            val file = File(context.filesDir, relativePath)
+            require(file.isFile) { "ملف المرفق غير موجود: $relativePath" }
+            zip.putNextEntry(ZipEntry(FILES_PREFIX + relativePath))
+            file.inputStream().buffered().use { it.copyTo(zip) }
+            zip.closeEntry()
         }
     }
 
     private fun validateBackup(backup: JSONObject) {
         require(backup.optString("backupType") == BACKUP_TYPE) { "ملف النسخة الاحتياطية غير صالح." }
         val version = backup.optInt("formatVersion", -1)
-        require(version == LEGACY_FORMAT_VERSION || version == PREVIOUS_FORMAT_VERSION || version == FORMAT_VERSION) {
+        require(version == LEGACY_FORMAT_VERSION || version == PREVIOUS_FORMAT_VERSION || version == 3 || version == FORMAT_VERSION) {
             "إصدار النسخة الاحتياطية غير مدعوم."
         }
         require(backup.has("people") && backup.has("currencyAccounts") && backup.has("transactions")) {
@@ -269,9 +320,31 @@ object DatabaseBackupManager {
             require(t.getString("type") == "RECEIVABLE" || t.getString("type") == "PAYABLE") {
                 "نوع عملية غير مدعوم في النسخة الاحتياطية."
             }
-            if (version >= FORMAT_VERSION) require(t.has("isArchived")) { "بيانات أرشفة العمليات غير مكتملة." }
+            if (version >= 3) require(t.has("isArchived")) { "بيانات أرشفة العمليات غير مكتملة." }
+            if (version >= ARCHIVE_AWARE_FORMAT_VERSION) require(t.has("archivedWithPerson")) { "بيانات ارتباط العملية بأرشيف الحساب غير مكتملة." }
             require(transactionIds.add(t.getLong("id"))) { "النسخة الاحتياطية تحتوي على عملية مكررة." }
         }
+
+        val archivedSnapshots = backup.optJSONArray("archivedTransactionSnapshots") ?: JSONArray()
+        val archivedSnapshotIds = mutableSetOf<Long>()
+        for (i in 0 until archivedSnapshots.length()) {
+            val a = archivedSnapshots.getJSONObject(i)
+            require(a.has("transactionId") && a.has("accountId") && a.has("personId") &&
+                a.has("personName") && a.has("personPhone") && a.has("personAddress") &&
+                a.has("personNotes") && a.has("currencyCode") && a.has("type") &&
+                a.has("amountMinor") && a.has("description") && a.has("transactionDate") &&
+                a.has("createdAt") && a.has("archivedAt"))
+            if (version >= ARCHIVE_AWARE_FORMAT_VERSION) require(a.has("archivedWithPerson"))
+            require(archivedSnapshotIds.add(a.getLong("transactionId"))) { "النسخة الاحتياطية تحتوي على نسخة أرشيف عملية مكررة." }
+            require(a.getString("type") == "RECEIVABLE" || a.getString("type") == "PAYABLE") {
+                "نوع عملية غير مدعوم في نسخة الأرشيف."
+            }
+        }
+        if (version >= ARCHIVE_AWARE_FORMAT_VERSION) {
+            require(backup.has("archivedTransactionSnapshots")) { "نسخ أرشيف العمليات غير موجودة." }
+            require(backup.has("archivedTransactionAttachmentSnapshots")) { "نسخ مرفقات الأرشيف غير موجودة." }
+        }
+
         val attachmentIds = mutableSetOf<Long>()
         val attachmentPaths = mutableSetOf<String>()
         for (i in 0 until attachments.length()) {
@@ -283,12 +356,28 @@ object DatabaseBackupManager {
             require(attachmentPaths.add(relativePath)) { "النسخة الاحتياطية تحتوي على مسار مرفق مكرر." }
             require(a.getLong("sizeBytes") >= 0) { "حجم مرفق غير صالح." }
         }
+        val archivedAttachmentSnapshots = backup.optJSONArray("archivedTransactionAttachmentSnapshots") ?: JSONArray()
+        for (i in 0 until archivedAttachmentSnapshots.length()) {
+            val a = archivedAttachmentSnapshots.getJSONObject(i)
+            require(a.has("attachmentId") && a.has("transactionId") && a.has("fileName") && a.has("mimeType") && a.has("relativePath") && a.has("sizeBytes") && a.has("createdAt"))
+            require(archivedSnapshotIds.contains(a.getLong("transactionId"))) { "نسخة مرفق الأرشيف مرتبطة بنسخة عملية غير موجودة." }
+            require(attachmentIds.add(a.getLong("attachmentId"))) { "النسخة الاحتياطية تحتوي على مرفق أرشيف مكرر." }
+            val relativePath = safeZipPath(a.getString("relativePath"))
+            require(attachmentPaths.add(relativePath)) { "النسخة الاحتياطية تحتوي على مسار مرفق مكرر." }
+            require(a.getLong("sizeBytes") >= 0) { "حجم مرفق غير صالح." }
+        }
     }
 
-    private fun prepareAttachmentFiles(context: Context, tempDirectory: File, attachments: JSONArray): List<FileToInstall> = buildList {
-        for (i in 0 until attachments.length()) {
-            val a = attachments.getJSONObject(i)
+    private fun prepareAttachmentFiles(
+        context: Context,
+        tempDirectory: File,
+        attachments: JSONArray,
+        archivedAttachmentSnapshots: JSONArray
+    ): List<FileToInstall> = buildList {
+        val seenPaths = mutableSetOf<String>()
+        fun addFile(a: JSONObject) {
             val relativePath = safeZipPath(a.getString("relativePath"))
+            if (!seenPaths.add(relativePath)) return
             val source = File(tempDirectory, FILES_PREFIX + relativePath)
             require(source.isFile) { "ملف المرفق غير موجود داخل النسخة الاحتياطية: $relativePath" }
             require(source.length() == a.getLong("sizeBytes")) {
@@ -296,6 +385,8 @@ object DatabaseBackupManager {
             }
             add(FileToInstall(source, File(context.filesDir, relativePath)))
         }
+        for (i in 0 until attachments.length()) addFile(attachments.getJSONObject(i))
+        for (i in 0 until archivedAttachmentSnapshots.length()) addFile(archivedAttachmentSnapshots.getJSONObject(i))
     }
 
     private fun installAttachmentFiles(files: List<FileToInstall>) {
@@ -309,6 +400,9 @@ object DatabaseBackupManager {
 
     private fun existingAttachmentPaths(db: SupportSQLiteDatabase): List<String> = buildList {
         db.query("SELECT relativePath FROM transaction_attachments").use { c ->
+            while (c.moveToNext()) add(c.getString(0))
+        }
+        db.query("SELECT relativePath FROM archived_transaction_attachment_snapshots").use { c ->
             while (c.moveToNext()) add(c.getString(0))
         }
     }
@@ -337,6 +431,8 @@ object DatabaseBackupManager {
     private fun restoreIntoDatabase(db: SupportSQLiteDatabase, backup: JSONObject) {
         val version = backup.optInt("formatVersion", LEGACY_FORMAT_VERSION)
         db.execSQL("DELETE FROM transaction_attachments")
+        db.execSQL("DELETE FROM archived_transaction_attachment_snapshots")
+        db.execSQL("DELETE FROM archived_transaction_snapshots")
         db.execSQL("DELETE FROM transactions")
         db.execSQL("DELETE FROM currency_accounts")
         db.execSQL("DELETE FROM people")
@@ -361,8 +457,13 @@ object DatabaseBackupManager {
         for (i in 0 until transactions.length()) {
             val t = transactions.getJSONObject(i)
             db.execSQL(
-                "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived) VALUES (?,?,?,?,?,?,?,?)",
-                arrayOf(t.getLong("id"), t.getLong("accountId"), t.getString("type"), t.getLong("amountMinor"), t.getString("description"), t.getLong("transactionDate"), t.getLong("createdAt"), if (version >= FORMAT_VERSION && t.optBoolean("isArchived", false)) 1 else 0)
+                "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived,archivedWithPerson) VALUES (?,?,?,?,?,?,?,?,?)",
+                arrayOf(
+                    t.getLong("id"), t.getLong("accountId"), t.getString("type"), t.getLong("amountMinor"),
+                    t.getString("description"), t.getLong("transactionDate"), t.getLong("createdAt"),
+                    if (version >= 3 && t.optBoolean("isArchived", false)) 1 else 0,
+                    if (version >= ARCHIVE_AWARE_FORMAT_VERSION && t.optBoolean("archivedWithPerson", false)) 1 else 0
+                )
             )
         }
         if (version >= PREVIOUS_FORMAT_VERSION) {
@@ -372,6 +473,38 @@ object DatabaseBackupManager {
                 db.execSQL(
                     "INSERT INTO transaction_attachments (id,transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?,?)",
                     arrayOf(a.getLong("id"), a.getLong("transactionId"), a.getString("fileName"), a.getString("mimeType"), a.getString("relativePath"), a.getLong("sizeBytes"), a.getLong("createdAt"))
+                )
+            }
+        }
+
+        if (version >= ARCHIVE_AWARE_FORMAT_VERSION) {
+            val archivedSnapshots = backup.optJSONArray("archivedTransactionSnapshots") ?: JSONArray()
+            for (i in 0 until archivedSnapshots.length()) {
+                val a = archivedSnapshots.getJSONObject(i)
+                db.execSQL(
+                    """INSERT INTO archived_transaction_snapshots (
+                        transactionId,accountId,personId,personName,personPhone,personAddress,personNotes,
+                        currencyCode,type,amountMinor,description,transactionDate,createdAt,archivedWithPerson,archivedAt
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""".trimIndent(),
+                    arrayOf(
+                        a.getLong("transactionId"), a.getLong("accountId"), a.getLong("personId"),
+                        a.getString("personName"), a.getString("personPhone"), a.getString("personAddress"),
+                        a.getString("personNotes"), a.getString("currencyCode"), a.getString("type"),
+                        a.getLong("amountMinor"), a.getString("description"), a.getLong("transactionDate"),
+                        a.getLong("createdAt"), if (a.optBoolean("archivedWithPerson", false)) 1 else 0,
+                        a.getLong("archivedAt")
+                    )
+                )
+            }
+            val archivedAttachmentSnapshots = backup.optJSONArray("archivedTransactionAttachmentSnapshots") ?: JSONArray()
+            for (i in 0 until archivedAttachmentSnapshots.length()) {
+                val a = archivedAttachmentSnapshots.getJSONObject(i)
+                db.execSQL(
+                    "INSERT INTO archived_transaction_attachment_snapshots (attachmentId,transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?,?)",
+                    arrayOf(
+                        a.getLong("attachmentId"), a.getLong("transactionId"), a.getString("fileName"),
+                        a.getString("mimeType"), a.getString("relativePath"), a.getLong("sizeBytes"), a.getLong("createdAt")
+                    )
                 )
             }
         }
