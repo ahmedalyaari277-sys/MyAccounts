@@ -37,11 +37,16 @@ jobs:
         with:
           gradle-version: "8.2"
 
-      # 4. بناء التطبيق
+      # 4. تشغيل اختبارات الأرشفة والاستعادة قبل بناء APK.
+      # إذا فشل أي سيناريو منطقي، يتوقف الـCI ولا نعتبر البناء ناجحًا.
+      - name: Run unit tests
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
+
+      # 5. بناء التطبيق
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
 
-      # 5. رفع ملف APK
+      # 6. رفع ملف APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
