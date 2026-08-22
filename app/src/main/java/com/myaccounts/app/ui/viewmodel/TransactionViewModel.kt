@@ -82,6 +82,7 @@ class TransactionViewModel(
     suspend fun getTransaction(transactionId: Long): TransactionEntity? = repository.getTransaction(transactionId)
     suspend fun getTransactions(accountId: Long): List<TransactionEntity> = repository.getTransactions(accountId)
     suspend fun getBalance(accountId: Long): Long = repository.getBalance(accountId)
+    fun observeArchivedTransactionsForPerson(personId: Long): Flow<List<TransactionEntity>> = repository.observeArchivedTransactionsForPerson(personId)
     fun observeAttachments(transactionId: Long): Flow<List<TransactionAttachmentEntity>> = repository.observeAttachments(transactionId)
     fun observeAttachmentCount(transactionId: Long): Flow<Int> = repository.observeAttachmentCount(transactionId)
 
