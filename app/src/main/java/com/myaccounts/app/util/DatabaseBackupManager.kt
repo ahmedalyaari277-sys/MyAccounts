@@ -345,26 +345,50 @@ object DatabaseBackupManager {
             require(backup.has("archivedTransactionAttachmentSnapshots")) { "نسخ مرفقات الأرشيف غير موجودة." }
         }
 
-        val attachmentIds = mutableSetOf<Long>()
-        val attachmentPaths = mutableSetOf<String>()
+        val liveAttachmentIds = mutableSetOf<Long>()
+        val liveAttachmentPaths = mutableSetOf<String>()
+        val liveAttachmentsById = mutableMapOf<Long, JSONObject>()
+        val liveAttachmentsByPath = mutableMapOf<String, JSONObject>()
         for (i in 0 until attachments.length()) {
             val a = attachments.getJSONObject(i)
             require(a.has("id") && a.has("transactionId") && a.has("fileName") && a.has("mimeType") && a.has("relativePath") && a.has("sizeBytes") && a.has("createdAt"))
             require(transactionIds.contains(a.getLong("transactionId"))) { "المرفق مرتبط بعملية غير موجودة." }
-            require(attachmentIds.add(a.getLong("id"))) { "النسخة الاحتياطية تحتوي على مرفق مكرر." }
+            val attachmentId = a.getLong("id")
+            require(liveAttachmentIds.add(attachmentId)) { "النسخة الاحتياطية تحتوي على مرفق مكرر." }
             val relativePath = safeZipPath(a.getString("relativePath"))
-            require(attachmentPaths.add(relativePath)) { "النسخة الاحتياطية تحتوي على مسار مرفق مكرر." }
+            require(liveAttachmentPaths.add(relativePath)) { "النسخة الاحتياطية تحتوي على مسار مرفق مكرر." }
             require(a.getLong("sizeBytes") >= 0) { "حجم مرفق غير صالح." }
+            liveAttachmentsById[attachmentId] = a
+            liveAttachmentsByPath[relativePath] = a
         }
+
         val archivedAttachmentSnapshots = backup.optJSONArray("archivedTransactionAttachmentSnapshots") ?: JSONArray()
+        val archivedAttachmentIds = mutableSetOf<Long>()
+        val archivedAttachmentPaths = mutableSetOf<String>()
         for (i in 0 until archivedAttachmentSnapshots.length()) {
             val a = archivedAttachmentSnapshots.getJSONObject(i)
             require(a.has("attachmentId") && a.has("transactionId") && a.has("fileName") && a.has("mimeType") && a.has("relativePath") && a.has("sizeBytes") && a.has("createdAt"))
             require(archivedSnapshotIds.contains(a.getLong("transactionId"))) { "نسخة مرفق الأرشيف مرتبطة بنسخة عملية غير موجودة." }
-            require(attachmentIds.add(a.getLong("attachmentId"))) { "النسخة الاحتياطية تحتوي على مرفق أرشيف مكرر." }
+            val attachmentId = a.getLong("attachmentId")
+            require(archivedAttachmentIds.add(attachmentId)) { "النسخة الاحتياطية تحتوي على نسخة مرفق أرشيف مكررة." }
             val relativePath = safeZipPath(a.getString("relativePath"))
-            require(attachmentPaths.add(relativePath)) { "النسخة الاحتياطية تحتوي على مسار مرفق مكرر." }
-            require(a.getLong("sizeBytes") >= 0) { "حجم مرفق غير صالح." }
+            require(archivedAttachmentPaths.add(relativePath)) { "النسخة الاحتياطية تحتوي على مسار نسخة مرفق أرشيف مكرر." }
+            require(a.getLong("sizeBytes") >= 0) { "حجم نسخة مرفق غير صالح." }
+
+            val liveById = liveAttachmentsById[attachmentId]
+            val liveByPath = liveAttachmentsByPath[relativePath]
+            if (liveById != null) {
+                require(
+                    liveById.getString("fileName") == a.getString("fileName") &&
+                        liveById.getString("mimeType") == a.getString("mimeType") &&
+                        liveById.getString("relativePath") == relativePath &&
+                        liveById.getLong("sizeBytes") == a.getLong("sizeBytes") &&
+                        liveById.getLong("createdAt") == a.getLong("createdAt")
+                ) { "بيانات نسخة المرفق لا تطابق المرفق الأصلي." }
+            }
+            if (liveByPath != null) {
+                require(liveByPath.getLong("id") == attachmentId) { "مسار المرفق مستخدم بمعرفات مختلفة." }
+            }
         }
     }
 
