@@ -19,7 +19,8 @@ import androidx.room.Index
         Index(value = ["accountId"]),
         Index(value = ["transactionDate"]),
         Index(value = ["type"]),
-        Index(value = ["isArchived"])
+        Index(value = ["isArchived"]),
+        Index(value = ["archivedWithPerson"])
     ]
 )
 data class TransactionEntity(
@@ -31,7 +32,9 @@ data class TransactionEntity(
     val description: String = "",
     val transactionDate: Long,
     val createdAt: Long = System.currentTimeMillis(),
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /** True only while the transaction belongs to an archived person/account. */
+    val archivedWithPerson: Boolean = false
 )
 
 enum class TransactionType {
