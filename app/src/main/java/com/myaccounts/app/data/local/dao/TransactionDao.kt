@@ -169,6 +169,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET isArchived = 0, archivedWithPerson = 0 WHERE accountId IN (SELECT id FROM currency_accounts WHERE personId = :personId) AND archivedWithPerson = 1")
     suspend fun restoreAllTransactionsForPerson(personId: Long)
 
+    @Query("SELECT * FROM transactions WHERE accountId IN (SELECT id FROM currency_accounts WHERE personId = :personId) AND archivedWithPerson = 1 ORDER BY id")
+    suspend fun getArchivedTransactionsForPerson(personId: Long): List<TransactionEntity>
+
     @Query("DELETE FROM archived_transaction_snapshots WHERE personId = :personId AND archivedWithPerson = 1")
     suspend fun deletePersonArchiveSnapshots(personId: Long)
 
@@ -241,18 +244,43 @@ interface TransactionDao {
         snapshotAllTransactionsForPerson(personId)
         snapshotAllAttachmentsForPerson(personId)
         archiveAllTransactionsForPerson(personId)
-        // Keep the last account balances visible in the archived-account record.
-        // They are recalculated only when the account is restored.
         archivePerson(personId)
     }
 
     @Transaction
     suspend fun restorePersonAndUpdateBalances(personId: Long) {
         val person = getPersonById(personId) ?: return
+        val existingActivePerson = getActivePersonByName(person.name)
+        if (existingActivePerson != null && existingActivePerson.id != personId) {
+            val archivedTransactions = getArchivedTransactionsForPerson(personId)
+            archivedTransactions.forEach { transaction ->
+                val sourceAccount = getCurrencyAccountById(transaction.accountId) ?: return@forEach
+                val targetAccount = getCurrencyAccountForPerson(existingActivePerson.id, sourceAccount.currencyCode)
+                    ?: insertCurrencyAccount(
+                        CurrencyAccountEntity(
+                            personId = existingActivePerson.id,
+                            currencyCode = sourceAccount.currencyCode,
+                            balanceMinor = 0L,
+                            createdAt = sourceAccount.createdAt,
+                            updatedAt = sourceAccount.updatedAt
+                        )
+                    ).let { insertedId -> getCurrencyAccountById(insertedId)!! }
+                restoreTransactionToAccount(transaction.id, targetAccount.id)
+                deleteArchivedSnapshot(transaction.id)
+                deleteArchivedAttachmentSnapshots(transaction.id)
+                recalculateBalance(targetAccount.id)
+            }
+            // The archived duplicate has been consumed into the existing account.
+            // Deleting it avoids leaving a second archived copy that could be restored again.
+            deletePersonArchiveAttachmentSnapshots(personId)
+            deletePersonArchiveSnapshots(personId)
+            return
+        }
+
         restorePersonById(personId)
         restoreAllTransactionsForPerson(personId)
-        deletePersonArchiveSnapshots(personId)
         deletePersonArchiveAttachmentSnapshots(personId)
+        deletePersonArchiveSnapshots(personId)
         getAccountsForPerson(personId).forEach { recalculateBalance(it.id) }
     }
 
