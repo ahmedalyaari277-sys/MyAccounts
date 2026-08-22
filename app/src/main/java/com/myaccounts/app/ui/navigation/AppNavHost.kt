@@ -28,6 +28,7 @@ import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModelFactory
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
+import java.util.Locale
 
 @Composable
 fun AppNavHost(
@@ -38,6 +39,7 @@ fun AppNavHost(
 ) {
     val persons by viewModel.personsWithAccounts.collectAsState()
     val archivedPersons by viewModel.archivedPersonsWithAccounts.collectAsState()
+    val activePersonNames = persons.asSequence().map { normalizePersonName(it.person.name) }.toSet()
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val security = AppSecurityManager(context)
@@ -88,6 +90,7 @@ fun AppNavHost(
             ArchiveScreen(
                 archivedPersons = archivedPersons,
                 archivedTransactions = archivedTransactions,
+                activePersonNames = activePersonNames,
                 onBack = { navController.popBackStack() },
                 onRestore = { viewModel.restorePerson(it) },
                 onPermanentDelete = { viewModel.permanentlyDeletePerson(it) },
@@ -108,6 +111,7 @@ fun AppNavHost(
                 ArchivedPersonDetailScreen(
                     personWithAccounts = person,
                     archivedTransactions = archivedPersonTransactions.value,
+                    hasActiveSameName = activePersonNames.contains(normalizePersonName(person.person.name)),
                     onBack = { navController.popBackStack() },
                     onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) },
                     onRestoreTransaction = { transactionViewModel.restoreTransaction(it); navController.popBackStack(Routes.ARCHIVE, false) },
@@ -128,3 +132,5 @@ fun AppNavHost(
         composable(Routes.DETAILS) { DetailsScreen(onBack = { navController.popBackStack() }) }
     }
 }
+
+private fun normalizePersonName(name: String): String = name.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
