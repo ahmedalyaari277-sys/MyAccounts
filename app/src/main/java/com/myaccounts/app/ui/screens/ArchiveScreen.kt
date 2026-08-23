@@ -63,8 +63,12 @@ fun ArchiveScreen(
     var personToRestore by remember { mutableStateOf<PersonWithAccounts?>(null) }
     var transactionToDelete by remember { mutableStateOf<ArchivedTransactionRow?>(null) }
 
-    fun hasActiveSameName(person: PersonWithAccounts): Boolean = activePersonNames.contains(normalizePersonName(person.person.name))
-    fun requestRestore(person: PersonWithAccounts) { if (hasActiveSameName(person)) personToRestore = person else onRestore(person.person.id) }
+    fun requestRestore(person: PersonWithAccounts) {
+        when (restoreConfirmationDecision(person.person.name, activePersonNames)) {
+            RestoreConfirmationDecision.REQUIRE_SAME_NAME_CONFIRMATION -> personToRestore = person
+            RestoreConfirmationDecision.RESTORE_DIRECTLY -> onRestore(person.person.id)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -131,8 +135,6 @@ fun ArchiveScreen(
         )
     }
 }
-
-private fun normalizePersonName(name: String): String = name.trim().lowercase(Locale.ROOT)
 
 @Composable
 private fun ArchivedPersonCard(person: PersonWithAccounts, onOpen: () -> Unit, onRestore: () -> Unit, onDelete: () -> Unit) {
