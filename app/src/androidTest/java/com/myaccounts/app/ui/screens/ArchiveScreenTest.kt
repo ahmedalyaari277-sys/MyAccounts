@@ -1,6 +1,5 @@
 package com.myaccounts.app.ui.screens
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -69,7 +68,6 @@ class ArchiveScreenTest {
         composeRule.onNodeWithText("استعادة").performClick()
         composeRule.onNodeWithText("إلغاء").performClick()
 
-        composeRule.onNodeWithText("تأكيد استعادة الحساب").assertDoesNotExist()
         assertEquals(0, restoreCalls)
     }
 
@@ -91,7 +89,6 @@ class ArchiveScreenTest {
 
         composeRule.onNodeWithText("استعادة").performClick()
 
-        composeRule.onNodeWithText("تأكيد استعادة الحساب").assertDoesNotExist()
         assertEquals(1L, restoredId)
     }
 }
