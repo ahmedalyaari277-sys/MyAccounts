@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,7 +58,7 @@ class ArchiveScreenTest {
         composeRule.onNodeWithText("تأكيد استعادة الحساب").assertIsDisplayed()
         composeRule.onNodeWithText("متابعة الاستعادة").assertIsDisplayed()
         composeRule.onNodeWithText("إلغاء").assertIsDisplayed()
-        assert(restoreCalls == 0)
+        assertEquals(0, restoreCalls)
     }
 
     @Test
@@ -69,7 +70,7 @@ class ArchiveScreenTest {
         composeRule.onNodeWithText("إلغاء").performClick()
 
         composeRule.onNodeWithText("تأكيد استعادة الحساب").assertDoesNotExist()
-        assert(restoreCalls == 0)
+        assertEquals(0, restoreCalls)
     }
 
     @Test
@@ -80,7 +81,7 @@ class ArchiveScreenTest {
         composeRule.onNodeWithText("استعادة").performClick()
         composeRule.onNodeWithText("متابعة الاستعادة").performClick()
 
-        assert(restoredId == 1L)
+        assertEquals(1L, restoredId)
     }
 
     @Test
@@ -91,6 +92,6 @@ class ArchiveScreenTest {
         composeRule.onNodeWithText("استعادة").performClick()
 
         composeRule.onNodeWithText("تأكيد استعادة الحساب").assertDoesNotExist()
-        assert(restoredId == 1L)
+        assertEquals(1L, restoredId)
     }
 }
