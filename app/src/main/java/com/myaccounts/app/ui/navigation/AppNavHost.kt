@@ -20,6 +20,7 @@ import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.SettingsScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
+import com.myaccounts.app.ui.screens.normalizeRestorePersonName
 import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
 import com.myaccounts.app.ui.theme.ThemeMode
@@ -28,13 +29,12 @@ import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModelFactory
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
-import java.util.Locale
 
 @Composable
 fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, themeMode: ThemeMode, onThemeModeChanged: (ThemeMode) -> Unit) {
     val persons by viewModel.personsWithAccounts.collectAsState()
     val archivedPersons by viewModel.archivedPersonsWithAccounts.collectAsState()
-    val activePersonNames = persons.asSequence().map { normalizePersonName(it.person.name) }.toSet()
+    val activePersonNames = persons.asSequence().map { normalizeRestorePersonName(it.person.name) }.toSet()
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val security = AppSecurityManager(context)
@@ -70,7 +70,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, the
             val person = archivedPersons.firstOrNull { it.person.id == id }
             val archivedPersonTransactions = if (id != null) transactionViewModel.observeArchivedTransactionsForPerson(id).collectAsState(initial = emptyList()) else androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(emptyList<com.myaccounts.app.data.local.TransactionEntity>()) }
             if (person != null) {
-                ArchivedPersonDetailScreen(personWithAccounts = person, archivedTransactions = archivedPersonTransactions.value, hasActiveSameName = activePersonNames.contains(normalizePersonName(person.person.name)), onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onRestoreTransaction = { transactionViewModel.restoreTransaction(it); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) })
+                ArchivedPersonDetailScreen(personWithAccounts = person, archivedTransactions = archivedPersonTransactions.value, hasActiveSameName = activePersonNames.contains(normalizeRestorePersonName(person.person.name)), onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onRestoreTransaction = { transactionViewModel.restoreTransaction(it); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) })
             }
         }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
@@ -78,5 +78,3 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, the
         composable(Routes.DETAILS) { DetailsScreen(onBack = { navController.popBackStack() }) }
     }
 }
-
-private fun normalizePersonName(name: String): String = name.trim().lowercase(Locale.ROOT)
