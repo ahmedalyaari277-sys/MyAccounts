@@ -106,6 +106,11 @@ dependencies {
     testImplementation("androidx.test:core:1.5.0")
     testImplementation("androidx.room:room-testing:$roomVersion")
     testImplementation("org.robolectric:robolectric:4.11.1")
+
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 ksp {
