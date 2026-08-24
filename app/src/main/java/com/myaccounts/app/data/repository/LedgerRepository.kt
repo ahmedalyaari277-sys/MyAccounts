@@ -1,18 +1,23 @@
 package com.myaccounts.app.data.repository
 
+import android.content.Context
 import androidx.room.withTransaction
 import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
+import com.myaccounts.app.util.TransactionAttachmentStorage
 import kotlinx.coroutines.flow.Flow
 
 class LedgerRepository(
     private val dao: LedgerDao,
     private val transactionDao: TransactionDao,
-    private val database: AppDatabase
+    private val transactionAttachmentDao: TransactionAttachmentDao,
+    private val database: AppDatabase,
+    private val context: Context
 ) : LedgerRepositoryContract {
     override fun observePeople(query: String): Flow<List<PersonEntity>> = dao.observePeople(query)
     override fun observePerson(personId: Long): Flow<PersonEntity?> = dao.observePerson(personId)
@@ -41,16 +46,29 @@ class LedgerRepository(
     }
 
     /**
-     * Permanent account deletion removes everything belonging to the account.
-     * Individually archived transactions keep their independent snapshots so they can
-     * still be restored later; transactions archived together with the account do not.
+     * Permanently delete the account and all database records belonging to it.
+     * Attachment files are collected before the Room transaction and removed only
+     * after the database deletion succeeds, so a failed database transaction never
+     * destroys files that may still be referenced.
      */
     override suspend fun permanentlyDeletePerson(personId: Long) {
+        val attachments = transactionAttachmentDao.getAttachmentsForPerson(personId)
+
         database.withTransaction {
             transactionDao.deletePersonArchiveAttachmentSnapshots(personId)
             transactionDao.deletePersonArchiveSnapshots(personId)
             dao.permanentlyDeletePerson(personId)
         }
+
+        attachments
+            .groupBy { it.transactionId }
+            .forEach { (transactionId, transactionAttachments) ->
+                TransactionAttachmentStorage.deleteTransactionFiles(
+                    context = context,
+                    transactionId = transactionId,
+                    attachments = transactionAttachments
+                )
+            }
     }
 
     override suspend fun getCurrencyAccount(
