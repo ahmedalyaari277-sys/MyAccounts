@@ -62,6 +62,34 @@ class TransactionViewModel(
 
     fun updateTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.updateTransaction(transaction) } }
 
+    fun updateTransactionWithAttachments(
+        transaction: TransactionEntity,
+        newAttachments: List<TransactionAttachmentStorage.SelectedAttachment>,
+        removedAttachments: List<TransactionAttachmentEntity>
+    ) {
+        viewModelScope.launch {
+            val stored = if (newAttachments.isEmpty()) {
+                emptyList()
+            } else {
+                TransactionAttachmentStorage.saveAttachments(application, transaction.id, newAttachments)
+            }
+            try {
+                repository.updateTransaction(transaction)
+                if (removedAttachments.isNotEmpty()) {
+                    removedAttachments.forEach { attachment ->
+                        repository.deleteAttachment(attachment)
+                        TransactionAttachmentStorage.deleteFile(application, attachment)
+                    }
+                }
+                if (stored.isNotEmpty()) repository.addAttachments(stored)
+            } catch (error: Throwable) {
+                stored.forEach { attachment ->
+                    TransactionAttachmentStorage.deleteFile(application, attachment)
+                }
+            }
+        }
+    }
+
     fun archiveTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
     fun archiveTransactionById(transactionId: Long) { viewModelScope.launch { repository.archiveTransaction(transactionId) } }
     fun restoreTransaction(transactionId: Long) { viewModelScope.launch { repository.restoreTransaction(transactionId) } }
