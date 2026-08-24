@@ -41,6 +41,19 @@ interface TransactionAttachmentDao {
 
     @Query(
         """
+        SELECT a.*
+        FROM transaction_attachments a
+        INNER JOIN transactions t ON t.id = a.transactionId
+        INNER JOIN currency_accounts ca ON ca.id = t.accountId
+        WHERE ca.personId = :personId
+        """
+    )
+    suspend fun getAttachmentsForPerson(
+        personId: Long
+    ): List<TransactionAttachmentEntity>
+
+    @Query(
+        """
         SELECT COUNT(*)
         FROM transaction_attachments
         WHERE transactionId = :transactionId
