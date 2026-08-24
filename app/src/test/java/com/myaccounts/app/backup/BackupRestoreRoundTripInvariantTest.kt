@@ -88,7 +88,14 @@ class BackupRestoreRoundTripInvariantTest {
             )
         )
 
-        LedgerRepository(sourceLedger, sourceTransactions, source).deletePerson(personId)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        LedgerRepository(
+            dao = sourceLedger,
+            transactionDao = sourceTransactions,
+            transactionAttachmentDao = source.transactionAttachmentDao(),
+            database = source,
+            context = context
+        ).deletePerson(personId)
 
         val backup = invokeBuildBackupJson(source.openHelper.readableDatabase)
         invokeValidateBackup(backup)
