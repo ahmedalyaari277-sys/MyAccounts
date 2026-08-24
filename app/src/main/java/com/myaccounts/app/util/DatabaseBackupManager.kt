@@ -335,7 +335,11 @@ object DatabaseBackupManager {
                 a.has("amountMinor") && a.has("description") && a.has("transactionDate") &&
                 a.has("createdAt") && a.has("archivedAt"))
             if (version >= ARCHIVE_AWARE_FORMAT_VERSION) require(a.has("archivedWithPerson"))
-            require(archivedSnapshotIds.add(a.getLong("transactionId"))) { "النسخة الاحتياطية تحتوي على نسخة أرشيف عملية مكررة." }
+            val snapshotTransactionId = a.getLong("transactionId")
+            require(transactionIds.contains(snapshotTransactionId)) { "نسخة أرشيف العملية مرتبطة بعملية غير موجودة." }
+            require(accountIds.contains(a.getLong("accountId"))) { "نسخة أرشيف العملية مرتبطة بحساب غير موجود." }
+            require(personIds.contains(a.getLong("personId"))) { "نسخة أرشيف العملية مرتبطة بشخص غير موجود." }
+            require(archivedSnapshotIds.add(snapshotTransactionId)) { "النسخة الاحتياطية تحتوي على نسخة أرشيف عملية مكررة." }
             require(a.getString("type") == "RECEIVABLE" || a.getString("type") == "PAYABLE") {
                 "نوع عملية غير مدعوم في نسخة الأرشيف."
             }
@@ -477,6 +481,7 @@ object DatabaseBackupManager {
                 arrayOf(a.getLong("id"), a.getLong("personId"), a.getString("currencyCode"), a.getLong("balanceMinor"), a.getLong("createdAt"), a.getLong("updatedAt"))
             )
         }
+
         val transactions = backup.getJSONArray("transactions")
         for (i in 0 until transactions.length()) {
             val t = transactions.getJSONObject(i)
