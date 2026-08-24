@@ -5,26 +5,100 @@ import java.math.RoundingMode
 
 object CalculatorEngine {
     fun evaluate(expression: String): String {
-        val normalized = expression.replace("×", "*").replace("÷", "/").replace("−", "-").replace(" ", "")
+        val normalized = expression
+            .replace("×", "*")
+            .replace("÷", "/")
+            .replace("−", "-")
+            .replace(" ", "")
+
         if (normalized.isBlank()) return "0"
-        val parts = Regex("(?<=[+\\-*/])|(?=[+\\-*/])").split(normalized).filter { it.isNotEmpty() }
-        if (parts.isEmpty() || parts.size % 2 == 0) return "خطأ"
+
         return runCatching {
-            var value = BigDecimal(parts[0])
-            var i = 1
-            while (i < parts.size) {
-                val op = parts[i]
-                val next = BigDecimal(parts[i + 1])
-                value = when (op) {
-                    "+" -> value.add(next)
-                    "-" -> value.subtract(next)
-                    "*" -> value.multiply(next)
-                    "/" -> value.divide(next, 12, RoundingMode.HALF_UP)
+            val tokens = tokenize(normalized) ?: return "خطأ"
+            if (tokens.isEmpty()) return "0"
+
+            // First pass: multiplication and division have higher precedence.
+            val reducedValues = mutableListOf<BigDecimal>()
+            val reducedOperators = mutableListOf<Char>()
+            var current = tokens.first().value
+
+            for (index in 1 until tokens.size) {
+                val operator = tokens[index].operator ?: continue
+                val next = tokens[index].value
+                when (operator) {
+                    '*' -> current = current.multiply(next)
+                    '/' -> current = current.divide(next, 12, RoundingMode.HALF_UP)
+                    '+', '-' -> {
+                        reducedValues += current
+                        reducedOperators += operator
+                        current = next
+                    }
                     else -> return "خطأ"
                 }
-                i += 2
             }
-            value.stripTrailingZeros().toPlainString()
+            reducedValues += current
+
+            // Second pass: addition and subtraction from left to right.
+            var result = reducedValues.first()
+            for (index in reducedOperators.indices) {
+                result = when (reducedOperators[index]) {
+                    '+' -> result.add(reducedValues[index + 1])
+                    '-' -> result.subtract(reducedValues[index + 1])
+                    else -> return "خطأ"
+                }
+            }
+
+            result.stripTrailingZeros().toPlainString()
         }.getOrElse { "خطأ" }
+    }
+
+    private data class Token(
+        val value: BigDecimal,
+        val operator: Char? = null
+    )
+
+    private fun tokenize(expression: String): List<Token>? {
+        val tokens = mutableListOf<Token>()
+        var index = 0
+        var expectingNumber = true
+
+        while (index < expression.length) {
+            var sign = ""
+            if (expectingNumber && (expression[index] == '+' || expression[index] == '-')) {
+                sign = expression[index].toString()
+                index++
+            }
+
+            val start = index
+            var dotSeen = false
+            while (index < expression.length) {
+                val char = expression[index]
+                when {
+                    char.isDigit() -> index++
+                    char == '.' && !dotSeen -> {
+                        dotSeen = true
+                        index++
+                    }
+                    else -> break
+                }
+            }
+
+            if (start == index) return null
+
+            val numberText = sign + expression.substring(start, index)
+            val number = numberText.toBigDecimalOrNull() ?: return null
+            tokens += Token(value = number)
+            expectingNumber = false
+
+            if (index < expression.length) {
+                val operator = expression[index]
+                if (operator !in charArrayOf('+', '-', '*', '/')) return null
+                tokens += Token(value = BigDecimal.ZERO, operator = operator)
+                index++
+                expectingNumber = true
+            }
+        }
+
+        return if (expectingNumber) null else tokens
     }
 }
