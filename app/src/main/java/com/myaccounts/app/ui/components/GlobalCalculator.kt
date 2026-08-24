@@ -18,6 +18,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.math.BigDecimal
+import java.math.RoundingMode
+
+private fun evaluate(expression: String): String {
+    val normalized = expression.replace("×", "*").replace("÷", "/").replace("−", "-").replace(" ", "")
+    if (normalized.isBlank()) return "0"
+    val parts = Regex("(?<=[+\\-*/])|(?=[+\\-*/])").split(normalized).filter { it.isNotEmpty() }
+    if (parts.isEmpty() || parts.size % 2 == 0) return "خطأ"
+    return runCatching {
+        var value = BigDecimal(parts[0])
+        var i = 1
+        while (i < parts.size) {
+            val op = parts[i]
+            val next = BigDecimal(parts[i + 1])
+            value = when (op) {
+                "+" -> value.add(next)
+                "-" -> value.subtract(next)
+                "*" -> value.multiply(next)
+                "/" -> value.divide(next, 12, RoundingMode.HALF_UP)
+                else -> return "خطأ"
+            }
+            i += 2
+        }
+        value.stripTrailingZeros().toPlainString()
+    }.getOrElse { "خطأ" }
+}
 
 @Composable
 fun GlobalCalculator(
@@ -26,16 +51,6 @@ fun GlobalCalculator(
 ) {
     var expression by remember { mutableStateOf("") }
     var result by remember { mutableStateOf("") }
-
-    fun calculate() {
-        val tokens = expression.replace("×", "*").replace("÷", "/").split("+")
-        if (tokens.size == 2) {
-            runCatching { BigDecimal(tokens[0].trim()).add(BigDecimal(tokens[1].trim())).stripTrailingZeros().toPlainString() }
-                .onSuccess { result = it }
-            return
-        }
-        result = expression
-    }
 
     Card(modifier = modifier.padding(12.dp)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -50,8 +65,8 @@ fun GlobalCalculator(
                     row.forEach { key ->
                         Button(modifier = Modifier.weight(1f), onClick = {
                             when (key) {
-                                "=" -> calculate()
-                                else -> expression += key
+                                "=" -> result = evaluate(expression)
+                                else -> { expression += key; result = "" }
                             }
                         }) { Text(key) }
                     }
