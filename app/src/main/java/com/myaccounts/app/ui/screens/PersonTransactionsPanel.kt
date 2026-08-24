@@ -160,7 +160,7 @@ fun PersonTransactionsPanel(
             onDismissRequest = { transactionToDelete = null },
             title = { Text("أرشفة العملية") },
             text = { Text("هل أنت متأكد من أرشفة هذه العملية؟") },
-            confirmButton = { TextButton(onClick = { transactionViewModel.archiveTransaction(transaction.id); transactionToDelete = null }) { Text("أرشفة") } },
+            confirmButton = { TextButton(onClick = { transactionViewModel.archiveTransaction(transaction); transactionToDelete = null }) { Text("أرشفة") } },
             dismissButton = { TextButton(onClick = { transactionToDelete = null }) { Text("إلغاء") } }
         )
     }
