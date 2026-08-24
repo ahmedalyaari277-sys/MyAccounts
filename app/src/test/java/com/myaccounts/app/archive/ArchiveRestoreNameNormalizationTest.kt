@@ -37,7 +37,13 @@ class ArchiveRestoreNameNormalizationTest {
             .build()
         ledger = database.ledgerDao()
         transactions = database.transactionDao()
-        repository = LedgerRepository(ledger, transactions, database)
+        repository = LedgerRepository(
+            dao = ledger,
+            transactionDao = transactions,
+            transactionAttachmentDao = database.transactionAttachmentDao(),
+            database = database,
+            context = context
+        )
     }
 
     @After

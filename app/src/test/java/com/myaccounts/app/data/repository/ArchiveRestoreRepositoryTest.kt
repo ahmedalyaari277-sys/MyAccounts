@@ -34,7 +34,9 @@ class ArchiveRestoreRepositoryTest {
         repository = LedgerRepository(
             dao = database.ledgerDao(),
             transactionDao = database.transactionDao(),
-            database = database
+            transactionAttachmentDao = database.transactionAttachmentDao(),
+            database = database,
+            context = context
         )
     }
 
