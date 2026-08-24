@@ -184,7 +184,7 @@ class BackupRestoreRoundTripInvariantTest {
     }
 
     @Test
-    fun archiveSnapshotCannotReferenceMissingTransaction() {
+    fun archiveSnapshotCannotReferenceMissingTransaction() = runBlocking {
         val personId = sourceLedger.insertPersonWithCurrencyAccounts(
             PersonEntity(name = "اختبار تحقق النسخة", phone = "", address = ""),
             listOf("YER")
