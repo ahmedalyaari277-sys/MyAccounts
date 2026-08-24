@@ -251,6 +251,10 @@ class BackupRestoreRoundTripInvariantTest {
                 candidate.parameterTypes.withIndex().all { (index, expected) -> expected.isInstance(args[index]) }
         } ?: error("Private method not found: $name")
         method.isAccessible = true
-        return method.invoke(DatabaseBackupManager, *args)
+        return try {
+            method.invoke(DatabaseBackupManager, *args)
+        } catch (error: java.lang.reflect.InvocationTargetException) {
+            throw (error.targetException ?: error)
+        }
     }
 }
