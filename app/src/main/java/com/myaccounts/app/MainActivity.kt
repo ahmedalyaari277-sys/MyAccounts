@@ -7,12 +7,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +80,7 @@ class MainActivity : FragmentActivity() {
             MyAccountsTheme(darkTheme = darkTheme) {
                 if (unlocked) {
                     val navController = rememberNavController()
+                    var calculatorOpen by remember { mutableStateOf(false) }
                     Box(Modifier.fillMaxSize()) {
                         AppNavHost(
                             navController = navController,
@@ -92,12 +92,11 @@ class MainActivity : FragmentActivity() {
                             }
                         )
 
-                        var calculatorOpen by mutableStateOf(false)
                         FloatingActionButton(
                             onClick = { calculatorOpen = true },
-                            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
+                            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
                         ) {
-                            Icon(Icons.Default.Calculate, contentDescription = "الحاسبة")
+                            Text("⌨")
                         }
 
                         if (calculatorOpen) {
