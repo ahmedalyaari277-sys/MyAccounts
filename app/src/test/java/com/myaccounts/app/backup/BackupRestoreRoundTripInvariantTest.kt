@@ -183,6 +183,38 @@ class BackupRestoreRoundTripInvariantTest {
         assertFalse(targetTransactions.getPersonById(1L)!!.isActive)
     }
 
+    @Test
+    fun archiveSnapshotCannotReferenceMissingTransaction() {
+        val personId = sourceLedger.insertPersonWithCurrencyAccounts(
+            PersonEntity(name = "اختبار تحقق النسخة", phone = "", address = ""),
+            listOf("YER")
+        )
+        val accountId = requireNotNull(sourceLedger.getCurrencyAccount(personId, "YER")).id
+        val backup = invokeBuildBackupJson(source.openHelper.readableDatabase)
+        backup.getJSONArray("archivedTransactionSnapshots").put(
+            JSONObject()
+                .put("transactionId", 999L)
+                .put("accountId", accountId)
+                .put("personId", personId)
+                .put("personName", "اختبار تحقق النسخة")
+                .put("personPhone", "")
+                .put("personAddress", "")
+                .put("personNotes", "")
+                .put("currencyCode", "YER")
+                .put("type", "RECEIVABLE")
+                .put("amountMinor", 100L)
+                .put("description", "يتيم")
+                .put("transactionDate", 1L)
+                .put("createdAt", 1L)
+                .put("archivedWithPerson", false)
+                .put("archivedAt", 1L)
+        )
+
+        val error = runCatching { invokeValidateBackup(backup) }.exceptionOrNull()
+        assertNotNull(error)
+        assertTrue(error!!.message.orEmpty().contains("نسخة أرشيف العملية مرتبطة بعملية غير موجودة"))
+    }
+
     private suspend fun insertTransaction(accountId: Long, amount: Long, description: String): Long =
         sourceTransactions.insertTransactionAndUpdateBalance(
             TransactionEntity(
