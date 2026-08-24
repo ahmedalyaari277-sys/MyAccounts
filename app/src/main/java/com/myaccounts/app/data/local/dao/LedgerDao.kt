@@ -78,7 +78,7 @@ interface LedgerDao {
     suspend fun insertPerson(person: PersonEntity): Long
 
     @Update
-    suspend fun updatePerson(person: PersonEntity)
+    suspend fun updatePersonEntity(person: PersonEntity)
 
     @Query("""
         SELECT id FROM people
@@ -88,6 +88,17 @@ interface LedgerDao {
         LIMIT 1
     """)
     suspend fun findActivePersonIdByName(name: String): Long?
+
+    @Transaction
+    suspend fun updatePerson(person: PersonEntity) {
+        if (person.isActive) {
+            val existingId = findActivePersonIdByName(person.name)
+            require(existingId == null || existingId == person.id) {
+                "يوجد حساب نشط بهذا الاسم. غيّر الاسم أو استعد الحساب المؤرشف."
+            }
+        }
+        updatePersonEntity(person)
+    }
 
     @Query("""
         UPDATE people
