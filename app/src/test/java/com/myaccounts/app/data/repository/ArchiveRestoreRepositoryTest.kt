@@ -45,7 +45,10 @@ class ArchiveRestoreRepositoryTest {
 
     @Test
     fun archiveAndRestorePerson_preservesAllCurrenciesTransactionsAndBalances() = runBlocking {
-        val personId = repository.insertPerson(PersonEntity(name = "Archive Test"))
+        val personId = database.ledgerDao().insertPersonWithCurrencyAccounts(
+            PersonEntity(name = "Archive Test"),
+            listOf("YER", "SAR", "USD")
+        )
         val yer = database.ledgerDao().getCurrencyAccount(personId, "YER")!!
         val sar = database.ledgerDao().getCurrencyAccount(personId, "SAR")!!
         val usd = database.ledgerDao().getCurrencyAccount(personId, "USD")!!
