@@ -20,11 +20,12 @@ object CalculatorEngine {
             // First pass: multiplication and division have higher precedence.
             val reducedValues = mutableListOf<BigDecimal>()
             val reducedOperators = mutableListOf<Char>()
-            var current = tokens.first().value
+            var current = tokens[0].value
+            var index = 1
 
-            for (index in 1 until tokens.size) {
-                val operator = tokens[index].operator ?: continue
-                val next = tokens[index].value
+            while (index < tokens.size) {
+                val operator = tokens[index].operator ?: return "خطأ"
+                val next = tokens[index + 1].value
                 when (operator) {
                     '*' -> current = current.multiply(next)
                     '/' -> current = current.divide(next, 12, RoundingMode.HALF_UP)
@@ -35,15 +36,16 @@ object CalculatorEngine {
                     }
                     else -> return "خطأ"
                 }
+                index += 2
             }
             reducedValues += current
 
             // Second pass: addition and subtraction from left to right.
             var result = reducedValues.first()
-            for (index in reducedOperators.indices) {
-                result = when (reducedOperators[index]) {
-                    '+' -> result.add(reducedValues[index + 1])
-                    '-' -> result.subtract(reducedValues[index + 1])
+            for (operatorIndex in reducedOperators.indices) {
+                result = when (reducedOperators[operatorIndex]) {
+                    '+' -> result.add(reducedValues[operatorIndex + 1])
+                    '-' -> result.subtract(reducedValues[operatorIndex + 1])
                     else -> return "خطأ"
                 }
             }
