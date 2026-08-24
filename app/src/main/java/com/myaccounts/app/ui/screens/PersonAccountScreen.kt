@@ -22,8 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,16 +38,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonAccountScreen(
     personWithAccounts: PersonWithAccounts,
+    transactionViewModel: TransactionViewModel,
     onBack: () -> Unit,
     onUpdatePerson: (String, String, String, String) -> Unit,
     onDeletePerson: () -> Unit,
-    onAccountClick: (Long) -> Unit,
     onReportClick: (String) -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
@@ -66,27 +65,16 @@ fun PersonAccountScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.primary
                 ),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع")
-                    }
-                },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } },
                 actions = {
-                    IconButton(onClick = { showEditDialog = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "تعديل")
-                    }
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "أرشفة", tint = MaterialTheme.colorScheme.error)
-                    }
+                    IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
+                    IconButton(onClick = { showDeleteDialog = true }) { Icon(Icons.Default.Delete, contentDescription = "أرشفة", tint = MaterialTheme.colorScheme.error) }
                 }
             )
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -95,36 +83,26 @@ fun PersonAccountScreen(
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Text(person.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    if (person.phone.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (person.address.isNotBlank()) {
-                        Spacer(Modifier.height(5.dp))
-                        Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (person.notes.isNotBlank()) {
-                        Spacer(Modifier.height(5.dp))
-                        Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    if (person.phone.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (person.address.isNotBlank()) { Spacer(Modifier.height(5.dp)); Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (person.notes.isNotBlank()) { Spacer(Modifier.height(5.dp)); Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("الحسابات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Row {
                     TextButton(onClick = { onReportClick("ALL") }) { Text("إصدار التقرير الكامل", fontWeight = FontWeight.Bold) }
-                    IconButton(onClick = { showReportTypeDialog = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "المزيد")
-                    }
+                    IconButton(onClick = { showReportTypeDialog = true }) { Icon(Icons.Default.MoreVert, contentDescription = "المزيد") }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            CurrencyAccountCard(account(personWithAccounts.accounts, "YER"), "الريال اليمني", onAccountClick)
-            CurrencyAccountCard(account(personWithAccounts.accounts, "SAR"), "الريال السعودي", onAccountClick)
-            CurrencyAccountCard(account(personWithAccounts.accounts, "USD"), "الدولار الأمريكي", onAccountClick)
+            PersonTransactionsPanel(
+                accounts = personWithAccounts.accounts,
+                transactionViewModel = transactionViewModel
+            )
         }
     }
 
@@ -164,38 +142,6 @@ fun PersonAccountScreen(
     }
 }
 
-private fun account(accounts: List<CurrencyAccountEntity>, currencyCode: String): CurrencyAccountEntity? = accounts.firstOrNull { it.currencyCode == currencyCode }
-
-@Composable
-private fun CurrencyAccountCard(account: CurrencyAccountEntity?, currencyName: String, onClick: (Long) -> Unit) {
-    val balanceMinor = account?.balanceMinor ?: 0L
-    val balanceColor = when {
-        balanceMinor > 0L -> MaterialTheme.colorScheme.error
-        balanceMinor < 0L -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).then(if (account != null) Modifier.clickable { onClick(account.id) } else Modifier),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(14.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text(currencyName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(3.dp))
-                    Text(account?.currencyCode ?: "غير متاح", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                    Text(if (balanceMinor > 0L) "عليه ${formatAmount(balanceMinor)}" else if (balanceMinor < 0L) "له ${formatAmount(-balanceMinor)}" else "متعادل 0", color = balanceColor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
-            }
-        }
-    }
-}
-
-private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
-
 @Composable
 private fun EditPersonDialog(name: String, phone: String, address: String, notes: String, onDismiss: () -> Unit, onSave: (String, String, String, String) -> Unit) {
     var editedName by remember { mutableStateOf(name) }
@@ -208,14 +154,14 @@ private fun EditPersonDialog(name: String, phone: String, address: String, notes
         title = { Text("تعديل بيانات الشخص") },
         text = {
             Column {
-                OutlinedTextField(editedName, { editedName = it; nameError = false }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, isError = nameError)
+                androidx.compose.material3.OutlinedTextField(editedName, { editedName = it; nameError = false }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, isError = nameError)
                 if (nameError) Text("الاسم مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editedPhone, { editedPhone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true)
+                androidx.compose.material3.OutlinedTextField(editedPhone, { editedPhone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true)
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editedAddress, { editedAddress = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") })
+                androidx.compose.material3.OutlinedTextField(editedAddress, { editedAddress = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") })
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editedNotes, { editedNotes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2)
+                androidx.compose.material3.OutlinedTextField(editedNotes, { editedNotes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2)
             }
         },
         confirmButton = { Button(onClick = { if (editedName.isBlank()) nameError = true else onSave(editedName.trim(), editedPhone.trim(), editedAddress.trim(), editedNotes.trim()) }) { Text("حفظ") } },
