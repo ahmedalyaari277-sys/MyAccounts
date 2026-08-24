@@ -49,7 +49,14 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, the
         composable(Routes.PERSON_ACCOUNT, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
             val id = entry.arguments?.getLong("personId")
             val person = persons.firstOrNull { it.person.id == id }
-            if (person != null) PersonAccountScreen(personWithAccounts = person, onBack = { navController.popBackStack() }, onUpdatePerson = { n, p, a, no -> viewModel.updatePerson(person.person.id, n, p, a, no) }, onDeletePerson = { viewModel.deletePerson(person.person.id); navController.popBackStack() }, onAccountClick = { aid -> person.accounts.firstOrNull { it.id == aid }?.let { navController.navigate(Routes.transactions(it.id, it.currencyCode)) } }, onReportClick = { currency -> navController.navigate(Routes.personReport(person.person.id, currency)) })
+            if (person != null) PersonAccountScreen(
+                personWithAccounts = person,
+                transactionViewModel = transactionViewModel,
+                onBack = { navController.popBackStack() },
+                onUpdatePerson = { n, p, a, no -> viewModel.updatePerson(person.person.id, n, p, a, no) },
+                onDeletePerson = { viewModel.deletePerson(person.person.id); navController.popBackStack() },
+                onReportClick = { currency -> navController.navigate(Routes.personReport(person.person.id, currency)) }
+            )
         }
         composable(Routes.TRANSACTIONS, arguments = listOf(navArgument("accountId") { type = NavType.LongType }, navArgument("currencyCode") { type = NavType.StringType })) { entry ->
             val aid = entry.arguments?.getLong("accountId")
