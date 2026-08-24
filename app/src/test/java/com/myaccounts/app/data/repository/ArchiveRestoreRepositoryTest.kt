@@ -78,8 +78,8 @@ class ArchiveRestoreRepositoryTest {
         assertTrue(database.transactionDao().getTransactions(usd.id).isEmpty())
         assertEquals(4, database.transactionDao().getArchivedTransactionsForPerson(personId).size)
 
-        val archivedRows = database.transactionDao().observeArchivedTransactionRows().first()
-        assertEquals(4, archivedRows.size)
+        val archivedPersonRows = database.transactionDao().observeArchivedTransactionsForPerson(personId).first()
+        assertEquals(4, archivedPersonRows.size)
 
         repository.restorePerson(personId)
 
