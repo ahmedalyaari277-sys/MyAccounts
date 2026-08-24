@@ -63,7 +63,7 @@ jobs:
 
   compose-ui-tests:
     name: Compose UI Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: unit-tests
     steps:
       - name: Checkout repository
@@ -91,7 +91,8 @@ jobs:
           cores: 2
           avd-name: test
           force-avd-creation: true
-          emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
+          pre-script: adb shell settings put global verifier_verify_adb_installs 0
           script: gradle connectedDebugAndroidTest --no-daemon --stacktrace
