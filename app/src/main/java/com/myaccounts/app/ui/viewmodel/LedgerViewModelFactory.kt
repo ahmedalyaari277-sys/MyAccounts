@@ -22,7 +22,9 @@ class LedgerViewModelFactory(
             val repository = LedgerRepository(
                 dao = database.ledgerDao(),
                 transactionDao = database.transactionDao(),
-                database = database
+                transactionAttachmentDao = database.transactionAttachmentDao(),
+                database = database,
+                context = application.applicationContext
             )
 
             return LedgerViewModel(
