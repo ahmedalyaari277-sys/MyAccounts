@@ -42,6 +42,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.CurrencyAccountEntity
+import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
@@ -128,8 +129,12 @@ fun PersonTransactionsPanel(
         EditPersonTransactionDialog(
             transaction = transaction,
             accounts = orderedAccounts,
+            transactionViewModel = transactionViewModel,
             onDismiss = { transactionToEdit = null },
-            onSave = { updated -> transactionViewModel.updateTransaction(updated); transactionToEdit = null }
+            onSave = { updated, newAttachments, removedAttachments ->
+                transactionViewModel.updateTransactionWithAttachments(updated, newAttachments, removedAttachments)
+                transactionToEdit = null
+            }
         )
     }
 
@@ -208,8 +213,9 @@ private fun PersonTransactionItem(
 private fun EditPersonTransactionDialog(
     transaction: TransactionEntity,
     accounts: List<CurrencyAccountEntity>,
+    transactionViewModel: TransactionViewModel,
     onDismiss: () -> Unit,
-    onSave: (TransactionEntity) -> Unit
+    onSave: (TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>, List<TransactionAttachmentEntity>) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var selectedType by remember(transaction.id) { mutableStateOf(transaction.type) }
@@ -217,8 +223,12 @@ private fun EditPersonTransactionDialog(
     var amountText by remember(transaction.id) { mutableStateOf(formatAmount(transaction.amountMinor)) }
     var description by remember(transaction.id) { mutableStateOf(transaction.description) }
     var transactionDate by remember(transaction.id) { mutableStateOf(transaction.transactionDate) }
+    var newAttachments by remember(transaction.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
+    var removedAttachmentIds by remember(transaction.id) { mutableStateOf<Set<Long>>(emptySet()) }
     var amountError by remember(transaction.id) { mutableStateOf(false) }
 
+    val existingAttachments by transactionViewModel.observeAttachments(transaction.id).collectAsState(initial = emptyList())
+    val visibleExistingAttachments = existingAttachments.filterNot { it.id in removedAttachmentIds }
     val currencyLabels = mapOf("YER" to "ريال يمني", "SAR" to "ريال سعودي", "USD" to "دولار")
     val currencyOrder = mapOf("YER" to 0, "SAR" to 1, "USD" to 2)
     val dateText = remember(transactionDate) { SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(transactionDate)) }
@@ -294,6 +304,21 @@ private fun EditPersonTransactionDialog(
                     if (selectedType == TransactionType.PAYABLE) Button(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), colors = payableColors) { Text("✓ له") }
                     else OutlinedButton(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f)) { Text("له") }
                 }
+
+                Text("المرفقات", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                if (visibleExistingAttachments.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        visibleExistingAttachments.forEach { attachment ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(attachment.fileName, modifier = Modifier.weight(1f), maxLines = 2)
+                                TextButton(onClick = {
+                                    removedAttachmentIds = removedAttachmentIds + attachment.id
+                                }) { Text("حذف") }
+                            }
+                        }
+                    }
+                }
+                TransactionAttachmentPicker(newAttachments) { newAttachments = it }
             }
         },
         confirmButton = {
@@ -303,15 +328,15 @@ private fun EditPersonTransactionDialog(
                 if (amount == null || amount <= 0L || targetAccount == null) {
                     amountError = true
                 } else {
-                    onSave(
-                        transaction.copy(
-                            accountId = targetAccount.id,
-                            type = selectedType,
-                            amountMinor = amount,
-                            description = description.trim(),
-                            transactionDate = transactionDate
-                        )
+                    val updated = transaction.copy(
+                        accountId = targetAccount.id,
+                        type = selectedType,
+                        amountMinor = amount,
+                        description = description.trim(),
+                        transactionDate = transactionDate
                     )
+                    val removed = existingAttachments.filter { it.id in removedAttachmentIds }
+                    onSave(updated, newAttachments, removed)
                 }
             }) { Text("حفظ", fontWeight = FontWeight.Bold) }
         },
