@@ -4,14 +4,25 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.rememberNavController
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.GlobalCalculator
 import com.myaccounts.app.ui.navigation.AppNavHost
 import com.myaccounts.app.ui.security.AppLockGate
 import com.myaccounts.app.ui.theme.MyAccountsTheme
@@ -50,13 +61,11 @@ class MainActivity : FragmentActivity() {
                     }
                     hasStartedOnce = true
                 }
-
                 Lifecycle.Event.ON_RESUME -> {
                     if (hasStartedOnce && security.isExternalActivityPending()) {
                         security.clearExternalActivityPending()
                     }
                 }
-
                 else -> Unit
             }
         })
@@ -72,15 +81,32 @@ class MainActivity : FragmentActivity() {
             MyAccountsTheme(darkTheme = darkTheme) {
                 if (unlocked) {
                     val navController = rememberNavController()
-                    AppNavHost(
-                        navController = navController,
-                        viewModel = viewModel,
-                        themeMode = themeMode,
-                        onThemeModeChanged = { mode ->
-                            themePreferences.setMode(mode)
-                            themeMode = mode
+                    Box(Modifier.fillMaxSize()) {
+                        AppNavHost(
+                            navController = navController,
+                            viewModel = viewModel,
+                            themeMode = themeMode,
+                            onThemeModeChanged = { mode ->
+                                themePreferences.setMode(mode)
+                                themeMode = mode
+                            }
+                        )
+
+                        var calculatorOpen by mutableStateOf(false)
+                        FloatingActionButton(
+                            onClick = { calculatorOpen = true },
+                            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
+                        ) {
+                            Icon(Icons.Default.Calculate, contentDescription = "الحاسبة")
                         }
-                    )
+
+                        if (calculatorOpen) {
+                            GlobalCalculator(
+                                onDismiss = { calculatorOpen = false },
+                                modifier = Modifier.align(Alignment.TopCenter)
+                            )
+                        }
+                    }
                 } else {
                     AppLockGate(
                         security = security,
