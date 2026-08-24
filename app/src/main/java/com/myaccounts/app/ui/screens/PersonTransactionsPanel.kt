@@ -1,5 +1,7 @@
 package com.myaccounts.app.ui.screens
 
+import android.app.DatePickerDialog
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,20 +9,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +48,7 @@ import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -203,45 +211,108 @@ private fun EditPersonTransactionDialog(
     onDismiss: () -> Unit,
     onSave: (TransactionEntity) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var selectedType by remember(transaction.id) { mutableStateOf(transaction.type) }
     var selectedCurrency by remember(transaction.id) { mutableStateOf(accounts.firstOrNull { it.id == transaction.accountId }?.currencyCode ?: "YER") }
     var amountText by remember(transaction.id) { mutableStateOf(formatAmount(transaction.amountMinor)) }
     var description by remember(transaction.id) { mutableStateOf(transaction.description) }
+    var transactionDate by remember(transaction.id) { mutableStateOf(transaction.transactionDate) }
     var amountError by remember(transaction.id) { mutableStateOf(false) }
+
+    val currencyLabels = mapOf("YER" to "ريال يمني", "SAR" to "ريال سعودي", "USD" to "دولار")
+    val currencyOrder = mapOf("YER" to 0, "SAR" to 1, "USD" to 2)
+    val dateText = remember(transactionDate) { SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(transactionDate)) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("تعديل العملية", fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    accounts.forEach { account ->
-                        if (selectedCurrency == account.currencyCode) {
-                            Button(onClick = { selectedCurrency = account.currencyCode }, modifier = Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 3.dp)) { Text(currencyName(account.currencyCode), fontSize = 11.sp) }
-                        } else {
-                            OutlinedButton(onClick = { selectedCurrency = account.currencyCode }, modifier = Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 3.dp)) { Text(currencyName(account.currencyCode), fontSize = 11.sp) }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it; amountError = false },
+                        modifier = Modifier.weight(1.35f),
+                        label = { Text("المبلغ") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        isError = amountError
+                    )
+                    OutlinedTextField(
+                        value = dateText,
+                        onValueChange = {},
+                        modifier = Modifier.weight(1f),
+                        label = { Text("التاريخ") },
+                        readOnly = true,
+                        singleLine = true,
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                val selected = Calendar.getInstance().apply { timeInMillis = transactionDate }
+                                DatePickerDialog(
+                                    context,
+                                    { _, year, month, day ->
+                                        selected.set(year, month, day, 12, 0, 0)
+                                        selected.set(Calendar.MILLISECOND, 0)
+                                        transactionDate = selected.timeInMillis
+                                    },
+                                    selected.get(Calendar.YEAR), selected.get(Calendar.MONTH), selected.get(Calendar.DAY_OF_MONTH)
+                                ).show()
+                            }) { Icon(Icons.Default.CalendarToday, contentDescription = "اختيار التاريخ") }
                         }
+                    )
+                }
+                if (amountError) Text("أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("التفاصيل") },
+                    singleLine = true
+                )
+
+                Text("العملة", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    accounts.sortedBy { currencyOrder[it.currencyCode] ?: Int.MAX_VALUE }.forEach { account ->
+                        FilterChip(
+                            selected = selectedCurrency == account.currencyCode,
+                            onClick = { selectedCurrency = account.currencyCode },
+                            label = { Text(currencyLabels[account.currencyCode] ?: account.currencyCode, fontSize = 12.sp) }
+                        )
                     }
                 }
-                Text("نوع العملية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (selectedType == TransactionType.RECEIVABLE) Button(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("✓ عليه") }
+
+                Text("نوع العملية", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    val receivableColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
+                    val payableColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)
+                    if (selectedType == TransactionType.RECEIVABLE) Button(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f), colors = receivableColors) { Text("✓ عليه") }
                     else OutlinedButton(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f)) { Text("عليه") }
-                    if (selectedType == TransactionType.PAYABLE) Button(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) { Text("✓ له") }
+                    if (selectedType == TransactionType.PAYABLE) Button(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), colors = payableColors) { Text("✓ له") }
                     else OutlinedButton(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f)) { Text("له") }
                 }
-                OutlinedTextField(amountText, { amountText = it; amountError = false }, Modifier.fillMaxWidth(), label = { Text("المبلغ $selectedCurrency") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, isError = amountError)
-                if (amountError) Text("أدخل مبلغًا صحيحًا أكبر من صفر.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("الوصف") }, minLines = 2, maxLines = 3)
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 val amount = parseAmount(amountText)
                 val targetAccount = accounts.firstOrNull { it.currencyCode == selectedCurrency }
-                if (amount == null || amount <= 0L || targetAccount == null) amountError = true
-                else onSave(transaction.copy(accountId = targetAccount.id, type = selectedType, amountMinor = amount, description = description.trim()))
+                if (amount == null || amount <= 0L || targetAccount == null) {
+                    amountError = true
+                } else {
+                    onSave(
+                        transaction.copy(
+                            accountId = targetAccount.id,
+                            type = selectedType,
+                            amountMinor = amount,
+                            description = description.trim(),
+                            transactionDate = transactionDate
+                        )
+                    )
+                }
             }) { Text("حفظ", fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
