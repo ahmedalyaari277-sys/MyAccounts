@@ -1,5 +1,6 @@
 package com.myaccounts.app.data.repository
 
+import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
@@ -8,6 +9,13 @@ import kotlinx.coroutines.flow.Flow
 interface TransactionRepositoryContract {
     suspend fun addTransaction(transaction: TransactionEntity): Long
     suspend fun updateTransaction(transaction: TransactionEntity)
+    suspend fun updateTransactionWithAttachments(
+        transaction: TransactionEntity,
+        newAttachments: List<TransactionAttachmentEntity>,
+        deletedAttachments: List<TransactionAttachmentEntity>
+    )
+    suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?
+    suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
     fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>>
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
     fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
