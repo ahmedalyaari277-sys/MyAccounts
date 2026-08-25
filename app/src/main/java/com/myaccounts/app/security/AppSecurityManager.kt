@@ -55,6 +55,14 @@ class AppSecurityManager(context: Context) {
     fun isSessionUnlocked(): Boolean = sessionUnlocked
 
     /**
+     * Ends the authenticated session when the app task is actually finished.
+     * Background transitions and external activities do not call this.
+     */
+    fun clearSessionUnlocked() {
+        sessionUnlocked = false
+    }
+
+    /**
      * Marks that an external activity (for example Android's document picker,
      * camera, or a file viewer) was launched from the app. The flag is
      * process-local, but shared by all AppSecurityManager instances in the
