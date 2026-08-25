@@ -6,8 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
-import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
-import com.myaccounts.app.data.local.dao.RestoreTransactionResult
 import com.myaccounts.app.data.repository.TransactionRepositoryContract
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import kotlinx.coroutines.flow.Flow
@@ -25,14 +23,8 @@ class TransactionViewModel(
     private val selectedAccountId = MutableStateFlow<Long?>(null)
     private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
-    private val _archivedTransactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
-    val archivedTransactions: StateFlow<List<TransactionEntity>> = _archivedTransactions.asStateFlow()
-    private val _archivedTransactionRows = MutableStateFlow<List<ArchivedTransactionRow>>(emptyList())
-    val archivedTransactionRows: StateFlow<List<ArchivedTransactionRow>> = _archivedTransactionRows.asStateFlow()
     private val _balance = MutableStateFlow(0L)
     val balance: StateFlow<Long> = _balance.asStateFlow()
-    private val _restoreTransactionResult = MutableStateFlow<RestoreTransactionResult?>(null)
-    val restoreTransactionResult: StateFlow<RestoreTransactionResult?> = _restoreTransactionResult.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -45,8 +37,6 @@ class TransactionViewModel(
                 if (accountId == null) flowOf(0L) else repository.observeBalance(accountId)
             }.collect { _balance.value = it }
         }
-        viewModelScope.launch { repository.observeArchivedTransactions().collect { _archivedTransactions.value = it } }
-        viewModelScope.launch { repository.observeArchivedTransactionRows().collect { _archivedTransactionRows.value = it } }
     }
 
     fun selectAccount(accountId: Long?) { selectedAccountId.value = accountId }
@@ -83,31 +73,15 @@ class TransactionViewModel(
     }
 
     suspend fun getAccount(accountId: Long): CurrencyAccountEntity? = repository.getCurrencyAccountById(accountId)
+    suspend fun getAccountForCurrency(personId: Long, currencyCode: String): CurrencyAccountEntity? = repository.getCurrencyAccount(personId, currencyCode)
+    suspend fun getPersonCurrencyAccounts(personId: Long): List<CurrencyAccountEntity> = listOf("YER", "SAR", "USD").mapNotNull { repository.getCurrencyAccount(personId, it) }
+    suspend fun getPersonNameForAccount(accountId: Long): String = repository.getPersonNameForAccount(accountId).orEmpty()
 
-    suspend fun getAccountForCurrency(personId: Long, currencyCode: String): CurrencyAccountEntity? =
-        repository.getCurrencyAccount(personId, currencyCode)
+    /** حذف العملية نهائيًا من الحساب. لا توجد أرشفة منفصلة للعمليات. */
+    fun deleteTransaction(transaction: TransactionEntity) { deleteTransactionById(transaction.id) }
 
-    suspend fun getPersonCurrencyAccounts(personId: Long): List<CurrencyAccountEntity> =
-        listOf("YER", "SAR", "USD").mapNotNull { repository.getCurrencyAccount(personId, it) }
-
-    suspend fun getPersonNameForAccount(accountId: Long): String =
-        repository.getPersonNameForAccount(accountId).orEmpty()
-
-    fun archiveTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
-    fun archiveTransactionById(transactionId: Long) { viewModelScope.launch { repository.archiveTransaction(transactionId) } }
-    fun restoreTransaction(transactionId: Long) {
-        viewModelScope.launch {
-            _restoreTransactionResult.value = repository.restoreTransaction(transactionId)
-        }
-    }
-    fun clearRestoreTransactionResult() { _restoreTransactionResult.value = null }
-
-    /** زر حذف العملية من الحساب ينقلها إلى الأرشيف، ولا يحذفها نهائيًا. */
-    fun deleteTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
-    fun deleteTransactionById(transactionId: Long) { viewModelScope.launch { repository.archiveTransaction(transactionId) } }
-
-    /** الحذف النهائي متاح فقط من الأرشيف. */
-    fun permanentlyDeleteTransaction(transactionId: Long) {
+    /** الحذف النهائي للعملية مع حذف ملفات مرفقاتها. */
+    fun deleteTransactionById(transactionId: Long) {
         viewModelScope.launch {
             val attachments = repository.getAttachments(transactionId)
             repository.deleteTransactionById(transactionId)
