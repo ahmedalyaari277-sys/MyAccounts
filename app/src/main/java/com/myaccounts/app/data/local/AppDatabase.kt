@@ -8,6 +8,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.myaccounts.app.data.local.converter.TransactionConverters
+import com.myaccounts.app.data.local.dao.ArchiveDao
 import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
@@ -30,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ledgerDao(): LedgerDao
     abstract fun transactionDao(): TransactionDao
     abstract fun transactionAttachmentDao(): TransactionAttachmentDao
+    abstract fun archiveDao(): ArchiveDao
     abstract fun reportDao(): ReportDao
 
     companion object {
