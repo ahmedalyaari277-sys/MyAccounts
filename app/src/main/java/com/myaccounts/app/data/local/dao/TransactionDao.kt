@@ -42,19 +42,19 @@ interface TransactionDao {
     @Update
     suspend fun updateTransaction(transaction: TransactionEntity)
 
-    @Query("SELECT * FROM transactions WHERE accountId = :accountId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC")
+    @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY transactionDate DESC, id DESC")
     fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE accountId = :accountId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC")
+    @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY transactionDate DESC, id DESC")
     suspend fun getTransactions(accountId: Long): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE id = :transactionId LIMIT 1")
     suspend fun getTransaction(transactionId: Long): TransactionEntity?
 
-    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId AND isArchived = 0")
+    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId")
     fun observeBalance(accountId: Long): Flow<Long>
 
-    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId AND isArchived = 0")
+    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId")
     suspend fun getBalance(accountId: Long): Long
 
     @Query("UPDATE currency_accounts SET balanceMinor = :balanceMinor WHERE id = :accountId")
@@ -66,6 +66,7 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :transactionId")
     suspend fun deleteTransactionById(transactionId: Long)
 
+    // Legacy methods are retained for database/API compatibility only. The UI no longer uses transaction archiving.
     @Query("UPDATE transactions SET isArchived = 1 WHERE id = :transactionId")
     suspend fun archiveTransaction(transactionId: Long)
 
@@ -83,17 +84,12 @@ interface TransactionDao {
         INNER JOIN currency_accounts ca ON ca.id = t.accountId
         INNER JOIN people p ON p.id = ca.personId
         WHERE t.isArchived = 1
-
         UNION ALL
-
         SELECT s.transactionId AS transactionId, s.accountId AS accountId, s.personName AS personName,
                s.currencyCode AS currencyCode, s.type AS type, s.amountMinor AS amountMinor,
                s.description AS description, s.transactionDate AS transactionDate
         FROM archived_transaction_snapshots s
-        WHERE NOT EXISTS (
-            SELECT 1 FROM transactions t WHERE t.id = s.transactionId
-        )
-
+        WHERE NOT EXISTS (SELECT 1 FROM transactions t WHERE t.id = s.transactionId)
         ORDER BY transactionDate DESC, transactionId DESC
     """)
     fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
@@ -117,8 +113,7 @@ interface TransactionDao {
             attachmentId, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt
         )
         SELECT id, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt
-        FROM transaction_attachments
-        WHERE transactionId = :transactionId
+        FROM transaction_attachments WHERE transactionId = :transactionId
     """)
     suspend fun snapshotTransactionAttachments(transactionId: Long)
 
@@ -183,7 +178,7 @@ interface TransactionDao {
 
     @Transaction
     suspend fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
-        val transactionId = insertTransaction(transaction)
+        val transactionId = insertTransaction(transaction.copy(isArchived = false))
         recalculateBalance(transaction.accountId)
         return transactionId
     }
@@ -191,7 +186,7 @@ interface TransactionDao {
     @Transaction
     suspend fun updateTransactionAndUpdateBalance(transaction: TransactionEntity) {
         val previousTransaction = getTransaction(transaction.id)
-        updateTransaction(transaction)
+        updateTransaction(transaction.copy(isArchived = false))
         previousTransaction?.let { if (it.accountId != transaction.accountId) recalculateBalance(it.accountId) }
         recalculateBalance(transaction.accountId)
     }
@@ -215,54 +210,25 @@ interface TransactionDao {
             val person = account?.let { getPersonById(it.personId) }
             if (account == null || person == null) return RestoreTransactionResult.ACCOUNT_DELETED
             if (!person.isActive) return RestoreTransactionResult.ACCOUNT_ARCHIVED
-
             restoreTransaction(transactionId)
             deleteArchivedSnapshot(transactionId)
             deleteArchivedAttachmentSnapshots(transactionId)
             recalculateBalance(transaction.accountId)
             return RestoreTransactionResult.RESTORED
         }
-
         val snapshot = getArchivedSnapshot(transactionId) ?: return RestoreTransactionResult.ACCOUNT_DELETED
         val person = getPersonById(snapshot.personId) ?: return RestoreTransactionResult.OWNER_DELETED
         if (!person.isActive) return RestoreTransactionResult.ACCOUNT_ARCHIVED
-
         val account = getCurrencyAccountById(snapshot.accountId)
         if (account == null) {
             val replacement = getCurrencyAccountForPerson(snapshot.personId, snapshot.currencyCode)
             return if (replacement != null) RestoreTransactionResult.ACCOUNT_REPLACED else RestoreTransactionResult.ACCOUNT_DELETED
         }
-        if (account.personId != snapshot.personId || account.currencyCode != snapshot.currencyCode) {
-            return RestoreTransactionResult.ACCOUNT_REPLACED
-        }
-
-        insertTransaction(
-            TransactionEntity(
-                id = snapshot.transactionId,
-                accountId = snapshot.accountId,
-                type = enumValueOf(snapshot.type),
-                amountMinor = snapshot.amountMinor,
-                description = snapshot.description,
-                transactionDate = snapshot.transactionDate,
-                createdAt = snapshot.createdAt,
-                isArchived = false
-            )
-        )
-
+        if (account.personId != snapshot.personId || account.currencyCode != snapshot.currencyCode) return RestoreTransactionResult.ACCOUNT_REPLACED
+        insertTransaction(TransactionEntity(id = snapshot.transactionId, accountId = snapshot.accountId, type = enumValueOf(snapshot.type), amountMinor = snapshot.amountMinor, description = snapshot.description, transactionDate = snapshot.transactionDate, createdAt = snapshot.createdAt, isArchived = false))
         getArchivedAttachmentSnapshots(transactionId).forEach { attachment ->
-            insertTransactionAttachment(
-                TransactionAttachmentEntity(
-                    id = attachment.attachmentId,
-                    transactionId = attachment.transactionId,
-                    fileName = attachment.fileName,
-                    mimeType = attachment.mimeType,
-                    relativePath = attachment.relativePath,
-                    sizeBytes = attachment.sizeBytes,
-                    createdAt = attachment.createdAt
-                )
-            )
+            insertTransactionAttachment(TransactionAttachmentEntity(id = attachment.attachmentId, transactionId = attachment.transactionId, fileName = attachment.fileName, mimeType = attachment.mimeType, relativePath = attachment.relativePath, sizeBytes = attachment.sizeBytes, createdAt = attachment.createdAt))
         }
-
         deleteArchivedSnapshot(transactionId)
         deleteArchivedAttachmentSnapshots(transactionId)
         recalculateBalance(snapshot.accountId)
@@ -286,7 +252,5 @@ interface TransactionDao {
         transaction?.let { recalculateBalance(it.accountId) }
     }
 
-    private suspend fun recalculateBalance(accountId: Long) {
-        updateCurrencyBalance(accountId, getBalance(accountId))
-    }
+    private suspend fun recalculateBalance(accountId: Long) { updateCurrencyBalance(accountId, getBalance(accountId)) }
 }
