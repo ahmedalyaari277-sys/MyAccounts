@@ -81,7 +81,12 @@ class LedgerViewModel(
     }
 
     fun permanentlyDeletePerson(personId: Long) {
-        viewModelScope.launch { repository.permanentlyDeletePerson(personId) }
+        viewModelScope.launch {
+            val transactionIds = repository.permanentlyDeletePerson(personId)
+            transactionIds.forEach { transactionId ->
+                TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList())
+            }
+        }
     }
 
     fun clearArchive() {
