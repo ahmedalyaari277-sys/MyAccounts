@@ -10,6 +10,8 @@ class CalculatorController {
     var expression by mutableStateOf("")
         private set
 
+    private var resultConsumer: ((String) -> Unit)? = null
+
     val result: String?
         get() = CalculatorEngine.evaluate(expression)
 
@@ -17,6 +19,15 @@ class CalculatorController {
     fun close() { isOpen = false }
     fun clear() { expression = "" }
     fun backspace() { expression = expression.dropLast(1) }
+
+    fun setResultConsumer(consumer: ((String) -> Unit)?) {
+        resultConsumer = consumer
+    }
+
+    fun useResult() {
+        result?.let { resultConsumer?.invoke(it) }
+        close()
+    }
 
     fun press(key: String) {
         when (key) {
