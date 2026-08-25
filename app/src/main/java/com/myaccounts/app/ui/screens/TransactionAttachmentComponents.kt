@@ -1,8 +1,12 @@
 package com.myaccounts.app.ui.screens
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.provider.OpenableColumns
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
@@ -35,10 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.util.TransactionAttachmentStorage
+import java.io.File
 
 @Composable
 fun TransactionAttachmentPicker(
@@ -47,12 +54,69 @@ fun TransactionAttachmentPicker(
 ) {
     val context = LocalContext.current
     val security = remember(context) { AppSecurityManager(context.applicationContext) }
-    val launcher = rememberLauncherForActivityResult(
+    var cameraFile by remember { mutableStateOf<File?>(null) }
+    var showCameraPermissionDialog by remember { mutableStateOf(false) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        security.clearExternalActivityPending()
+
+        val file = cameraFile
+        cameraFile = null
+
+        if (success && file != null && file.exists() && file.length() > 0L) {
+            val current = selectedAttachments.toMutableList()
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            current += TransactionAttachmentStorage.SelectedAttachment(
+                uri = uri,
+                fileName = "صورة_${System.currentTimeMillis()}.jpg",
+                mimeType = "image/jpeg"
+            )
+            onAttachmentsChanged(current)
+        } else {
+            file?.delete()
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            createAndLaunchCamera(
+                context = context,
+                security = security,
+                onFileCreated = { file ->
+                    cameraFile = file
+                    try {
+                        val uri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            file
+                        )
+                        security.markExternalActivityPending()
+                        cameraLauncher.launch(uri)
+                    } catch (_: Throwable) {
+                        security.clearExternalActivityPending()
+                        cameraFile = null
+                        file.delete()
+                        showCameraPermissionDialog = true
+                    }
+                },
+                onFailure = { showCameraPermissionDialog = true }
+            )
+        } else {
+            showCameraPermissionDialog = true
+        }
+    }
+
+    val documentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
-        // The document picker is an external activity. Its return must keep
-        // the current transaction dialog/screen alive instead of triggering
-        // the app lock introduced at activity startup.
         security.clearExternalActivityPending()
 
         if (uris.isNotEmpty()) {
@@ -75,29 +139,103 @@ fun TransactionAttachmentPicker(
         }
     }
 
+    if (showCameraPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCameraPermissionDialog = false },
+            title = { Text("صلاحية الكاميرا") },
+            text = {
+                Text("لا يمكن التقاط صورة دون السماح للتطبيق باستخدام الكاميرا. يمكنك السماح بها من إعدادات التطبيق.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCameraPermissionDialog = false
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    }
+                ) { Text("فتح الإعدادات") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCameraPermissionDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Button(
-            onClick = {
-                security.markExternalActivityPending()
-                launcher.launch(arrayOf("*/*"))
-            },
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.AttachFile,
-                contentDescription = null
-            )
-            Text(
-                text = if (selectedAttachments.isEmpty()) {
-                    "إضافة دليل أو سند"
-                } else {
-                    "إضافة مرفق آخر (${selectedAttachments.size})"
+            Button(
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        createAndLaunchCamera(
+                            context = context,
+                            security = security,
+                            onFileCreated = { file ->
+                                cameraFile = file
+                                try {
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file
+                                    )
+                                    security.markExternalActivityPending()
+                                    cameraLauncher.launch(uri)
+                                } catch (_: Throwable) {
+                                    security.clearExternalActivityPending()
+                                    cameraFile = null
+                                    file.delete()
+                                    showCameraPermissionDialog = true
+                                }
+                            },
+                            onFailure = { showCameraPermissionDialog = true }
+                        )
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 },
-                modifier = Modifier.padding(start = 8.dp)
-            )
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = null
+                )
+                Text("الكاميرا", modifier = Modifier.padding(start = 6.dp))
+            }
+
+            Button(
+                onClick = {
+                    security.markExternalActivityPending()
+                    documentLauncher.launch(arrayOf("*/*"))
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AttachFile,
+                    contentDescription = null
+                )
+                Text(
+                    text = if (selectedAttachments.isEmpty()) {
+                        "من الجهاز"
+                    } else {
+                        "مرفق آخر (${selectedAttachments.size})"
+                    },
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+            }
         }
 
         if (selectedAttachments.isNotEmpty()) {
@@ -152,9 +290,29 @@ fun TransactionAttachmentPicker(
         }
 
         Text(
-            text = "يمكن إرفاق صور أو ملفات PDF أو مستندات أخرى. تحفظ المرفقات داخل التطبيق ولا تحتاج إلى إنترنت.",
+            text = "يمكن التقاط صورة بالكاميرا أو إرفاق صور وملفات PDF ومستندات أخرى. تحفظ المرفقات داخل التطبيق ولا تحتاج إلى إنترنت.",
             style = MaterialTheme.typography.bodySmall
         )
+    }
+}
+
+private fun createAndLaunchCamera(
+    context: android.content.Context,
+    security: AppSecurityManager,
+    onFileCreated: (File) -> Unit,
+    onFailure: () -> Unit
+) {
+    try {
+        val directory = File(context.cacheDir, "transaction_camera")
+        if (!directory.exists() && !directory.mkdirs()) {
+            onFailure()
+            return
+        }
+        val file = File.createTempFile("camera_", ".jpg", directory)
+        onFileCreated(file)
+    } catch (_: Throwable) {
+        security.clearExternalActivityPending()
+        onFailure()
     }
 }
 
@@ -227,9 +385,6 @@ fun TransactionAttachmentsDialog(
                                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     }
                                                     try {
-                                                        // Opening an installed viewer is also an
-                                                        // external activity. Keep the current app
-                                                        // session unlocked while it is open.
                                                         security.markExternalActivityPending()
                                                         context.startActivity(
                                                             Intent.createChooser(
