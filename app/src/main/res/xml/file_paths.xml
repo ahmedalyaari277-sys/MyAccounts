@@ -6,4 +6,7 @@
     <files-path
         name="transaction_attachments"
         path="transaction_attachments/" />
+    <cache-path
+        name="transaction_camera"
+        path="transaction_camera/" />
 </paths>
