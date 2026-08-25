@@ -87,6 +87,9 @@ class TransactionViewModel(
     suspend fun getPersonCurrencyAccounts(personId: Long): List<CurrencyAccountEntity> =
         listOf("YER", "SAR", "USD").mapNotNull { repository.getCurrencyAccount(personId, it) }
 
+    suspend fun getPersonNameForAccount(accountId: Long): String =
+        repository.getPersonNameForAccount(accountId).orEmpty()
+
     fun archiveTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
     fun archiveTransactionById(transactionId: Long) { viewModelScope.launch { repository.archiveTransaction(transactionId) } }
     fun restoreTransaction(transactionId: Long) { viewModelScope.launch { repository.restoreTransaction(transactionId) } }
