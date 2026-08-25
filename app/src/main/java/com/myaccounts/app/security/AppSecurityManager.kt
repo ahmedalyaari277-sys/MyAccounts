@@ -44,12 +44,22 @@ class AppSecurityManager(context: Context) {
         preferences.getString(KEY_RECOVERY_EMAIL, "") ?: ""
 
     /**
-     * Marks that an external activity (for example Android's document picker
-     * or a file viewer) was launched from the app. The flag is process-local,
-     * but shared by all AppSecurityManager instances in the same process.
-     * This is important because MainActivity/Compose may be recreated while
-     * the external activity is open. It is deliberately not persisted, so a
-     * process restart can never use it to bypass the app lock.
+     * Marks that the current process has an authenticated app session.
+     * This state is deliberately process-local and is never persisted, so a
+     * new process must authenticate again when protection is enabled.
+     */
+    fun markSessionUnlocked() {
+        sessionUnlocked = true
+    }
+
+    fun isSessionUnlocked(): Boolean = sessionUnlocked
+
+    /**
+     * Marks that an external activity (for example Android's document picker,
+     * camera, or a file viewer) was launched from the app. The flag is
+     * process-local, but shared by all AppSecurityManager instances in the
+     * same process. It is deliberately not persisted, so a process restart
+     * can never use it to bypass the app lock.
      */
     fun markExternalActivityPending() {
         externalActivityPending = true
@@ -72,6 +82,9 @@ class AppSecurityManager(context: Context) {
         private const val KEY_PROTECTION_ENABLED = "protection_enabled"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_RECOVERY_EMAIL = "recovery_email"
+
+        @Volatile
+        private var sessionUnlocked = false
 
         @Volatile
         private var externalActivityPending = false
