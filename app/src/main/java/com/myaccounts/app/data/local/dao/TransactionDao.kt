@@ -68,7 +68,7 @@ interface TransactionDao {
 
     @Transaction
     suspend fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
-        val transactionId = insertTransaction(transaction.copy(isArchived = false))
+        val transactionId = insertTransaction(transaction)
         recalculateBalance(transaction.accountId)
         return transactionId
     }
@@ -76,7 +76,7 @@ interface TransactionDao {
     @Transaction
     suspend fun updateTransactionAndUpdateBalance(transaction: TransactionEntity) {
         val previousTransaction = getTransaction(transaction.id)
-        updateTransaction(transaction.copy(isArchived = false))
+        updateTransaction(transaction)
         previousTransaction?.let { if (it.accountId != transaction.accountId) recalculateBalance(it.accountId) }
         recalculateBalance(transaction.accountId)
     }
