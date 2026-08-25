@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -21,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,11 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
@@ -56,6 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionScreen(
     accountId: Long,
@@ -140,7 +143,9 @@ fun TransactionScreen(
 
     transactionToEdit?.let { transaction ->
         val attachments by transactionViewModel.observeAttachments(transaction.id).collectAsState(initial = emptyList())
-        var editAccounts by remember(transaction.id) { mutableStateOf(emptyList()) }
+        var editAccounts by remember(transaction.id) {
+            mutableStateOf<List<CurrencyAccountEntity>>(emptyList())
+        }
         var editPersonName by remember(transaction.id) { mutableStateOf("") }
 
         LaunchedEffect(transaction.id) {
@@ -189,7 +194,7 @@ fun TransactionScreen(
             transactionId = transaction.id,
             attachments = attachments,
             onDismiss = { transactionForAttachments = null },
-            onDelete = { attachment -> transactionViewModel.deleteAttachment(attachment) }
+            onDelete = { transactionViewModel.deleteAttachment(it) }
         )
     }
 
@@ -197,7 +202,7 @@ fun TransactionScreen(
         AlertDialog(
             onDismissRequest = { transactionToDelete = null },
             title = { Text("أرشفة العملية") },
-            text = { Text("هل أنت متأكد من أرشفة هذه العملية ومرفقاتها؟ يمكنك استعادتها لاحقًا من الأرشيف.") },
+            text = { Text("هل أنت متأكد من أرشفة العملية ومرفقاتها؟ يمكنك استعادتها لاحقًا من الأرشيف.") },
             confirmButton = {
                 TextButton(onClick = {
                     transactionViewModel.deleteTransactionById(transaction.id)
@@ -211,16 +216,8 @@ fun TransactionScreen(
 
 @Composable
 private fun BalanceCard(balance: Long, currencyCode: String) {
-    val balanceColor = when {
-        balance > 0L -> MaterialTheme.colorScheme.error
-        balance < 0L -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    val balanceColor = if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text("الرصيد الحالي", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(4.dp))
@@ -253,8 +250,8 @@ private fun AddTransactionDialog(
     var selectedType by remember { mutableStateOf(TransactionType.RECEIVABLE) }
     var amountText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var amountError by remember { mutableStateOf(false) }
     var attachments by remember { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
+    var amountError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -288,7 +285,8 @@ private fun AddTransactionDialog(
                 else onSave(selectedType, amountMinor, description.trim(), attachments)
             }) { Text("حفظ", fontWeight = FontWeight.Bold) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") }
+        }
     )
 }
 
@@ -300,49 +298,38 @@ private fun TransactionItem(
     onDelete: () -> Unit,
     onAttachments: () -> Unit
 ) {
+    val attachmentsCount by transactionViewModel.observeAttachmentCount(transaction.id).collectAsState(initial = 0)
+    val date = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(transaction.transactionDate))
+    val amountText = BigDecimal(transaction.amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
     val isReceivable = transaction.type == TransactionType.RECEIVABLE
-    val typeText = if (isReceivable) "عليه" else "له"
-    val semanticColor = if (isReceivable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-    val formattedDate = remember(transaction.transactionDate) { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(transaction.transactionDate)) }
-    val attachmentCount by transactionViewModel.observeAttachmentCount(transaction.id).collectAsState(initial = 0)
-
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(typeText, fontWeight = FontWeight.Bold, color = semanticColor)
-                    if (transaction.description.isNotBlank()) {
-                        Spacer(Modifier.height(3.dp))
-                        Text(transaction.description, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Spacer(Modifier.height(3.dp))
-                    Text(formattedDate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text(formatAmount(transaction.amountMinor), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = semanticColor)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(if (isReceivable) "عليه" else "له", fontWeight = FontWeight.Bold, color = if (isReceivable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onAttachments) { Icon(Icons.Default.AttachFile, contentDescription = if (attachmentCount == 0) "إضافة أو عرض المرفقات" else "عرض المرفقات ($attachmentCount)") }
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "تعديل العملية") }
-                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "أرشفة العملية", tint = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.height(4.dp))
+            Text(amountText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+            if (transaction.description.isNotBlank()) Text(transaction.description, style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (attachmentsCount > 0) IconButton(onClick = onAttachments) { Icon(Icons.Default.AttachFile, contentDescription = "المرفقات") }
+                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
+                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "أرشفة") }
             }
         }
     }
 }
 
-private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).setScale(2, RoundingMode.UNNECESSARY).stripTrailingZeros().toPlainString()
+private fun formatAmount(amountMinor: Long): String =
+    BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
 
-private fun formatBalanceWithSign(balanceMinor: Long): String {
-    val amount = formatAmount(kotlin.math.abs(balanceMinor))
-    return when {
-        balanceMinor > 0L -> "+$amount"
-        balanceMinor < 0L -> "-$amount"
-        else -> "0"
-    }
+private fun formatBalanceWithSign(balance: Long): String {
+    val amount = formatAmount(kotlin.math.abs(balance))
+    return if (balance < 0) "-$amount" else "+$amount"
 }
 
-private fun balanceStatus(balanceMinor: Long, currencyCode: String): String = when {
-    balanceMinor > 0L -> "عليه — مدين لك ($currencyCode)"
-    balanceMinor < 0L -> "له — دائن عليك ($currencyCode)"
-    else -> "متوازن ($currencyCode)"
+private fun balanceStatus(balance: Long, currencyCode: String): String = when {
+    balance > 0L -> "له $currencyCode"
+    balance < 0L -> "عليه $currencyCode"
+    else -> "متوازن"
 }
