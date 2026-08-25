@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -32,13 +31,12 @@ import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
     val persons by viewModel.personsWithAccounts.collectAsState()
     val archivedPersons by viewModel.archivedPersonsWithAccounts.collectAsState()
-    val context = LocalContext.current
+    val restorePersonResult by viewModel.restorePersonResult.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val application = context.applicationContext as Application
     val security = AppSecurityManager(context)
     val reportsViewModel: ReportsViewModel = viewModel(factory = ReportsViewModelFactory(application))
     val transactionViewModel: TransactionViewModel = viewModel(factory = TransactionViewModelFactory(application))
-    val archivedTransactions by transactionViewModel.archivedTransactionRows.collectAsState()
-    val restoreTransactionResult by transactionViewModel.restoreTransactionResult.collectAsState()
 
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
@@ -53,9 +51,22 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
         composable(Routes.REPORTS) { ReportsScreen(viewModel = reportsViewModel, onBack = { navController.popBackStack() }, onPersonClick = { id -> navController.navigate(Routes.personReport(id, "ALL")) }) }
         composable(Routes.PERSON_REPORT, arguments = listOf(navArgument("personId") { type = NavType.LongType }, navArgument("currencyCode") { type = NavType.StringType })) { entry -> val id = entry.arguments?.getLong("personId"); val currency = entry.arguments?.getString("currencyCode") ?: "ALL"; if (id != null) PersonReportScreen(personId = id, currencyCode = currency, viewModel = reportsViewModel, onBack = { navController.popBackStack() }) }
         composable(Routes.ARCHIVE) {
-            ArchiveScreen(archivedPersons = archivedPersons, archivedTransactions = archivedTransactions, onOpenPerson = { navController.navigate(Routes.archivedPerson(it)) }, onRestorePerson = { viewModel.restorePerson(it) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(it) }, onRestoreTransaction = { transactionViewModel.restoreTransaction(it) }, onPermanentDeleteTransaction = { transactionViewModel.permanentlyDeleteTransaction(it) }, onClearArchive = { viewModel.clearArchive() }, restoreTransactionResult = restoreTransactionResult, onDismissRestoreResult = { transactionViewModel.clearRestoreTransactionResult() })
+            ArchiveScreen(
+                archivedPersons = archivedPersons,
+                onBack = { navController.popBackStack() },
+                onOpenPerson = { navController.navigate(Routes.archivedPerson(it)) },
+                onRestorePerson = { viewModel.restorePerson(it) },
+                onPermanentDelete = { viewModel.permanentlyDeletePerson(it) },
+                onClearArchive = { viewModel.clearArchive() },
+                restorePersonResult = restorePersonResult,
+                onDismissRestoreResult = { viewModel.clearRestorePersonResult() }
+            )
         }
-        composable(Routes.ARCHIVED_PERSON, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry -> val id = entry.arguments?.getLong("personId"); val person = archivedPersons.firstOrNull { it.person.id == id }; if (person != null) ArchivedPersonDetailScreen(personWithAccounts = person, onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }) }
+        composable(Routes.ARCHIVED_PERSON, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
+            val id = entry.arguments?.getLong("personId")
+            val person = archivedPersons.firstOrNull { it.person.id == id }
+            if (person != null) ArchivedPersonDetailScreen(personWithAccounts = person, onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) })
+        }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.SETTINGS) { SettingsScreen(security = security, onBack = { navController.popBackStack() }, onDetailsClick = { navController.navigate(Routes.DETAILS) }) }
         composable(Routes.DETAILS) { DetailsScreen(onBack = { navController.popBackStack() }) }
