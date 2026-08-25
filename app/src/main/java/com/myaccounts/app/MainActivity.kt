@@ -9,8 +9,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.CalculatorController
+import com.myaccounts.app.ui.components.CalculatorHost
 import com.myaccounts.app.ui.navigation.AppNavHost
 import com.myaccounts.app.ui.security.AppLockGate
 import com.myaccounts.app.ui.theme.MyAccountsTheme
@@ -38,7 +41,6 @@ class MainActivity : FragmentActivity() {
                 Lifecycle.Event.ON_START -> {
                     if (hasStartedOnce && security.isProtectionEnabled()) {
                         if (!security.isExternalActivityPending()) {
-                            // A normal return to the app requires authentication.
                             unlocked = false
                         }
                     }
@@ -47,9 +49,6 @@ class MainActivity : FragmentActivity() {
 
                 Lifecycle.Event.ON_RESUME -> {
                     if (hasStartedOnce && security.isExternalActivityPending()) {
-                        // The external activity has returned control to MyAccounts.
-                        // Keep the current screen unlocked for this return, then
-                        // consume the exception so the next real app return locks.
                         security.clearExternalActivityPending()
                     }
                 }
@@ -62,10 +61,13 @@ class MainActivity : FragmentActivity() {
             MyAccountsTheme {
                 if (unlocked) {
                     val navController = rememberNavController()
-                    AppNavHost(
-                        navController = navController,
-                        viewModel = viewModel
-                    )
+                    val calculatorController = remember { CalculatorController() }
+                    CalculatorHost(controller = calculatorController) {
+                        AppNavHost(
+                            navController = navController,
+                            viewModel = viewModel
+                        )
+                    }
                 } else {
                     AppLockGate(
                         security = security,
