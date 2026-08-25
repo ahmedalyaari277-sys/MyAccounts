@@ -4,6 +4,7 @@ import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
+import com.myaccounts.app.data.local.dao.RestoreTransactionResult
 import kotlinx.coroutines.flow.Flow
 
 interface TransactionRepositoryContract {
@@ -27,7 +28,7 @@ interface TransactionRepositoryContract {
     suspend fun deleteTransaction(transaction: TransactionEntity)
     suspend fun deleteTransactionById(transactionId: Long)
     suspend fun archiveTransaction(transactionId: Long)
-    suspend fun restoreTransaction(transactionId: Long)
+    suspend fun restoreTransaction(transactionId: Long): RestoreTransactionResult
     fun observeAttachments(transactionId: Long): Flow<List<TransactionAttachmentEntity>>
     fun observeAttachmentCount(transactionId: Long): Flow<Int>
     suspend fun getAttachments(transactionId: Long): List<TransactionAttachmentEntity>
