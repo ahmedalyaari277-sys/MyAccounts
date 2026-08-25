@@ -31,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +53,7 @@ import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.LocalCalculatorController
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -72,6 +74,7 @@ fun QuickTransactionScreen(
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val calculatorController = LocalCalculatorController.current
     val amountFocusRequester = remember { FocusRequester() }
     val today = remember { Calendar.getInstance() }
     val editMode = initialTransaction != null && onEditSave != null
@@ -98,6 +101,16 @@ fun QuickTransactionScreen(
     }
     var deletedExistingAttachments by remember(initialTransaction?.id) {
         mutableStateOf<List<TransactionAttachmentEntity>>(emptyList())
+    }
+
+    DisposableEffect(calculatorController, initialTransaction?.id) {
+        calculatorController.setResultConsumer { value ->
+            amount = value
+            amountError = false
+        }
+        onDispose {
+            calculatorController.setResultConsumer(null)
+        }
     }
 
     val currencyLabels = mapOf("YER" to "ريال يمني", "SAR" to "ريال سعودي", "USD" to "دولار")
