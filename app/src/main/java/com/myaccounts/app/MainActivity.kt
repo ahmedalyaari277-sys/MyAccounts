@@ -64,18 +64,11 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    override fun onTaskRemoved(rootIntent: android.content.Intent?) {
-        // Removing MyAccounts from the recent-tasks list is an explicit end of
-        // the app task. External activities (camera, picker, viewer, etc.) do
-        // not call this callback, so they keep the authenticated session alive.
-        security.clearSessionUnlocked()
-        super.onTaskRemoved(rootIntent)
-    }
-
     override fun onDestroy() {
-        // Leaving the activity temporarily (camera, picker, viewer, etc.) must
-        // not end the authenticated session. Only a real finish of this task
-        // ends the session; configuration changes keep it alive.
+        // External activities (camera, picker, viewer, etc.) may temporarily
+        // move this activity to the background. Keep the authenticated session
+        // alive in those cases. A real finish ends the session; configuration
+        // changes do not because isFinishing remains false.
         if (isFinishing) {
             security.clearSessionUnlocked()
         }
