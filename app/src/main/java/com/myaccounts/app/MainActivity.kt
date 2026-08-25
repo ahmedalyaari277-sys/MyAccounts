@@ -3,17 +3,19 @@ package com.myaccounts.app
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.compose.rememberNavController
 import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.components.CalculatorController
 import com.myaccounts.app.ui.components.CalculatorHost
+import com.myaccounts.app.ui.components.LocalCalculatorController
 import com.myaccounts.app.ui.navigation.AppNavHost
 import com.myaccounts.app.ui.security.AppLockGate
 import com.myaccounts.app.ui.theme.MyAccountsTheme
@@ -40,19 +42,15 @@ class MainActivity : FragmentActivity() {
             when (event) {
                 Lifecycle.Event.ON_START -> {
                     if (hasStartedOnce && security.isProtectionEnabled()) {
-                        if (!security.isExternalActivityPending()) {
-                            unlocked = false
-                        }
+                        if (!security.isExternalActivityPending()) unlocked = false
                     }
                     hasStartedOnce = true
                 }
-
                 Lifecycle.Event.ON_RESUME -> {
                     if (hasStartedOnce && security.isExternalActivityPending()) {
                         security.clearExternalActivityPending()
                     }
                 }
-
                 else -> Unit
             }
         })
@@ -62,11 +60,16 @@ class MainActivity : FragmentActivity() {
                 if (unlocked) {
                     val navController = rememberNavController()
                     val calculatorController = remember { CalculatorController() }
-                    CalculatorHost(controller = calculatorController) {
-                        AppNavHost(
-                            navController = navController,
-                            viewModel = viewModel
-                        )
+                    CompositionLocalProvider(LocalCalculatorController provides calculatorController) {
+                        CalculatorHost(
+                            controller = calculatorController,
+                            onUseResult = calculatorController::useResult
+                        ) {
+                            AppNavHost(
+                                navController = navController,
+                                viewModel = viewModel
+                            )
+                        }
                     }
                 } else {
                     AppLockGate(
