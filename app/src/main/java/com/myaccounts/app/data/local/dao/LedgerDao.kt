@@ -15,12 +15,7 @@ interface LedgerDao {
     @Query("""
         SELECT * FROM people
         WHERE isActive = 1
-        AND (
-            name LIKE '%' || :query || '%'
-            OR phone LIKE '%' || :query || '%'
-            OR address LIKE '%' || :query || '%'
-            OR notes LIKE '%' || :query || '%'
-        )
+        AND (name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' OR address LIKE '%' || :query || '%' OR notes LIKE '%' || :query || '%')
         ORDER BY name COLLATE NOCASE ASC
     """)
     fun observePeople(query: String): Flow<List<PersonEntity>>
@@ -33,18 +28,8 @@ interface LedgerDao {
         SELECT * FROM people
         WHERE isActive = 1
         ORDER BY
-            CASE WHEN (
-                SELECT MAX(t.createdAt)
-                FROM transactions t
-                INNER JOIN currency_accounts ca ON ca.id = t.accountId
-                WHERE ca.personId = people.id AND t.isArchived = 0
-            ) IS NULL THEN 0 ELSE 1 END DESC,
-            (
-                SELECT MAX(t.createdAt)
-                FROM transactions t
-                INNER JOIN currency_accounts ca ON ca.id = t.accountId
-                WHERE ca.personId = people.id AND t.isArchived = 0
-            ) DESC,
+            CASE WHEN (SELECT MAX(t.createdAt) FROM transactions t INNER JOIN currency_accounts ca ON ca.id = t.accountId WHERE ca.personId = people.id) IS NULL THEN 0 ELSE 1 END DESC,
+            (SELECT MAX(t.createdAt) FROM transactions t INNER JOIN currency_accounts ca ON ca.id = t.accountId WHERE ca.personId = people.id) DESC,
             createdAt DESC,
             id DESC
     """)
@@ -61,14 +46,7 @@ interface LedgerDao {
     @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")
     suspend fun getPersonForArchive(personId: Long): PersonEntity?
 
-    @Query("""
-        SELECT EXISTS(
-            SELECT 1 FROM people
-            WHERE isActive = 1
-              AND id != :excludedPersonId
-              AND name = :name COLLATE NOCASE
-        )
-    """)
+    @Query("SELECT EXISTS(SELECT 1 FROM people WHERE isActive = 1 AND id != :excludedPersonId AND name = :name COLLATE NOCASE)")
     suspend fun hasActivePersonWithName(name: String, excludedPersonId: Long): Boolean
 
     @Insert
@@ -101,19 +79,13 @@ interface LedgerDao {
     @Update
     suspend fun updateCurrencyAccount(account: CurrencyAccountEntity)
 
-    @Query("""
-        UPDATE currency_accounts
-        SET balanceMinor = :balanceMinor, updatedAt = :updatedAt
-        WHERE id = :accountId
-    """)
+    @Query("UPDATE currency_accounts SET balanceMinor = :balanceMinor, updatedAt = :updatedAt WHERE id = :accountId")
     suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long, updatedAt: Long = System.currentTimeMillis())
 
     @Transaction
     suspend fun insertPersonWithCurrencyAccounts(person: PersonEntity, currencyCodes: List<String>): Long {
         val personId = insertPerson(person)
-        insertCurrencyAccounts(currencyCodes.map { currencyCode ->
-            CurrencyAccountEntity(personId = personId, currencyCode = currencyCode, balanceMinor = 0L)
-        })
+        insertCurrencyAccounts(currencyCodes.map { CurrencyAccountEntity(personId = personId, currencyCode = it, balanceMinor = 0L) })
         return personId
     }
 }
