@@ -5,6 +5,12 @@ import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import kotlinx.coroutines.flow.Flow
 
+enum class RestorePersonResult {
+    RESTORED,
+    NAME_CONFLICT,
+    NOT_FOUND
+}
+
 interface LedgerRepositoryContract {
     fun observePeople(query: String): Flow<List<PersonEntity>>
     fun observePerson(personId: Long): Flow<PersonEntity?>
@@ -16,7 +22,7 @@ interface LedgerRepositoryContract {
     suspend fun insertPerson(person: PersonEntity): Long
     suspend fun updatePerson(person: PersonEntity)
     suspend fun deletePerson(personId: Long)
-    suspend fun restorePerson(personId: Long)
+    suspend fun restorePerson(personId: Long): RestorePersonResult
     suspend fun permanentlyDeletePerson(personId: Long): List<Long>
     suspend fun clearArchive(): List<Long>
     suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
