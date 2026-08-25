@@ -25,8 +25,11 @@ class CalculatorController {
     }
 
     fun useResult() {
-        result?.let { resultConsumer?.invoke(it) }
-        close()
+        result?.let {
+            resultConsumer?.invoke(it)
+            expression = ""
+            close()
+        }
     }
 
     fun press(key: String) {
