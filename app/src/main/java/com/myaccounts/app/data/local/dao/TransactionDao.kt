@@ -26,6 +26,14 @@ data class ArchivedTransactionRow(
     val transactionDate: Long
 )
 
+enum class RestoreTransactionResult {
+    RESTORED,
+    ACCOUNT_ARCHIVED,
+    ACCOUNT_DELETED,
+    ACCOUNT_REPLACED,
+    OWNER_DELETED
+}
+
 @Dao
 interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
@@ -200,44 +208,32 @@ interface TransactionDao {
     }
 
     @Transaction
-    suspend fun restoreTransactionAndUpdateBalance(transactionId: Long) {
+    suspend fun restoreTransactionAndUpdateBalance(transactionId: Long): RestoreTransactionResult {
         val transaction = getTransaction(transactionId)
         if (transaction != null && transaction.isArchived) {
+            val account = getCurrencyAccountById(transaction.accountId)
+            val person = account?.let { getPersonById(it.personId) }
+            if (account == null || person == null) return RestoreTransactionResult.ACCOUNT_DELETED
+            if (!person.isActive) return RestoreTransactionResult.ACCOUNT_ARCHIVED
+
             restoreTransaction(transactionId)
             deleteArchivedSnapshot(transactionId)
             deleteArchivedAttachmentSnapshots(transactionId)
             recalculateBalance(transaction.accountId)
-            return
+            return RestoreTransactionResult.RESTORED
         }
 
-        val snapshot = getArchivedSnapshot(transactionId) ?: return
-        val person = getPersonById(snapshot.personId)
-        if (person == null) {
-            insertPerson(
-                PersonEntity(
-                    id = snapshot.personId,
-                    name = snapshot.personName,
-                    phone = snapshot.personPhone,
-                    address = snapshot.personAddress,
-                    notes = snapshot.personNotes,
-                    createdAt = snapshot.createdAt,
-                    isActive = true
-                )
-            )
-        }
+        val snapshot = getArchivedSnapshot(transactionId) ?: return RestoreTransactionResult.ACCOUNT_DELETED
+        val person = getPersonById(snapshot.personId) ?: return RestoreTransactionResult.OWNER_DELETED
+        if (!person.isActive) return RestoreTransactionResult.ACCOUNT_ARCHIVED
 
         val account = getCurrencyAccountById(snapshot.accountId)
         if (account == null) {
-            insertCurrencyAccount(
-                CurrencyAccountEntity(
-                    id = snapshot.accountId,
-                    personId = snapshot.personId,
-                    currencyCode = snapshot.currencyCode,
-                    balanceMinor = 0L,
-                    createdAt = snapshot.createdAt,
-                    updatedAt = snapshot.createdAt
-                )
-            )
+            val replacement = getCurrencyAccountForPerson(snapshot.personId, snapshot.currencyCode)
+            return if (replacement != null) RestoreTransactionResult.ACCOUNT_REPLACED else RestoreTransactionResult.ACCOUNT_DELETED
+        }
+        if (account.personId != snapshot.personId || account.currencyCode != snapshot.currencyCode) {
+            return RestoreTransactionResult.ACCOUNT_REPLACED
         }
 
         insertTransaction(
@@ -270,6 +266,7 @@ interface TransactionDao {
         deleteArchivedSnapshot(transactionId)
         deleteArchivedAttachmentSnapshots(transactionId)
         recalculateBalance(snapshot.accountId)
+        return RestoreTransactionResult.RESTORED
     }
 
     @Transaction

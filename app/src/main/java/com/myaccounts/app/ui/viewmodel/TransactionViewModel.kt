@@ -7,6 +7,7 @@ import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
+import com.myaccounts.app.data.local.dao.RestoreTransactionResult
 import com.myaccounts.app.data.repository.TransactionRepositoryContract
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +31,8 @@ class TransactionViewModel(
     val archivedTransactionRows: StateFlow<List<ArchivedTransactionRow>> = _archivedTransactionRows.asStateFlow()
     private val _balance = MutableStateFlow(0L)
     val balance: StateFlow<Long> = _balance.asStateFlow()
+    private val _restoreTransactionResult = MutableStateFlow<RestoreTransactionResult?>(null)
+    val restoreTransactionResult: StateFlow<RestoreTransactionResult?> = _restoreTransactionResult.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -92,7 +95,12 @@ class TransactionViewModel(
 
     fun archiveTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
     fun archiveTransactionById(transactionId: Long) { viewModelScope.launch { repository.archiveTransaction(transactionId) } }
-    fun restoreTransaction(transactionId: Long) { viewModelScope.launch { repository.restoreTransaction(transactionId) } }
+    fun restoreTransaction(transactionId: Long) {
+        viewModelScope.launch {
+            _restoreTransactionResult.value = repository.restoreTransaction(transactionId)
+        }
+    }
+    fun clearRestoreTransactionResult() { _restoreTransactionResult.value = null }
 
     /** زر حذف العملية من الحساب ينقلها إلى الأرشيف، ولا يحذفها نهائيًا. */
     fun deleteTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
