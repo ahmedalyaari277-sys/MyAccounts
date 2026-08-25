@@ -1,10 +1,12 @@
 package com.myaccounts.app.ui.viewmodel
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.repository.LedgerRepositoryContract
+import com.myaccounts.app.util.TransactionAttachmentStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +16,8 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LedgerViewModel(
-    private val repository: LedgerRepositoryContract
+    private val repository: LedgerRepositoryContract,
+    private val application: Application
 ) : ViewModel() {
     private val searchQuery = MutableStateFlow("")
     private val _people = MutableStateFlow<List<PersonEntity>>(emptyList())
@@ -78,6 +81,20 @@ class LedgerViewModel(
     }
 
     fun permanentlyDeletePerson(personId: Long) {
-        viewModelScope.launch { repository.permanentlyDeletePerson(personId) }
+        viewModelScope.launch {
+            val transactionIds = repository.permanentlyDeletePerson(personId)
+            transactionIds.forEach { transactionId ->
+                TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList())
+            }
+        }
+    }
+
+    fun clearArchive() {
+        viewModelScope.launch {
+            val transactionIds = repository.clearArchive()
+            transactionIds.forEach { transactionId ->
+                TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList())
+            }
+        }
     }
 }

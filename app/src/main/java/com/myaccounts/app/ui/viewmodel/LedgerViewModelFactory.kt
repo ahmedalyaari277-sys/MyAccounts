@@ -26,7 +26,8 @@ class LedgerViewModelFactory(
             )
 
             return LedgerViewModel(
-                repository = repository
+                repository = repository,
+                application = application
             ) as T
         }
 
