@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
@@ -79,14 +80,14 @@ fun TransactionScreen(
     var transactionForAttachments by remember { mutableStateOf<TransactionEntity?>(null) }
     var showAddTransactionDialog by remember { mutableStateOf(false) }
 
-    val availableAccounts = if (accounts.isNotEmpty()) accounts else listOfNotNull(transactionViewModel.getCachedAccountForSelection(selectedAccountId))
+    val availableAccounts = accounts
 
     val currencySelector: @Composable () -> Unit = {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("YER" to "الريال اليمني", "SAR" to "الريال السعودي", "USD" to "الدولار الأمريكي").forEach { (code, name) ->
+            listOf("YER", "SAR", "USD").forEach { code ->
                 val account = availableAccounts.firstOrNull { it.currencyCode == code }
                 if (account != null) {
                     if (selectedCurrencyCode == code) {
@@ -112,8 +113,10 @@ fun TransactionScreen(
 
     val transactionContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize()) {
-            currencySelector()
-            Spacer(Modifier.height(10.dp))
+            if (availableAccounts.isNotEmpty()) {
+                currencySelector()
+                Spacer(Modifier.height(10.dp))
+            }
             BalanceCard(balance = balance, currencyCode = selectedCurrencyCode)
             Spacer(Modifier.height(14.dp))
             if (transactions.isEmpty()) {
@@ -137,12 +140,9 @@ fun TransactionScreen(
             }
             if (embedded) {
                 Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { showAddTransactionDialog = true },
-                    Modifier.fillMaxWidth()
-                ) {
+                Button(onClick = { showAddTransactionDialog = true }, Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.padding(horizontal = 3.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("إضافة عملية")
                 }
             }
