@@ -9,8 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.rememberNavController
 import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.components.CalculatorController
@@ -30,30 +28,12 @@ class MainActivity : FragmentActivity() {
 
     private lateinit var security: AppSecurityManager
     private var unlocked by mutableStateOf(false)
-    private var hasStartedOnce = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         security = AppSecurityManager(applicationContext)
-        unlocked = !security.isProtectionEnabled()
-
-        lifecycle.addObserver(LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> {
-                    if (hasStartedOnce && security.isProtectionEnabled()) {
-                        if (!security.isExternalActivityPending()) unlocked = false
-                    }
-                    hasStartedOnce = true
-                }
-                Lifecycle.Event.ON_RESUME -> {
-                    if (hasStartedOnce && security.isExternalActivityPending()) {
-                        security.clearExternalActivityPending()
-                    }
-                }
-                else -> Unit
-            }
-        })
+        unlocked = !security.isProtectionEnabled() || security.isSessionUnlocked()
 
         setContent {
             MyAccountsTheme {
@@ -74,7 +54,10 @@ class MainActivity : FragmentActivity() {
                 } else {
                     AppLockGate(
                         security = security,
-                        onUnlocked = { unlocked = true }
+                        onUnlocked = {
+                            security.markSessionUnlocked()
+                            unlocked = true
+                        }
                     )
                 }
             }
