@@ -63,4 +63,14 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        // Leaving the activity temporarily (camera, picker, viewer, etc.) must
+        // not end the authenticated session. Only a real finish of this task
+        // ends the session; configuration changes keep it alive.
+        if (isFinishing) {
+            security.clearSessionUnlocked()
+        }
+        super.onDestroy()
+    }
 }
