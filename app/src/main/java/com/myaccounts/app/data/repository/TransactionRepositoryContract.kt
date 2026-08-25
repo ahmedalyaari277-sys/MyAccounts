@@ -16,6 +16,7 @@ interface TransactionRepositoryContract {
     )
     suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?
     suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
+    suspend fun getPersonNameForAccount(accountId: Long): String?
     fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>>
     fun observeArchivedTransactions(): Flow<List<TransactionEntity>>
     fun observeArchivedTransactionRows(): Flow<List<ArchivedTransactionRow>>
