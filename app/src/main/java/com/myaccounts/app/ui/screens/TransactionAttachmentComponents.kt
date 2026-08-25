@@ -89,7 +89,6 @@ fun TransactionAttachmentPicker(
         if (granted) {
             createAndLaunchCamera(
                 context = context,
-                security = security,
                 onFileCreated = { file ->
                     cameraFile = file
                     try {
@@ -183,7 +182,6 @@ fun TransactionAttachmentPicker(
                     ) {
                         createAndLaunchCamera(
                             context = context,
-                            security = security,
                             onFileCreated = { file ->
                                 cameraFile = file
                                 try {
@@ -298,7 +296,6 @@ fun TransactionAttachmentPicker(
 
 private fun createAndLaunchCamera(
     context: android.content.Context,
-    security: AppSecurityManager,
     onFileCreated: (File) -> Unit,
     onFailure: () -> Unit
 ) {
@@ -311,7 +308,6 @@ private fun createAndLaunchCamera(
         val file = File.createTempFile("camera_", ".jpg", directory)
         onFileCreated(file)
     } catch (_: Throwable) {
-        security.clearExternalActivityPending()
         onFailure()
     }
 }
@@ -385,7 +381,6 @@ fun TransactionAttachmentsDialog(
                                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                                     }
                                                     try {
-                                                        security.markExternalActivityPending()
                                                         context.startActivity(
                                                             Intent.createChooser(
                                                                 intent,
