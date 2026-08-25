@@ -23,7 +23,7 @@ import com.myaccounts.app.data.reports.ReportDao
         ArchivedTransactionSnapshotEntity::class,
         ArchivedTransactionAttachmentSnapshotEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(TransactionConverters::class)
@@ -37,17 +37,11 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "myaccounts_database"
-                )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
-                    .build()
-                    .also { INSTANCE = it }
-            }
+        fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
+            INSTANCE ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "myaccounts_database")
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .build()
+                .also { INSTANCE = it }
         }
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -59,39 +53,18 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS currency_accounts (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        personId INTEGER NOT NULL,
-                        currencyCode TEXT NOT NULL,
-                        balanceMinor INTEGER NOT NULL DEFAULT 0,
-                        createdAt INTEGER NOT NULL,
-                        updatedAt INTEGER NOT NULL,
-                        FOREIGN KEY(personId) REFERENCES people(id) ON UPDATE CASCADE ON DELETE CASCADE
-                    )
-                """.trimIndent())
+                db.execSQL("""CREATE TABLE IF NOT EXISTS currency_accounts (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, personId INTEGER NOT NULL, currencyCode TEXT NOT NULL, balanceMinor INTEGER NOT NULL DEFAULT 0, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, FOREIGN KEY(personId) REFERENCES people(id) ON UPDATE CASCADE ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_currency_accounts_personId ON currency_accounts(personId)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_currency_accounts_personId_currencyCode ON currency_accounts(personId, currencyCode)")
-                db.execSQL("""INSERT INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'YER',0,createdAt,createdAt FROM people""")
-                db.execSQL("""INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'SAR',0,createdAt,createdAt FROM people""")
-                db.execSQL("""INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'USD',0,createdAt,createdAt FROM people""")
+                db.execSQL("INSERT INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'YER',0,createdAt,createdAt FROM people")
+                db.execSQL("INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'SAR',0,createdAt,createdAt FROM people")
+                db.execSQL("INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT id,'USD',0,createdAt,createdAt FROM people")
             }
         }
 
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS transactions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        accountId INTEGER NOT NULL,
-                        type TEXT NOT NULL,
-                        amountMinor INTEGER NOT NULL,
-                        description TEXT NOT NULL,
-                        transactionDate INTEGER NOT NULL,
-                        createdAt INTEGER NOT NULL,
-                        FOREIGN KEY(accountId) REFERENCES currency_accounts(id) ON UPDATE CASCADE ON DELETE CASCADE
-                    )
-                """.trimIndent())
+                db.execSQL("""CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, accountId INTEGER NOT NULL, type TEXT NOT NULL, amountMinor INTEGER NOT NULL, description TEXT NOT NULL, transactionDate INTEGER NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(accountId) REFERENCES currency_accounts(id) ON UPDATE CASCADE ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_accountId ON transactions(accountId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_transactionDate ON transactions(transactionDate)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_type ON transactions(type)")
@@ -100,18 +73,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS transaction_attachments (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        transactionId INTEGER NOT NULL,
-                        fileName TEXT NOT NULL,
-                        mimeType TEXT NOT NULL,
-                        relativePath TEXT NOT NULL,
-                        sizeBytes INTEGER NOT NULL,
-                        createdAt INTEGER NOT NULL,
-                        FOREIGN KEY(transactionId) REFERENCES transactions(id) ON UPDATE CASCADE ON DELETE CASCADE
-                    )
-                """.trimIndent())
+                db.execSQL("""CREATE TABLE IF NOT EXISTS transaction_attachments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, transactionId INTEGER NOT NULL, fileName TEXT NOT NULL, mimeType TEXT NOT NULL, relativePath TEXT NOT NULL, sizeBytes INTEGER NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(transactionId) REFERENCES transactions(id) ON UPDATE CASCADE ON DELETE CASCADE)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transaction_attachments_transactionId ON transaction_attachments(transactionId)")
             }
         }
@@ -125,35 +87,8 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS archived_transaction_snapshots (
-                        transactionId INTEGER NOT NULL PRIMARY KEY,
-                        accountId INTEGER NOT NULL,
-                        personId INTEGER NOT NULL,
-                        personName TEXT NOT NULL,
-                        personPhone TEXT NOT NULL,
-                        personAddress TEXT NOT NULL,
-                        personNotes TEXT NOT NULL,
-                        currencyCode TEXT NOT NULL,
-                        type TEXT NOT NULL,
-                        amountMinor INTEGER NOT NULL,
-                        description TEXT NOT NULL,
-                        transactionDate INTEGER NOT NULL,
-                        createdAt INTEGER NOT NULL,
-                        archivedAt INTEGER NOT NULL
-                    )
-                """.trimIndent())
-                db.execSQL("""
-                    CREATE TABLE IF NOT EXISTS archived_transaction_attachment_snapshots (
-                        attachmentId INTEGER NOT NULL PRIMARY KEY,
-                        transactionId INTEGER NOT NULL,
-                        fileName TEXT NOT NULL,
-                        mimeType TEXT NOT NULL,
-                        relativePath TEXT NOT NULL,
-                        sizeBytes INTEGER NOT NULL,
-                        createdAt INTEGER NOT NULL
-                    )
-                """.trimIndent())
+                db.execSQL("""CREATE TABLE IF NOT EXISTS archived_transaction_snapshots (transactionId INTEGER NOT NULL PRIMARY KEY, accountId INTEGER NOT NULL, personId INTEGER NOT NULL, personName TEXT NOT NULL, personPhone TEXT NOT NULL, personAddress TEXT NOT NULL, personNotes TEXT NOT NULL, currencyCode TEXT NOT NULL, type TEXT NOT NULL, amountMinor INTEGER NOT NULL, description TEXT NOT NULL, transactionDate INTEGER NOT NULL, createdAt INTEGER NOT NULL, archivedAt INTEGER NOT NULL)""")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS archived_transaction_attachment_snapshots (attachmentId INTEGER NOT NULL PRIMARY KEY, transactionId INTEGER NOT NULL, fileName TEXT NOT NULL, mimeType TEXT NOT NULL, relativePath TEXT NOT NULL, sizeBytes INTEGER NOT NULL, createdAt INTEGER NOT NULL)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_archived_transaction_attachment_snapshots_transactionId ON archived_transaction_attachment_snapshots(transactionId)")
             }
         }
@@ -162,6 +97,18 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE people ADD COLUMN archivedAt INTEGER")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_people_archivedAt ON people(archivedAt)")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Operations are no longer independently archived. Existing archived
+                // operations remain in their accounts and become active transactions.
+                db.execSQL("UPDATE transactions SET isArchived = 0 WHERE isArchived != 0")
+                // These snapshot tables belonged only to the old transaction-archive lifecycle.
+                // Keep the tables for schema compatibility, but remove stale snapshot rows.
+                db.execSQL("DELETE FROM archived_transaction_attachment_snapshots")
+                db.execSQL("DELETE FROM archived_transaction_snapshots")
             }
         }
     }
