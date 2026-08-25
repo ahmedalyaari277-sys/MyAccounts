@@ -69,7 +69,8 @@ fun ArchiveScreen(
         }
     }
     if (showClearArchiveDialog) AlertDialog(onDismissRequest = { showClearArchiveDialog = false }, title = { Text("إفراغ الأرشيف") }, text = { Text("سيتم حذف جميع الأشخاص والعمليات المؤرشفة نهائيًا، بما في ذلك الحسابات التابعة والمرفقات. لا يمكن التراجع عن هذا الإجراء.") }, confirmButton = { Button(onClick = { showClearArchiveDialog = false; onClearArchive() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("إفراغ الأرشيف") } }, dismissButton = { TextButton(onClick = { showClearArchiveDialog = false }) { Text("إلغاء") } })
-    restoreTransactionResult?.let { result ->
+    if (restoreTransactionResult != null) {
+        val result = restoreTransactionResult
         val message = when (result) {
             RestoreTransactionResult.RESTORED -> "تمت استعادة العملية بنجاح."
             RestoreTransactionResult.ACCOUNT_ARCHIVED -> "لا يمكن استعادة العملية لأن الحساب المرتبط بها مؤرشف. استعد الحساب أولًا ثم استعد العملية."
