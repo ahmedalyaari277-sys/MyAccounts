@@ -23,63 +23,41 @@ class LedgerRepository(
     override fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?> = dao.observeCurrencyAccount(accountId)
 
     override suspend fun insertPerson(person: PersonEntity): Long =
-        dao.insertPersonWithCurrencyAccounts(
-            person = person,
-            currencyCodes = DEFAULT_CURRENCIES
-        )
+        dao.insertPersonWithCurrencyAccounts(person = person, currencyCodes = DEFAULT_CURRENCIES)
 
     override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
 
     override suspend fun deletePerson(personId: Long) {
-        database.withTransaction {
-            val archivedAt = System.currentTimeMillis()
-            val archiveDao = database.archiveDao()
-            archiveDao.snapshotActiveTransactionsForPerson(personId, archivedAt)
-            archiveDao.snapshotActiveAttachmentsForPerson(personId)
-            archiveDao.archiveActiveTransactionsForPerson(personId)
-            archiveDao.recalculateBalancesForPerson(personId, archivedAt)
-            dao.archivePerson(personId, archivedAt)
-        }
+        dao.archivePerson(personId, System.currentTimeMillis())
     }
 
-    override suspend fun restorePerson(personId: Long) {
-        database.withTransaction {
-            val archiveDao = database.archiveDao()
-            val archivedAt = archiveDao.getPersonArchivedAt(personId) ?: return@withTransaction
-            val transactionIds = archiveDao.getTransactionsArchivedWithPerson(personId, archivedAt)
-            transactionIds.forEach { transactionId ->
-                archiveDao.restoreTransaction(transactionId)
-                archiveDao.deleteTransactionSnapshot(transactionId)
-                archiveDao.deleteTransactionAttachmentSnapshots(transactionId)
-            }
-            archiveDao.restorePerson(personId)
-            archiveDao.recalculateBalancesForPerson(personId, System.currentTimeMillis())
+    override suspend fun restorePerson(personId: Long): RestorePersonResult = database.withTransaction {
+        val person = dao.getPersonForArchive(personId) ?: return@withTransaction RestorePersonResult.NOT_FOUND
+        if (person.isActive) return@withTransaction RestorePersonResult.RESTORED
+        if (dao.hasActivePersonWithName(person.name.trim(), personId)) {
+            return@withTransaction RestorePersonResult.NAME_CONFLICT
         }
+        dao.restorePerson(personId)
+        RestorePersonResult.RESTORED
     }
 
-    override suspend fun permanentlyDeletePerson(personId: Long): List<Long> =
-        database.withTransaction {
-            val archiveDao = database.archiveDao()
-            val transactionIds = archiveDao.getPersonTransactionIds(personId)
-            val archivedAt = System.currentTimeMillis()
-            archiveDao.snapshotAllTransactionsForPerson(personId, archivedAt)
-            archiveDao.snapshotAllAttachmentsForPerson(personId)
-            dao.permanentlyDeletePerson(personId)
-            transactionIds
-        }
+    override suspend fun permanentlyDeletePerson(personId: Long): List<Long> = database.withTransaction {
+        val transactionIds = database.archiveDao().getPersonTransactionIds(personId)
+        dao.permanentlyDeletePerson(personId)
+        transactionIds
+    }
 
-    override suspend fun clearArchive(): List<Long> =
-        database.withTransaction { database.archiveDao().clearArchive() }
+    override suspend fun clearArchive(): List<Long> = database.withTransaction {
+        val transactionIds = database.archiveDao().getArchivedPersonTransactionIds()
+        database.archiveDao().clearArchivedPeople()
+        transactionIds
+    }
 
-    override suspend fun getCurrencyAccount(
-        personId: Long,
-        currencyCode: String
-    ): CurrencyAccountEntity? = dao.getCurrencyAccount(personId, currencyCode)
+    override suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity? =
+        dao.getCurrencyAccount(personId, currencyCode)
 
-    override suspend fun updateCurrencyBalance(
-        accountId: Long,
-        balanceMinor: Long
-    ) = dao.updateCurrencyBalance(accountId, balanceMinor)
+    override suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long) =
+        dao.updateCurrencyBalance(accountId, balanceMinor)
 
     companion object {
         val DEFAULT_CURRENCIES = listOf("YER", "SAR", "USD")
