@@ -18,8 +18,7 @@ import androidx.room.Index
     indices = [
         Index(value = ["accountId"]),
         Index(value = ["transactionDate"]),
-        Index(value = ["type"]),
-        Index(value = ["isArchived"])
+        Index(value = ["type"])
     ]
 )
 data class TransactionEntity(
@@ -30,8 +29,7 @@ data class TransactionEntity(
     val amountMinor: Long,
     val description: String = "",
     val transactionDate: Long,
-    val createdAt: Long = System.currentTimeMillis(),
-    val isArchived: Boolean = false
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 enum class TransactionType {
