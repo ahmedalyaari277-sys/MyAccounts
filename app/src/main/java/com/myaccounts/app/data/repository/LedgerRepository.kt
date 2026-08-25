@@ -57,15 +57,16 @@ class LedgerRepository(
         }
     }
 
-    override suspend fun permanentlyDeletePerson(personId: Long) {
+    override suspend fun permanentlyDeletePerson(personId: Long): List<Long> =
         database.withTransaction {
             val archiveDao = database.archiveDao()
+            val transactionIds = archiveDao.getPersonTransactionIds(personId)
             val archivedAt = System.currentTimeMillis()
             archiveDao.snapshotAllTransactionsForPerson(personId, archivedAt)
             archiveDao.snapshotAllAttachmentsForPerson(personId)
             dao.permanentlyDeletePerson(personId)
+            transactionIds
         }
-    }
 
     override suspend fun clearArchive(): List<Long> =
         database.withTransaction { database.archiveDao().clearArchive() }
