@@ -152,6 +152,9 @@ interface TransactionDao {
     @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1")
     suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity?
 
+    @Query("SELECT * FROM currency_accounts WHERE personId = :personId AND currencyCode = :currencyCode LIMIT 1")
+    suspend fun getCurrencyAccountForPerson(personId: Long, currencyCode: String): CurrencyAccountEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPerson(person: PersonEntity): Long
 
