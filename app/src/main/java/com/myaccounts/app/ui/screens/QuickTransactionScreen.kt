@@ -1,6 +1,8 @@
 package com.myaccounts.app.ui.screens
 
 import android.app.DatePickerDialog
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,11 +46,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.myaccounts.app.data.local.CurrencyAccountEntity
+import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
+import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -55,27 +65,53 @@ fun QuickTransactionScreen(
     personName: String,
     accounts: List<CurrencyAccountEntity>,
     onSave: (TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    initialTransaction: TransactionEntity? = null,
+    existingAttachments: List<TransactionAttachmentEntity> = emptyList(),
+    onEditSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>, List<TransactionAttachmentEntity>) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val amountFocusRequester = remember { FocusRequester() }
     val today = remember { Calendar.getInstance() }
-    var selectedCurrency by remember { mutableStateOf(accounts.firstOrNull()?.currencyCode ?: "YER") }
-    var selectedType by remember { mutableStateOf(TransactionType.RECEIVABLE) }
-    var amount by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var transactionDate by remember { mutableStateOf(today.timeInMillis) }
-    var amountError by remember { mutableStateOf(false) }
-    var attachments by remember { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
+    val editMode = initialTransaction != null && onEditSave != null
+    val initialAccountCurrency = initialTransaction?.let { transaction -> accounts.firstOrNull { it.id == transaction.accountId }?.currencyCode }
+
+    var selectedCurrency by remember(initialTransaction?.id, accounts) {
+        mutableStateOf(initialAccountCurrency ?: accounts.firstOrNull()?.currencyCode ?: "YER")
+    }
+    var selectedType by remember(initialTransaction?.id) {
+        mutableStateOf(initialTransaction?.type ?: TransactionType.RECEIVABLE)
+    }
+    var amount by remember(initialTransaction?.id) {
+        mutableStateOf(initialTransaction?.let { formatAmount(it.amountMinor) } ?: "")
+    }
+    var description by remember(initialTransaction?.id) {
+        mutableStateOf(initialTransaction?.description ?: "")
+    }
+    var transactionDate by remember(initialTransaction?.id) {
+        mutableStateOf(initialTransaction?.transactionDate ?: today.timeInMillis)
+    }
+    var amountError by remember(initialTransaction?.id) { mutableStateOf(false) }
+    var attachments by remember(initialTransaction?.id) {
+        mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList())
+    }
+    var deletedExistingAttachments by remember(initialTransaction?.id) {
+        mutableStateOf<List<TransactionAttachmentEntity>>(emptyList())
+    }
 
     val currencyLabels = mapOf("YER" to "ريال يمني", "SAR" to "ريال سعودي", "USD" to "دولار")
     val currencyOrder = mapOf("YER" to 0, "SAR" to 1, "USD" to 2)
     val dateText = remember(transactionDate) { SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(transactionDate)) }
+    val visibleExistingAttachments = remember(existingAttachments, deletedExistingAttachments) {
+        existingAttachments.filterNot { existing -> deletedExistingAttachments.any { it.id == existing.id } }
+    }
 
-    LaunchedEffect(Unit) {
-        amountFocusRequester.requestFocus()
-        keyboardController?.show()
+    LaunchedEffect(editMode) {
+        if (!editMode) {
+            amountFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
     }
 
     Column(
@@ -85,14 +121,19 @@ fun QuickTransactionScreen(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        Text("إضافة عملية", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            if (editMode) "تعديل العملية" else "إضافة عملية",
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
         Text(personName, modifier = Modifier.fillMaxWidth(), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             OutlinedTextField(
                 value = amount,
                 onValueChange = { amount = it; amountError = false },
-                modifier = Modifier.weight(1.35f).focusRequester(amountFocusRequester),
+                modifier = Modifier.weight(1.35f).focusRequester(if (editMode) FocusRequester() else amountFocusRequester),
                 label = { Text("المبلغ") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
@@ -154,6 +195,13 @@ fun QuickTransactionScreen(
             else OutlinedButton(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f)) { Text("له") }
         }
 
+        if (editMode && visibleExistingAttachments.isNotEmpty()) {
+            ExistingAttachmentsSection(
+                attachments = visibleExistingAttachments,
+                onDelete = { attachment -> deletedExistingAttachments = deletedExistingAttachments + attachment }
+            )
+        }
+
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("المرفقات", fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -165,7 +213,9 @@ fun QuickTransactionScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Button(
                 onClick = {
-                    val parsedAmount = runCatching { BigDecimal(amount.trim()).setScale(2).movePointRight(2).longValueExact() }.getOrNull()
+                    val parsedAmount = runCatching {
+                        BigDecimal(amount.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact()
+                    }.getOrNull()
                     if (parsedAmount == null || parsedAmount <= 0L) {
                         amountError = true
                         return@Button
@@ -176,10 +226,28 @@ fun QuickTransactionScreen(
                         return@Button
                     }
                     keyboardController?.hide()
-                    onSave(
-                        TransactionEntity(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate),
-                        attachments
-                    )
+                    val transaction = if (editMode) {
+                        initialTransaction!!.copy(
+                            accountId = account.id,
+                            type = selectedType,
+                            amountMinor = parsedAmount,
+                            description = description.trim(),
+                            transactionDate = transactionDate
+                        )
+                    } else {
+                        TransactionEntity(
+                            accountId = account.id,
+                            type = selectedType,
+                            amountMinor = parsedAmount,
+                            description = description.trim(),
+                            transactionDate = transactionDate
+                        )
+                    }
+                    if (editMode) {
+                        onEditSave!!(transaction, attachments, deletedExistingAttachments)
+                    } else {
+                        onSave(transaction, attachments)
+                    }
                 },
                 modifier = Modifier.weight(1f)
             ) { Text("حفظ", fontWeight = FontWeight.Bold) }
@@ -187,3 +255,58 @@ fun QuickTransactionScreen(
         }
     }
 }
+
+@Composable
+private fun ExistingAttachmentsSection(
+    attachments: List<TransactionAttachmentEntity>,
+    onDelete: (TransactionAttachmentEntity) -> Unit
+) {
+    val context = LocalContext.current
+    val security = remember(context) { AppSecurityManager(context.applicationContext) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("المرفقات الحالية", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+        attachments.forEach { attachment ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description,
+                            contentDescription = null
+                        )
+                        Text(attachment.fileName, modifier = Modifier.padding(start = 8.dp), maxLines = 2)
+                    }
+                    IconButton(onClick = {
+                        runCatching {
+                            val file = TransactionAttachmentStorage.fileFor(context, attachment)
+                            if (!file.exists()) return@runCatching
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, attachment.mimeType)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            security.markExternalActivityPending()
+                            context.startActivity(Intent.createChooser(intent, "فتح المرفق"))
+                        }.onFailure {
+                            security.clearExternalActivityPending()
+                            if (it is ActivityNotFoundException) return@onFailure
+                        }
+                    }) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = "فتح المرفق")
+                    }
+                    IconButton(onClick = { onDelete(attachment) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "حذف المرفق")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor)
+    .movePointLeft(2)
+    .setScale(2, RoundingMode.UNNECESSARY)
+    .stripTrailingZeros()
+    .toPlainString()
