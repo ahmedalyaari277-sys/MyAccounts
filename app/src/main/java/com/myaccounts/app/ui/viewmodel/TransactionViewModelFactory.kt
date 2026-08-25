@@ -14,26 +14,15 @@ class TransactionViewModelFactory(
     override fun <T : ViewModel> create(
         modelClass: Class<T>
     ): T {
-
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
-
-            val database =
-                AppDatabase.getInstance(application)
-
-            val repository =
-                TransactionRepository(
-                    database.transactionDao(),
-                    database.transactionAttachmentDao()
-                )
-
-            return TransactionViewModel(
-                repository,
-                application
-            ) as T
+            val database = AppDatabase.getInstance(application)
+            val repository = TransactionRepository(
+                database.transactionDao(),
+                database.transactionAttachmentDao(),
+                database
+            )
+            return TransactionViewModel(repository, application) as T
         }
-
-        throw IllegalArgumentException(
-            "Unknown ViewModel class: ${modelClass.name}"
-        )
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
