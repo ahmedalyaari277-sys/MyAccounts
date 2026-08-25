@@ -21,7 +21,7 @@ import com.myaccounts.app.data.reports.ReportDao
         TransactionEntity::class,
         TransactionAttachmentEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(TransactionConverters::class)
@@ -37,7 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "myaccounts_database")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build()
                 .also { INSTANCE = it }
         }
@@ -110,6 +110,26 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("DROP TABLE IF EXISTS archived_transaction_attachment_snapshots")
                 db.execSQL("DROP TABLE IF EXISTS archived_transaction_snapshots")
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions RENAME TO transactions_old")
+                db.execSQL("""CREATE TABLE transactions (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, accountId INTEGER NOT NULL, type TEXT NOT NULL, amountMinor INTEGER NOT NULL, description TEXT NOT NULL, transactionDate INTEGER NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(accountId) REFERENCES currency_accounts(id) ON UPDATE CASCADE ON DELETE CASCADE)""")
+                db.execSQL("""INSERT INTO transactions (id, accountId, type, amountMinor, description, transactionDate, createdAt) SELECT id, accountId, type, amountMinor, description, transactionDate, createdAt FROM transactions_old""")
+
+                db.execSQL("ALTER TABLE transaction_attachments RENAME TO transaction_attachments_old")
+                db.execSQL("""CREATE TABLE transaction_attachments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, transactionId INTEGER NOT NULL, fileName TEXT NOT NULL, mimeType TEXT NOT NULL, relativePath TEXT NOT NULL, sizeBytes INTEGER NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(transactionId) REFERENCES transactions(id) ON UPDATE CASCADE ON DELETE CASCADE)""")
+                db.execSQL("""INSERT INTO transaction_attachments (id, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt) SELECT id, transactionId, fileName, mimeType, relativePath, sizeBytes, createdAt FROM transaction_attachments_old""")
+
+                db.execSQL("DROP TABLE transaction_attachments_old")
+                db.execSQL("DROP TABLE transactions_old")
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_accountId ON transactions(accountId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_transactionDate ON transactions(transactionDate)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_type ON transactions(type)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transaction_attachments_transactionId ON transaction_attachments(transactionId)")
             }
         }
     }
