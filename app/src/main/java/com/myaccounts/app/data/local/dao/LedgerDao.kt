@@ -80,19 +80,14 @@ interface LedgerDao {
     @Update
     suspend fun updatePerson(person: PersonEntity)
 
-    @Query("""
-        UPDATE people
-        SET isActive = 0
-        WHERE id = :personId
-    """)
-    suspend fun softDeletePerson(personId: Long)
+    @Query("UPDATE people SET isActive = 0, archivedAt = :archivedAt WHERE id = :personId AND isActive = 1")
+    suspend fun archivePerson(personId: Long, archivedAt: Long): Int
 
-    @Query("""
-        UPDATE people
-        SET isActive = 1
-        WHERE id = :personId
-    """)
-    suspend fun restorePerson(personId: Long)
+    @Query("UPDATE people SET isActive = 1, archivedAt = NULL WHERE id = :personId")
+    suspend fun restorePerson(personId: Long): Int
+
+    @Query("SELECT archivedAt FROM people WHERE id = :personId LIMIT 1")
+    suspend fun getPersonArchivedAt(personId: Long): Long?
 
     @Query("""
         DELETE FROM people
