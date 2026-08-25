@@ -9,7 +9,8 @@ import androidx.room.Index
     indices = [
         Index(value = ["name"]),
         Index(value = ["phone"]),
-        Index(value = ["isActive"])
+        Index(value = ["isActive"]),
+        Index(value = ["archivedAt"])
     ]
 )
 data class PersonEntity(
@@ -20,7 +21,8 @@ data class PersonEntity(
     val address: String = "",
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val archivedAt: Long? = null
 )
 
 @Entity(
