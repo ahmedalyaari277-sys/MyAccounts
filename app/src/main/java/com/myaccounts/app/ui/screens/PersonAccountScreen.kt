@@ -128,7 +128,8 @@ fun PersonAccountScreen(
                     accounts = personWithAccounts.accounts,
                     onBack = {},
                     transactionViewModel = transactionViewModel,
-                    embedded = true
+                    embedded = true,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
