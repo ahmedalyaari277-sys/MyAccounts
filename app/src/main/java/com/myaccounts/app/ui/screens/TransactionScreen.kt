@@ -67,7 +67,8 @@ fun TransactionScreen(
     onBack: () -> Unit,
     transactionViewModel: TransactionViewModel,
     accounts: List<CurrencyAccountEntity> = emptyList(),
-    embedded: Boolean = false
+    embedded: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     var selectedAccountId by remember(accountId) { mutableStateOf(accountId) }
     var selectedCurrencyCode by remember(currencyCode) { mutableStateOf(currencyCode) }
@@ -150,7 +151,7 @@ fun TransactionScreen(
     }
 
     if (embedded) {
-        transactionContent(Modifier)
+        transactionContent(modifier)
     } else {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -163,7 +164,7 @@ fun TransactionScreen(
             floatingActionButton = { FloatingActionButton(onClick = { showAddTransactionDialog = true }) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }
         ) { paddingValues ->
             Column(Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
-                transactionContent(Modifier.weight(1f))
+                transactionContent(modifier.weight(1f))
             }
         }
     }
