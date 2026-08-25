@@ -26,20 +26,18 @@ class TransactionRepository(
     ) {
         database.withTransaction {
             transactionDao.updateTransactionAndUpdateBalance(transaction)
-            if (deletedAttachments.isNotEmpty()) {
-                deletedAttachments.forEach { attachmentDao.deleteAttachment(it) }
-            }
-            if (newAttachments.isNotEmpty()) {
-                attachmentDao.insertAttachments(newAttachments)
-            }
+            deletedAttachments.forEach { attachmentDao.deleteAttachment(it) }
+            if (newAttachments.isNotEmpty()) attachmentDao.insertAttachments(newAttachments)
         }
     }
 
-    override suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity? =
-        transactionDao.getCurrencyAccountById(accountId)
+    override suspend fun getCurrencyAccountById(accountId: Long): CurrencyAccountEntity? = transactionDao.getCurrencyAccountById(accountId)
 
     override suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity? =
         transactionDao.getCurrencyAccountForPerson(personId, currencyCode)
+
+    override suspend fun getPersonNameForAccount(accountId: Long): String? =
+        transactionDao.getPersonNameForAccount(accountId)
 
     override fun observeTransactions(accountId: Long): Flow<List<TransactionEntity>> = transactionDao.observeTransactions(accountId)
     override fun observeArchivedTransactions(): Flow<List<TransactionEntity>> = transactionDao.observeArchivedTransactions()
