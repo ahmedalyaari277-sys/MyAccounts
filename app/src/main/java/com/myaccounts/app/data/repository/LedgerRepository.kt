@@ -29,16 +29,46 @@ class LedgerRepository(
         )
 
     override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
-    override suspend fun deletePerson(personId: Long) = dao.softDeletePerson(personId)
-    override suspend fun restorePerson(personId: Long) = dao.restorePerson(personId)
+
+    override suspend fun deletePerson(personId: Long) {
+        database.withTransaction {
+            val archivedAt = System.currentTimeMillis()
+            val archiveDao = database.archiveDao()
+            archiveDao.snapshotActiveTransactionsForPerson(personId, archivedAt)
+            archiveDao.snapshotActiveAttachmentsForPerson(personId)
+            archiveDao.archiveActiveTransactionsForPerson(personId)
+            archiveDao.recalculateBalancesForPerson(personId, archivedAt)
+            dao.archivePerson(personId, archivedAt)
+        }
+    }
+
+    override suspend fun restorePerson(personId: Long) {
+        database.withTransaction {
+            val archiveDao = database.archiveDao()
+            val archivedAt = archiveDao.getPersonArchivedAt(personId) ?: return@withTransaction
+            val transactionIds = archiveDao.getTransactionsArchivedWithPerson(personId, archivedAt)
+            transactionIds.forEach { transactionId ->
+                archiveDao.restoreTransaction(transactionId)
+                archiveDao.deleteTransactionSnapshot(transactionId)
+                archiveDao.deleteTransactionAttachmentSnapshots(transactionId)
+            }
+            archiveDao.restorePerson(personId)
+            archiveDao.recalculateBalancesForPerson(personId, System.currentTimeMillis())
+        }
+    }
 
     override suspend fun permanentlyDeletePerson(personId: Long) {
         database.withTransaction {
-            transactionDao.snapshotArchivedTransactionsForPerson(personId)
-            transactionDao.snapshotArchivedAttachmentsForPerson(personId)
+            val archiveDao = database.archiveDao()
+            val archivedAt = System.currentTimeMillis()
+            archiveDao.snapshotAllTransactionsForPerson(personId, archivedAt)
+            archiveDao.snapshotAllAttachmentsForPerson(personId)
             dao.permanentlyDeletePerson(personId)
         }
     }
+
+    override suspend fun clearArchive(): List<Long> =
+        database.withTransaction { database.archiveDao().clearArchive() }
 
     override suspend fun getCurrencyAccount(
         personId: Long,
