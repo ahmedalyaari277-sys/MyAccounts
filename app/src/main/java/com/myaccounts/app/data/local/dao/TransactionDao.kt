@@ -155,6 +155,9 @@ interface TransactionDao {
     @Query("SELECT * FROM currency_accounts WHERE personId = :personId AND currencyCode = :currencyCode LIMIT 1")
     suspend fun getCurrencyAccountForPerson(personId: Long, currencyCode: String): CurrencyAccountEntity?
 
+    @Query("SELECT p.name FROM people p INNER JOIN currency_accounts ca ON ca.personId = p.id WHERE ca.id = :accountId LIMIT 1")
+    suspend fun getPersonNameForAccount(accountId: Long): String?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPerson(person: PersonEntity): Long
 
