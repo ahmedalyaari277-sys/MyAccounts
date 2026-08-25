@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface LedgerDao {
-
     @Query("""
         SELECT * FROM people
         WHERE isActive = 1
@@ -26,11 +25,7 @@ interface LedgerDao {
     """)
     fun observePeople(query: String): Flow<List<PersonEntity>>
 
-    @Query("""
-        SELECT * FROM people
-        WHERE id = :personId
-        LIMIT 1
-    """)
+    @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")
     fun observePerson(personId: Long): Flow<PersonEntity?>
 
     @Transaction
@@ -42,15 +37,13 @@ interface LedgerDao {
                 SELECT MAX(t.createdAt)
                 FROM transactions t
                 INNER JOIN currency_accounts ca ON ca.id = t.accountId
-                WHERE ca.personId = people.id
-                  AND t.isArchived = 0
+                WHERE ca.personId = people.id AND t.isArchived = 0
             ) IS NULL THEN 0 ELSE 1 END DESC,
             (
                 SELECT MAX(t.createdAt)
                 FROM transactions t
                 INNER JOIN currency_accounts ca ON ca.id = t.accountId
-                WHERE ca.personId = people.id
-                  AND t.isArchived = 0
+                WHERE ca.personId = people.id AND t.isArchived = 0
             ) DESC,
             createdAt DESC,
             id DESC
@@ -58,21 +51,25 @@ interface LedgerDao {
     fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>>
 
     @Transaction
-    @Query("""
-        SELECT * FROM people
-        WHERE isActive = 0
-        ORDER BY name COLLATE NOCASE ASC
-    """)
+    @Query("SELECT * FROM people WHERE isActive = 0 ORDER BY name COLLATE NOCASE ASC")
     fun observeArchivedPersonsWithAccounts(): Flow<List<PersonWithAccounts>>
 
     @Transaction
-    @Query("""
-        SELECT * FROM people
-        WHERE id = :personId
-        AND isActive = 1
-        LIMIT 1
-    """)
+    @Query("SELECT * FROM people WHERE id = :personId AND isActive = 1 LIMIT 1")
     fun observePersonWithAccounts(personId: Long): Flow<PersonWithAccounts?>
+
+    @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")
+    suspend fun getPersonForArchive(personId: Long): PersonEntity?
+
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM people
+            WHERE isActive = 1
+              AND id != :excludedPersonId
+              AND name = :name COLLATE NOCASE
+        )
+    """)
+    suspend fun hasActivePersonWithName(name: String, excludedPersonId: Long): Boolean
 
     @Insert
     suspend fun insertPerson(person: PersonEntity): Long
@@ -83,41 +80,22 @@ interface LedgerDao {
     @Query("UPDATE people SET isActive = 0, archivedAt = :archivedAt WHERE id = :personId AND isActive = 1")
     suspend fun archivePerson(personId: Long, archivedAt: Long): Int
 
-    @Query("UPDATE people SET isActive = 1, archivedAt = NULL WHERE id = :personId")
+    @Query("UPDATE people SET isActive = 1, archivedAt = NULL WHERE id = :personId AND isActive = 0")
     suspend fun restorePerson(personId: Long): Int
 
-    @Query("SELECT archivedAt FROM people WHERE id = :personId LIMIT 1")
-    suspend fun getPersonArchivedAt(personId: Long): Long?
-
-    @Query("""
-        DELETE FROM people
-        WHERE id = :personId
-    """)
+    @Query("DELETE FROM people WHERE id = :personId")
     suspend fun permanentlyDeletePerson(personId: Long)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCurrencyAccounts(accounts: List<CurrencyAccountEntity>)
 
-    @Query("""
-        SELECT * FROM currency_accounts
-        WHERE personId = :personId
-        ORDER BY currencyCode ASC
-    """)
+    @Query("SELECT * FROM currency_accounts WHERE personId = :personId ORDER BY currencyCode ASC")
     fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>>
 
-    @Query("""
-        SELECT * FROM currency_accounts
-        WHERE id = :accountId
-        LIMIT 1
-    """)
+    @Query("SELECT * FROM currency_accounts WHERE id = :accountId LIMIT 1")
     fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?>
 
-    @Query("""
-        SELECT * FROM currency_accounts
-        WHERE personId = :personId
-        AND currencyCode = :currencyCode
-        LIMIT 1
-    """)
+    @Query("SELECT * FROM currency_accounts WHERE personId = :personId AND currencyCode = :currencyCode LIMIT 1")
     suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
 
     @Update
@@ -125,31 +103,17 @@ interface LedgerDao {
 
     @Query("""
         UPDATE currency_accounts
-        SET balanceMinor = :balanceMinor,
-            updatedAt = :updatedAt
+        SET balanceMinor = :balanceMinor, updatedAt = :updatedAt
         WHERE id = :accountId
     """)
-    suspend fun updateCurrencyBalance(
-        accountId: Long,
-        balanceMinor: Long,
-        updatedAt: Long = System.currentTimeMillis()
-    )
+    suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long, updatedAt: Long = System.currentTimeMillis())
 
     @Transaction
-    suspend fun insertPersonWithCurrencyAccounts(
-        person: PersonEntity,
-        currencyCodes: List<String>
-    ): Long {
+    suspend fun insertPersonWithCurrencyAccounts(person: PersonEntity, currencyCodes: List<String>): Long {
         val personId = insertPerson(person)
-        insertCurrencyAccounts(
-            currencyCodes.map { currencyCode ->
-                CurrencyAccountEntity(
-                    personId = personId,
-                    currencyCode = currencyCode,
-                    balanceMinor = 0L
-                )
-            }
-        )
+        insertCurrencyAccounts(currencyCodes.map { currencyCode ->
+            CurrencyAccountEntity(personId = personId, currencyCode = currencyCode, balanceMinor = 0L)
+        })
         return personId
     }
 }
