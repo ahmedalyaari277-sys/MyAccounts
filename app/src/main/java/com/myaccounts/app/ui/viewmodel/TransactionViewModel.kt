@@ -3,6 +3,7 @@ package com.myaccounts.app.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.ArchivedTransactionRow
@@ -60,7 +61,31 @@ class TransactionViewModel(
         }
     }
 
-    fun updateTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.updateTransaction(transaction) } }
+    fun updateTransaction(
+        transaction: TransactionEntity,
+        newAttachments: List<TransactionAttachmentStorage.SelectedAttachment> = emptyList(),
+        deletedAttachments: List<TransactionAttachmentEntity> = emptyList()
+    ) {
+        viewModelScope.launch {
+            var storedNew = emptyList<TransactionAttachmentEntity>()
+            try {
+                storedNew = TransactionAttachmentStorage.saveAttachments(application, transaction.id, newAttachments)
+                repository.updateTransactionWithAttachments(transaction, storedNew, deletedAttachments)
+                deletedAttachments.forEach { TransactionAttachmentStorage.deleteFile(application, it) }
+            } catch (error: Throwable) {
+                storedNew.forEach { TransactionAttachmentStorage.deleteFile(application, it) }
+                throw error
+            }
+        }
+    }
+
+    suspend fun getAccount(accountId: Long): CurrencyAccountEntity? = repository.getCurrencyAccountById(accountId)
+
+    suspend fun getAccountForCurrency(personId: Long, currencyCode: String): CurrencyAccountEntity? =
+        repository.getCurrencyAccount(personId, currencyCode)
+
+    suspend fun getPersonCurrencyAccounts(personId: Long): List<CurrencyAccountEntity> =
+        listOf("YER", "SAR", "USD").mapNotNull { repository.getCurrencyAccount(personId, it) }
 
     fun archiveTransaction(transaction: TransactionEntity) { viewModelScope.launch { repository.archiveTransaction(transaction.id) } }
     fun archiveTransactionById(transactionId: Long) { viewModelScope.launch { repository.archiveTransaction(transactionId) } }
