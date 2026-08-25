@@ -18,6 +18,7 @@ interface LedgerRepositoryContract {
     suspend fun deletePerson(personId: Long)
     suspend fun restorePerson(personId: Long)
     suspend fun permanentlyDeletePerson(personId: Long)
+    suspend fun clearArchive(): List<Long>
     suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
     suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long)
 }
