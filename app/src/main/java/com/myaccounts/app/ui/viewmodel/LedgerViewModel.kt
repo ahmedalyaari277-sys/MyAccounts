@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.repository.LedgerRepositoryContract
+import com.myaccounts.app.data.repository.RestorePersonResult
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,17 +27,13 @@ class LedgerViewModel(
     val personsWithAccounts: StateFlow<List<PersonWithAccounts>> = _personsWithAccounts.asStateFlow()
     private val _archivedPersonsWithAccounts = MutableStateFlow<List<PersonWithAccounts>>(emptyList())
     val archivedPersonsWithAccounts: StateFlow<List<PersonWithAccounts>> = _archivedPersonsWithAccounts.asStateFlow()
+    private val _restorePersonResult = MutableStateFlow<RestorePersonResult?>(null)
+    val restorePersonResult: StateFlow<RestorePersonResult?> = _restorePersonResult.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            searchQuery.flatMapLatest { query -> repository.observePeople(query) }.collect { _people.value = it }
-        }
-        viewModelScope.launch {
-            repository.observePersonsWithAccounts().collect { _personsWithAccounts.value = it }
-        }
-        viewModelScope.launch {
-            repository.observeArchivedPersonsWithAccounts().collect { _archivedPersonsWithAccounts.value = it }
-        }
+        viewModelScope.launch { searchQuery.flatMapLatest { query -> repository.observePeople(query) }.collect { _people.value = it } }
+        viewModelScope.launch { repository.observePersonsWithAccounts().collect { _personsWithAccounts.value = it } }
+        viewModelScope.launch { repository.observeArchivedPersonsWithAccounts().collect { _archivedPersonsWithAccounts.value = it } }
     }
 
     fun setSearchQuery(query: String) { searchQuery.value = query }
@@ -44,14 +41,7 @@ class LedgerViewModel(
     fun addPerson(name: String, phone: String = "", address: String = "", notes: String = "") {
         if (name.isBlank()) return
         viewModelScope.launch {
-            repository.insertPerson(
-                PersonEntity(
-                    name = name.trim(),
-                    phone = phone.trim(),
-                    address = address.trim(),
-                    notes = notes.trim()
-                )
-            )
+            repository.insertPerson(PersonEntity(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()))
         }
     }
 
@@ -59,42 +49,29 @@ class LedgerViewModel(
         if (name.isBlank()) return
         viewModelScope.launch {
             val currentPerson = _personsWithAccounts.value.firstOrNull { it.person.id == personId }?.person
-            if (currentPerson != null) {
-                repository.updatePerson(
-                    currentPerson.copy(
-                        name = name.trim(),
-                        phone = phone.trim(),
-                        address = address.trim(),
-                        notes = notes.trim()
-                    )
-                )
-            }
+            if (currentPerson != null) repository.updatePerson(currentPerson.copy(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()))
         }
     }
 
-    fun deletePerson(personId: Long) {
-        viewModelScope.launch { repository.deletePerson(personId) }
-    }
+    fun deletePerson(personId: Long) { viewModelScope.launch { repository.deletePerson(personId) } }
 
     fun restorePerson(personId: Long) {
-        viewModelScope.launch { repository.restorePerson(personId) }
+        viewModelScope.launch { _restorePersonResult.value = repository.restorePerson(personId) }
     }
+
+    fun clearRestorePersonResult() { _restorePersonResult.value = null }
 
     fun permanentlyDeletePerson(personId: Long) {
         viewModelScope.launch {
             val transactionIds = repository.permanentlyDeletePerson(personId)
-            transactionIds.forEach { transactionId ->
-                TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList())
-            }
+            transactionIds.forEach { transactionId -> TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList()) }
         }
     }
 
     fun clearArchive() {
         viewModelScope.launch {
             val transactionIds = repository.clearArchive()
-            transactionIds.forEach { transactionId ->
-                TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList())
-            }
+            transactionIds.forEach { transactionId -> TransactionAttachmentStorage.deleteTransactionFiles(application, transactionId, emptyList()) }
         }
     }
 }
