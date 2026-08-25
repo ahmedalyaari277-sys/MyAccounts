@@ -111,8 +111,8 @@ fun TransactionScreen(
         }
     }
 
-    val transactionContent: @Composable () -> Unit = {
-        Column(Modifier.fillMaxSize()) {
+    val transactionContent: @Composable (Modifier) -> Unit = { contentModifier ->
+        Column(contentModifier.fillMaxSize()) {
             if (availableAccounts.isNotEmpty()) {
                 currencySelector()
                 Spacer(Modifier.height(10.dp))
@@ -150,7 +150,7 @@ fun TransactionScreen(
     }
 
     if (embedded) {
-        transactionContent()
+        transactionContent(Modifier)
     } else {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -163,7 +163,7 @@ fun TransactionScreen(
             floatingActionButton = { FloatingActionButton(onClick = { showAddTransactionDialog = true }) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }
         ) { paddingValues ->
             Column(Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
-                transactionContent()
+                transactionContent(Modifier.weight(1f))
             }
         }
     }
