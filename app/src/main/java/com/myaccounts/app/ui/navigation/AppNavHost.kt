@@ -87,7 +87,8 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
                 onPermanentDelete = { viewModel.permanentlyDeletePerson(it) },
                 onPersonClick = { navController.navigate(Routes.archivedPerson(it)) },
                 onRestoreTransaction = { transactionViewModel.restoreTransaction(it) },
-                onPermanentDeleteTransaction = { transactionViewModel.permanentlyDeleteTransaction(it) }
+                onPermanentDeleteTransaction = { transactionViewModel.permanentlyDeleteTransaction(it) },
+                onClearArchive = { viewModel.clearArchive() }
             )
         }
         composable(Routes.ARCHIVED_PERSON, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
