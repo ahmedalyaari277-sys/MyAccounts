@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -24,14 +25,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Icon
 import com.myaccounts.app.util.ExcelDataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
 fun ExcelTransferControls() {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<ExcelDataManager.ImportPreview?>(null) }
@@ -44,7 +46,7 @@ fun ExcelTransferControls() {
         if (uri != null) {
             busy = true
             scope.launch(Dispatchers.IO) {
-                val result = ExcelDataManager.exportActive(LocalContextHolder.context, uri)
+                val result = ExcelDataManager.exportActive(context, uri)
                 busy = false
                 result.fold(
                     onSuccess = { summary ->
@@ -63,7 +65,7 @@ fun ExcelTransferControls() {
             pendingImportUri = uri
             busy = true
             scope.launch(Dispatchers.IO) {
-                val result = ExcelDataManager.previewImport(LocalContextHolder.context, uri)
+                val result = ExcelDataManager.previewImport(context, uri)
                 busy = false
                 result.fold(
                     onSuccess = { preview = it },
@@ -90,9 +92,7 @@ fun ExcelTransferControls() {
             Text("تصدير البيانات إلى Excel")
         }
         OutlinedButton(
-            onClick = {
-                importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE, "application/zip"))
-            },
+            onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE, "application/zip")) },
             enabled = !busy,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -128,7 +128,7 @@ fun ExcelTransferControls() {
                     pendingImportUri = null
                     busy = true
                     scope.launch(Dispatchers.IO) {
-                        val result = ExcelDataManager.import(LocalContextHolder.context, uri)
+                        val result = ExcelDataManager.import(context, uri)
                         busy = false
                         result.fold(
                             onSuccess = { summary ->
@@ -150,9 +150,4 @@ fun ExcelTransferControls() {
             confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
         )
     }
-}
-
-/** Context holder is initialized by the screen host before this composable is used. */
-private object LocalContextHolder {
-    lateinit var context: android.content.Context
 }
