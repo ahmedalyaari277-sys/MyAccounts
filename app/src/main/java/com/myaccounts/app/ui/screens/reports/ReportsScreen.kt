@@ -124,8 +124,8 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
                 }
             }
             result.fold(
-                { snackbar.showSnackbar("تعذر إنشاء التقرير.") },
-                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") }
+                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") },
+                { snackbar.showSnackbar("تعذر إنشاء التقرير.") }
             )
         }
     }
