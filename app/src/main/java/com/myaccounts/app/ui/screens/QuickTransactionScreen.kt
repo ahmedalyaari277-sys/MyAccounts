@@ -10,15 +10,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,12 +44,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.CalculatorButton
+import com.myaccounts.app.ui.components.CalculatorOverlay
 import com.myaccounts.app.ui.components.LocalCalculatorController
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
@@ -150,7 +151,10 @@ fun QuickTransactionScreen(
                 label = { Text("المبلغ") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
-                isError = amountError
+                isError = amountError,
+                trailingIcon = {
+                    CalculatorButton(onClick = calculatorController::open)
+                }
             )
             OutlinedTextField(
                 value = dateText,
@@ -265,6 +269,34 @@ fun QuickTransactionScreen(
                 modifier = Modifier.weight(1f)
             ) { Text("حفظ", fontWeight = FontWeight.Bold) }
             OutlinedButton(onClick = { keyboardController?.hide(); onCancel() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
+        }
+    }
+
+    if (calculatorController.isOpen) {
+        Dialog(
+            onDismissRequest = calculatorController::close,
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .imePadding(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+            ) {
+                CalculatorOverlay(
+                    expression = calculatorController.expression,
+                    result = calculatorController.result.orEmpty(),
+                    onKey = calculatorController::press,
+                    onClear = calculatorController::clear,
+                    onBackspace = calculatorController::backspace,
+                    onDismiss = calculatorController::close,
+                    onUseResult = calculatorController::useResult
+                )
+            }
         }
     }
 }
