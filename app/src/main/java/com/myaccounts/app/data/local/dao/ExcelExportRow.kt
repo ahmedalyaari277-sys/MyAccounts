@@ -1,6 +1,7 @@
 package com.myaccounts.app.data.local.dao
 
 import androidx.room.ColumnInfo
+import com.myaccounts.app.data.local.TransactionType
 
 /** One active person/account/transaction row for the one-sheet Excel exchange format. */
 data class ExcelExportRow(
@@ -11,7 +12,7 @@ data class ExcelExportRow(
     @ColumnInfo(name = "address") val address: String,
     @ColumnInfo(name = "notes") val notes: String,
     @ColumnInfo(name = "currencyCode") val currencyCode: String,
-    @ColumnInfo(name = "transactionType") val transactionType: String?,
+    @ColumnInfo(name = "transactionType") val transactionType: TransactionType?,
     @ColumnInfo(name = "amountMinor") val amountMinor: Long?,
     @ColumnInfo(name = "description") val description: String?,
     @ColumnInfo(name = "transactionDate") val transactionDate: Long?
