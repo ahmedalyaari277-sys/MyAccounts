@@ -3,6 +3,7 @@ package com.myaccounts.app.data.local
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import java.util.UUID
 
 @Entity(
     tableName = "people",
@@ -10,7 +11,8 @@ import androidx.room.Index
         Index(value = ["name"]),
         Index(value = ["phone"]),
         Index(value = ["isActive"]),
-        Index(value = ["archivedAt"])
+        Index(value = ["archivedAt"]),
+        Index(value = ["externalId"], unique = true)
     ]
 )
 data class PersonEntity(
@@ -22,7 +24,8 @@ data class PersonEntity(
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val isActive: Boolean = true,
-    val archivedAt: Long? = null
+    val archivedAt: Long? = null,
+    val externalId: String = "P-${UUID.randomUUID()}"
 )
 
 @Entity(
