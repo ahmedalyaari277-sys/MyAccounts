@@ -2,11 +2,25 @@ name: M-04 Excel Import Export Emulator Test
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/data/local/**'
+      - 'app/src/main/java/com/myaccounts/app/util/ExcelDataManager.kt'
+      - 'app/src/main/java/com/myaccounts/app/util/DatabaseBackupManager.kt'
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt'
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/ExcelTransferControls.kt'
+      - 'app/src/androidTest/java/com/myaccounts/app/excel/**'
+      - 'app/build.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '.github/workflows/m04-excel-import-export-emulator-test.yml'
   push:
     branches: [main]
     paths:
       - 'app/src/main/java/com/myaccounts/app/data/local/**'
       - 'app/src/main/java/com/myaccounts/app/util/ExcelDataManager.kt'
+      - 'app/src/main/java/com/myaccounts/app/util/DatabaseBackupManager.kt'
       - 'app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt'
       - 'app/src/main/java/com/myaccounts/app/ui/screens/ExcelTransferControls.kt'
       - 'app/src/androidTest/java/com/myaccounts/app/excel/**'
