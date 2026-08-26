@@ -1,0 +1,47 @@
+name: M-02 Report Emulator Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/m02-report-emulator.yml'
+      - 'app/src/androidTest/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/reports/**'
+      - 'app/src/main/java/com/myaccounts/app/util/*Report*'
+      - 'app/src/main/java/com/myaccounts/app/util/ReportShareUtil.kt'
+
+jobs:
+  report-emulator-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Run M-02 report tests on Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Pixel_2
+          script: ./gradlew :app:connectedDebugAndroidTest --tests com.myaccounts.app.ReportExportInstrumentedTest --stacktrace
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m02-report-emulator-results
+          path: |
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+          if-no-files-found: warn
