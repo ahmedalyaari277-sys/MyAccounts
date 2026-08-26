@@ -59,6 +59,7 @@ class BackupRestoreInstrumentedTest {
         backupUri = createBackupUri("m03_restore_${System.currentTimeMillis()}.myaccounts")
         val createResult = DatabaseBackupManager.createBackup(context, backupUri!!)
         assertTrue("Backup creation failed: ${createResult.exceptionOrNull()}", createResult.isSuccess)
+        publishBackupUri(backupUri!!)
         assertTrue("Backup file is empty", backupSize(backupUri!!) > 0L)
 
         db.execSQL("UPDATE people SET name=? WHERE id=?", arrayOf("بيانات معدلة", 910001L))
@@ -102,15 +103,17 @@ class BackupRestoreInstrumentedTest {
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/MyAccounts")
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
-        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        return context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
             ?: error("Could not create MediaStore backup URI")
+    }
+
+    private fun publishBackupUri(uri: Uri) {
         context.contentResolver.update(
             uri,
             ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) },
             null,
             null
         )
-        return uri
     }
 
     private fun backupSize(uri: Uri): Long {
