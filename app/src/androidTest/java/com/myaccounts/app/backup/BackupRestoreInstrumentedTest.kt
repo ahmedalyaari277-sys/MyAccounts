@@ -9,8 +9,8 @@ import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.local.AppDatabase
@@ -123,16 +123,14 @@ class BackupRestoreInstrumentedTest {
         )
         assertTrue("MyAccounts did not become visible", ui.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
 
-        val backupButton = ui.wait(Until.findObject(By.desc("النسخ الاحتياطي والاستعادة")), 10_000)
-            ?: error("Backup/restore button was not found on the phone UI")
-        backupButton.click()
+        clickFresh(ui, By.desc("النسخ الاحتياطي والاستعادة"), "Backup/restore button")
 
         assertTrue(
             "Backup restore screen did not open",
             ui.wait(Until.hasObject(By.text("استعادة نسخة احتياطية")), 10_000)
         )
 
-        ui.findObject(By.text("استعادة نسخة احتياطية")).click()
+        clickFresh(ui, By.text("استعادة نسخة احتياطية"), "Restore backup button")
 
         assertTrue(
             "Android system file picker did not open",
@@ -144,7 +142,7 @@ class BackupRestoreInstrumentedTest {
             "Restore confirmation dialog did not appear",
             ui.wait(Until.hasObject(By.text("تأكيد الاستعادة")), 10_000)
         )
-        ui.findObject(By.text("استعادة")).click()
+        clickFresh(ui, By.text("استعادة"), "Restore confirmation button")
 
         assertTrue(
             "Restore success dialog did not appear",
@@ -247,72 +245,95 @@ class BackupRestoreInstrumentedTest {
     private fun selectBackupFromDocumentsUi(ui: UiDevice, fileName: String) {
         ui.waitForIdle()
 
-        // Open the DocumentsUI roots drawer. The picker commonly starts in Recent,
-        // where Downloads is not visible as a list item.
-        val rootsButton = firstVisible(
+        val rootsSelector = firstMatchingSelector(
             ui,
             By.desc("Show roots"),
             By.desc("Show roots drawer"),
             By.res("com.google.android.documentsui:id/toolbar_nav_button")
         )
-        rootsButton?.click()
-        ui.waitForIdle()
+        if (rootsSelector != null) {
+            clickFresh(ui, rootsSelector, "DocumentsUI roots button")
+            ui.waitForIdle()
+        }
 
-        val downloadsRoot = firstVisible(
+        val downloadsSelector = firstMatchingSelector(
             ui,
             By.text("Downloads"),
             By.textContains("Downloads")
         )
-        downloadsRoot?.click()
-        ui.waitForIdle()
-
-        // The backup is deliberately stored in Downloads/MyAccounts. Navigate to
-        // that directory through the real picker rather than assuming the current root.
-        val myAccountsFolder = ui.wait(Until.findObject(By.text("MyAccounts")), 7_000)
-        if (myAccountsFolder != null) {
-            myAccountsFolder.click()
-            ui.waitForIdle()
+        if (downloadsSelector != null) {
+            clickFresh(ui, downloadsSelector, "Downloads root")
+            waitForDocumentsUiToSettle(ui)
         }
 
-        var target = ui.wait(Until.findObject(By.text(fileName)), 7_000)
-        if (target == null) {
-            // Some DocumentsUI layouts render the file as a content description or
-            // combine the name with metadata. Try the exact name through both paths.
-            target = ui.findObject(By.textContains(fileName))
+        val folderSelector = firstMatchingSelector(
+            ui,
+            By.text("MyAccounts"),
+            By.textContains("MyAccounts")
+        )
+        if (folderSelector != null) {
+            clickFresh(ui, folderSelector, "MyAccounts folder")
+            waitForDocumentsUiToSettle(ui)
         }
 
-        if (target == null) {
-            // As a final UI-only fallback, use DocumentsUI's search action and enter
-            // the exact filename. No URI is injected into the application.
-            val searchButton = firstVisible(
+        var fileSelector = firstMatchingSelector(
+            ui,
+            By.text(fileName),
+            By.textContains(fileName)
+        )
+
+        if (fileSelector == null) {
+            val searchSelector = firstMatchingSelector(
                 ui,
                 By.desc("Search"),
                 By.res("com.google.android.documentsui:id/option_menu_search")
             )
-            if (searchButton != null) {
-                searchButton.click()
-                ui.waitForIdle()
+            if (searchSelector != null) {
+                clickFresh(ui, searchSelector, "DocumentsUI search button")
+                waitForDocumentsUiToSettle(ui)
+
                 val searchField = ui.wait(
                     Until.findObject(By.res("com.google.android.documentsui:id/toolbar_search")),
                     3_000
                 ) ?: ui.findObject(By.clazz("android.widget.EditText"))
+
                 if (searchField != null) {
                     searchField.text = fileName
-                    ui.waitForIdle()
-                    target = ui.wait(Until.findObject(By.text(fileName)), 7_000)
-                        ?: ui.findObject(By.textContains(fileName))
+                    waitForDocumentsUiToSettle(ui)
+                    fileSelector = firstMatchingSelector(
+                        ui,
+                        By.text(fileName),
+                        By.textContains(fileName)
+                    )
                 }
             }
         }
 
-        target?.click() ?: error("Backup file '$fileName' was not selectable in Android DocumentsUI")
+        val selector = fileSelector ?: error(
+            "Backup file '$fileName' was not selectable in Android DocumentsUI"
+        )
+        // Re-query immediately before the click. A DocumentsUI refresh can invalidate
+        // a previously returned UiObject2 and cause StaleObjectException.
+        clickFresh(ui, selector, "Backup file '$fileName'")
     }
 
-    private fun firstVisible(ui: UiDevice, vararg selectors: androidx.test.uiautomator.BySelector): UiObject2? {
+    private fun firstMatchingSelector(ui: UiDevice, vararg selectors: BySelector): BySelector? {
         for (selector in selectors) {
-            val object2 = ui.findObject(selector)
-            if (object2 != null) return object2
+            if (ui.findObject(selector) != null) return selector
         }
         return null
+    }
+
+    private fun clickFresh(ui: UiDevice, selector: BySelector, description: String) {
+        val object2 = ui.wait(Until.findObject(selector), 7_000)
+            ?: error("$description was not found")
+        object2.click()
+        ui.waitForIdle()
+    }
+
+    private fun waitForDocumentsUiToSettle(ui: UiDevice) {
+        ui.waitForIdle()
+        Thread.sleep(300)
+        ui.waitForIdle()
     }
 }
