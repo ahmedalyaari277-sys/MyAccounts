@@ -1,0 +1,81 @@
+name: M-04 Excel Import Export Emulator Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/data/local/**'
+      - 'app/src/main/java/com/myaccounts/app/util/ExcelDataManager.kt'
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt'
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/ExcelTransferControls.kt'
+      - 'app/src/androidTest/java/com/myaccounts/app/excel/**'
+      - 'app/build.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '.github/workflows/m04-excel-import-export-emulator-test.yml'
+
+jobs:
+  m04-excel-import-export-emulator-test:
+    name: M-04 Excel import/export on emulator
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Verify Gradle project and M-04 sources
+        run: |
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f app/build.gradle.kts
+          test -f app/src/main/java/com/myaccounts/app/util/ExcelDataManager.kt
+          test -f app/src/androidTest/java/com/myaccounts/app/excel/ExcelImportExportInstrumentedTest.kt
+          gradle --version
+
+      - name: Enable KVM for Android Emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Run M-04 Excel tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          avd-name: m04-test
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          disable-linux-hw-accel: false
+          pre-emulator-launch-script: adb start-server
+          script: |
+            cd "$GITHUB_WORKSPACE"
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.excel.ExcelImportExportInstrumentedTest --no-daemon --stacktrace
+
+      - name: Upload M-04 instrumented test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m04-excel-import-export-emulator-results
+          path: |
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+          if-no-files-found: warn
