@@ -30,6 +30,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :transactionId LIMIT 1")
     suspend fun getTransaction(transactionId: Long): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE externalId = :externalId LIMIT 1")
+    suspend fun getTransactionByExternalId(externalId: String): TransactionEntity?
+
     @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId")
     fun observeBalance(accountId: Long): Flow<Long>
 

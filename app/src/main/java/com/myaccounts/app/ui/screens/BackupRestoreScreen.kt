@@ -100,10 +100,7 @@ fun BackupRestoreScreen(
     ) { uri ->
         if (uri != null) {
             try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 syncFolderUri = uri
                 preferences.edit().putString(SYNC_FOLDER_URI, uri.toString()).apply()
                 message = "تم حفظ مجلد المزامنة. يمكنك اختيار مجلد داخل Google Drive ثم الضغط على مزامنة الآن."
@@ -113,9 +110,7 @@ fun BackupRestoreScreen(
         }
     }
 
-    val openDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) pendingRestoreUri = uri
     }
 
@@ -187,29 +182,20 @@ fun BackupRestoreScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (lastBackupUri != null) {
-            snackbarHostState.showSnackbar("يمكنك إنشاء نسخة جديدة أو مزامنتها يدويًا أو إرسالها بالبريد.")
-        }
+        if (lastBackupUri != null) snackbarHostState.showSnackbar("يمكنك إنشاء نسخة جديدة أو مزامنتها يدويًا أو إرسالها بالبريد.")
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("النسخ الاحتياطي والمزامنة") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع")
-                    }
-                }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -219,6 +205,8 @@ fun BackupRestoreScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(Modifier.height(16.dp))
+            ExcelTransferControls()
             Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(
@@ -230,80 +218,28 @@ fun BackupRestoreScreen(
                 placeholder = { Text("example@email.com") },
                 supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
             )
-
             Spacer(Modifier.height(12.dp))
-
-            Button(
-                onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Backup, null)
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("إنشاء نسخة احتياطية")
+            Button(onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Backup, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("إنشاء نسخة احتياطية")
             }
-
             Spacer(Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = { syncNow() },
-                enabled = !busy && syncFolderUri != null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.CloudUpload, null)
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("مزامنة الآن")
+            OutlinedButton(onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.CloudUpload, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("مزامنة الآن")
             }
-
-            OutlinedButton(
-                onClick = { syncFolderLauncher.launch(null) },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Folder, null)
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text(if (syncFolderUri == null) "اختيار مجلد المزامنة" else "تغيير مجلد المزامنة")
+            OutlinedButton(onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Folder, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text(if (syncFolderUri == null) "اختيار مجلد المزامنة" else "تغيير مجلد المزامنة")
             }
-
             Spacer(Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = { sendBackupByEmail() },
-                enabled = !busy && lastBackupUri != null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Email, null)
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("إرسال النسخة الاحتياطية بالبريد")
+            OutlinedButton(onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Email, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("إرسال النسخة الاحتياطية بالبريد")
             }
-
-            OutlinedButton(
-                onClick = { shareBackup() },
-                enabled = !busy && lastBackupUri != null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Share, null)
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("مشاركة النسخة الاحتياطية")
+            OutlinedButton(onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Share, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("مشاركة النسخة الاحتياطية")
             }
-
-            OutlinedButton(
-                onClick = {
-                    security.markExternalActivityPending()
-                    openDocumentLauncher.launch(arrayOf("*/*"))
-                },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Restore, null)
-                Spacer(Modifier.padding(horizontal = 4.dp))
-                Text("استعادة نسخة احتياطية")
+            OutlinedButton(onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Restore, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("استعادة نسخة احتياطية")
             }
-
-            if (busy) {
-                Spacer(Modifier.height(18.dp))
-                CircularProgressIndicator()
-            }
+            if (busy) { Spacer(Modifier.height(18.dp)); CircularProgressIndicator() }
         }
     }
 
@@ -313,30 +249,24 @@ fun BackupRestoreScreen(
             title = { Text("تأكيد الاستعادة") },
             text = { Text("سيتم استبدال البيانات الحالية بالبيانات الموجودة في النسخة الاحتياطية، بما فيها المرفقات. هل تريد المتابعة؟") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRestoreUri = null
-                        busy = true
-                        scope.launch(Dispatchers.IO) {
-                            val result = DatabaseBackupManager.restoreBackup(context, uri)
-                            busy = false
-                            message = result.fold(
-                                onSuccess = { "تمت استعادة النسخة الاحتياطية والمرفقات بنجاح." },
-                                onFailure = { "تعذر استعادة النسخة الاحتياطية: ${it.message ?: "الملف غير صالح"}" }
-                            )
-                        }
+                TextButton(onClick = {
+                    pendingRestoreUri = null
+                    busy = true
+                    scope.launch(Dispatchers.IO) {
+                        val result = DatabaseBackupManager.restoreBackup(context, uri)
+                        busy = false
+                        message = result.fold(
+                            onSuccess = { "تمت استعادة النسخة الاحتياطية والمرفقات بنجاح." },
+                            onFailure = { "تعذر استعادة النسخة الاحتياطية: ${it.message ?: "الملف غير صالح"}" }
+                        )
                     }
-                ) { Text("استعادة") }
+                }) { Text("استعادة") }
             },
             dismissButton = { TextButton(onClick = { pendingRestoreUri = null }) { Text("إلغاء") } }
         )
     }
 
     message?.let { text ->
-        AlertDialog(
-            onDismissRequest = { message = null },
-            text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
-        )
+        AlertDialog(onDismissRequest = { message = null }, text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } })
     }
 }

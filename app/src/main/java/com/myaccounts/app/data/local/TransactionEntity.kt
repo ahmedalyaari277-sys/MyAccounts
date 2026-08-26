@@ -3,6 +3,7 @@ package com.myaccounts.app.data.local
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import java.util.UUID
 
 @Entity(
     tableName = "transactions",
@@ -18,7 +19,8 @@ import androidx.room.Index
     indices = [
         Index(value = ["accountId"]),
         Index(value = ["transactionDate"]),
-        Index(value = ["type"])
+        Index(value = ["type"]),
+        Index(value = ["externalId"], unique = true)
     ]
 )
 data class TransactionEntity(
@@ -29,7 +31,8 @@ data class TransactionEntity(
     val amountMinor: Long,
     val description: String = "",
     val transactionDate: Long,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val externalId: String = "T-${UUID.randomUUID()}"
 )
 
 enum class TransactionType {
