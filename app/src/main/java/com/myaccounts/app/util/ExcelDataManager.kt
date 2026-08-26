@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Xml
 import androidx.room.withTransaction
 import com.myaccounts.app.data.local.AppDatabase
-import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
@@ -89,12 +88,11 @@ object ExcelDataManager {
         val preview = validateRows(rows, db)
         check(preview.isValid) { preview.errors.joinToString("\n") }
 
-        db.withTransaction {
+        db.withSynchronousTransaction {
             var peopleAdded = 0
             var accountsAdded = 0
             var transactionsAdded = 0
             var skippedDuplicates = 0
-            val personIds = mutableMapOf<String, Long>()
             val accountIds = mutableMapOf<String, Long>()
 
             rows.forEach { row ->
@@ -116,13 +114,19 @@ object ExcelDataManager {
                         newId
                     }
                 }
-                personIds[row.personExternalId] = personId
 
                 val accountKey = row.personExternalId + "|" + row.currencyCode
-                val accountId = accountIds[accountKey] ?: db.ledgerDao().getCurrencyAccount(personId, row.currencyCode)?.id
-                    ?: db.ledgerDao().insertCurrencyAccount(
-                        CurrencyAccountEntity(personId = personId, currencyCode = row.currencyCode)
-                    ).also { accountsAdded++ }
+                val existingAccount = accountIds[accountKey]
+                    ?: db.ledgerDao().getCurrencyAccount(personId, row.currencyCode)?.id
+                val accountId = existingAccount ?: run {
+                    db.ledgerDao().insertCurrencyAccounts(
+                        listOf(com.myaccounts.app.data.local.CurrencyAccountEntity(personId = personId, currencyCode = row.currencyCode))
+                    )
+                    val insertedId = db.ledgerDao().getCurrencyAccount(personId, row.currencyCode)?.id
+                        ?: error("تعذر إنشاء حساب العملة في الصف ${row.rowNumber}.")
+                    accountsAdded++
+                    insertedId
+                }
                 accountIds[accountKey] = accountId
 
                 if (row.transactionExternalId.isNotBlank()) {
@@ -409,7 +413,7 @@ object ExcelDataManager {
             <fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts>
             <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
             <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-            <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+            <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellStyleXfs>
             <cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/></cellXfs>
         </styleSheet>
     """.trimIndent()
