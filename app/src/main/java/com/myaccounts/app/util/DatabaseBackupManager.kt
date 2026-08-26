@@ -321,27 +321,25 @@ object DatabaseBackupManager {
     private fun restoreExistingFiles(context: Context, backupDirectory: File) {
         if (!backupDirectory.isDirectory) return
         backupDirectory.walkTopDown().filter { it.isFile }.forEach { backup ->
-            val relative = backup.relativeTo(backupDirectory).path.replace(File.separatorChar, '/')
-            val destination = File(context.filesDir, relative)
+            val relativePath = backup.relativeTo(backupDirectory).path.replace(File.separatorChar, '/')
+            val destination = File(context.filesDir, safeZipPath(relativePath))
             destination.parentFile?.mkdirs()
             backup.copyTo(destination, overwrite = true)
         }
     }
 
     private fun restoreIntoDatabase(db: SupportSQLiteDatabase, backup: JSONObject) {
-        val version = backup.optInt("formatVersion", LEGACY_FORMAT_VERSION)
-        db.execSQL("DELETE FROM transaction_attachments")
-        db.execSQL("DELETE FROM transactions")
-        db.execSQL("DELETE FROM currency_accounts")
-        db.execSQL("DELETE FROM people")
+        db.delete("transaction_attachments", null, null)
+        db.delete("transactions", null, null)
+        db.delete("currency_accounts", null, null)
+        db.delete("people", null, null)
 
         val people = backup.getJSONArray("people")
         for (i in 0 until people.length()) {
             val p = people.getJSONObject(i)
-            val archivedAt = if (version >= FORMAT_VERSION && !p.isNull("archivedAt")) p.getLong("archivedAt") else null
             db.execSQL(
                 "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt) VALUES (?,?,?,?,?,?,?,?)",
-                arrayOf(p.getLong("id"), p.getString("name"), p.optString("phone"), p.optString("address"), p.optString("notes"), p.getLong("createdAt"), if (p.getBoolean("isActive")) 1 else 0, archivedAt)
+                arrayOf(p.getLong("id"), p.getString("name"), p.optString("phone", ""), p.optString("address", ""), p.optString("notes", ""), p.getLong("createdAt"), if (p.getBoolean("isActive")) 1 else 0, if (p.isNull("archivedAt")) null else p.getLong("archivedAt"))
             )
         }
 
@@ -358,11 +356,12 @@ object DatabaseBackupManager {
         for (i in 0 until transactions.length()) {
             val t = transactions.getJSONObject(i)
             db.execSQL(
-                "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,isArchived) VALUES (?,?,?,?,?,?,?,0)",
+                "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt) VALUES (?,?,?,?,?,?,?)",
                 arrayOf(t.getLong("id"), t.getLong("accountId"), t.getString("type"), t.getLong("amountMinor"), t.getString("description"), t.getLong("transactionDate"), t.getLong("createdAt"))
             )
         }
 
+        val version = backup.optInt("formatVersion", FORMAT_VERSION)
         if (version >= PREVIOUS_FORMAT_VERSION) {
             val attachments = backup.optJSONArray("attachments") ?: JSONArray()
             for (i in 0 until attachments.length()) {
