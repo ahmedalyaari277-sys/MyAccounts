@@ -1,9 +1,17 @@
 name: M-03 Backup Restore Emulator Test
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/util/DatabaseBackupManager.kt'
+      - 'app/src/main/java/com/myaccounts/app/data/local/**'
+      - 'app/src/androidTest/java/com/myaccounts/app/backup/**'
+      - 'app/build.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '.github/workflows/m03-backup-restore-emulator-test.yml'
 
 jobs:
   m03-backup-restore-emulator-test:
@@ -25,7 +33,7 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Verify Gradle project
+      - name: Verify Gradle project and test source
         run: |
           test -f settings.gradle.kts
           test -f build.gradle.kts
@@ -57,7 +65,7 @@ jobs:
           pre-emulator-launch-script: adb start-server
           script: |
             cd "$GITHUB_WORKSPACE"
-            gradle :app:connectedDebugAndroidTest --tests com.myaccounts.app.backup.BackupRestoreInstrumentedTest --no-daemon --stacktrace
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.backup.BackupRestoreInstrumentedTest --no-daemon --stacktrace
 
       - name: Upload M-03 instrumented test results
         if: always()
