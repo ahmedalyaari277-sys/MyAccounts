@@ -34,8 +34,8 @@ fun CalculatorHost(
             }
         } else {
             Box(
-                modifier = Modifier.fillMaxSize().imePadding().padding(end = 12.dp, bottom = 12.dp),
-                contentAlignment = Alignment.BottomEnd
+                modifier = Modifier.fillMaxSize().imePadding().padding(start = 12.dp, bottom = 12.dp),
+                contentAlignment = Alignment.BottomStart
             ) {
                 CalculatorButton(onClick = controller::open)
             }
