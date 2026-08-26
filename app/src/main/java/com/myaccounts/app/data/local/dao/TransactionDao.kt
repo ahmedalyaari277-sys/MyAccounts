@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertTransaction(transaction: TransactionEntity): Long
+    fun insertTransaction(transaction: TransactionEntity): Long
 
     @Update
     suspend fun updateTransaction(transaction: TransactionEntity)
@@ -28,19 +28,19 @@ interface TransactionDao {
     suspend fun getTransactions(accountId: Long): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE id = :transactionId LIMIT 1")
-    suspend fun getTransaction(transactionId: Long): TransactionEntity?
+    fun getTransaction(transactionId: Long): TransactionEntity?
 
     @Query("SELECT * FROM transactions WHERE externalId = :externalId LIMIT 1")
-    suspend fun getTransactionByExternalId(externalId: String): TransactionEntity?
+    fun getTransactionByExternalId(externalId: String): TransactionEntity?
 
     @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId")
     fun observeBalance(accountId: Long): Flow<Long>
 
     @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId")
-    suspend fun getBalance(accountId: Long): Long
+    fun getBalance(accountId: Long): Long
 
     @Query("UPDATE currency_accounts SET balanceMinor = :balanceMinor WHERE id = :accountId")
-    suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long)
+    fun updateCurrencyBalance(accountId: Long, balanceMinor: Long)
 
     @Delete
     suspend fun deleteTransaction(transaction: TransactionEntity)
@@ -64,13 +64,13 @@ interface TransactionDao {
     suspend fun insertPerson(person: PersonEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertCurrencyAccount(account: CurrencyAccountEntity): Long
+    fun insertCurrencyAccount(account: CurrencyAccountEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransactionAttachment(attachment: TransactionAttachmentEntity): Long
 
     @Transaction
-    suspend fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
+    fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
         val transactionId = insertTransaction(transaction)
         recalculateBalance(transaction.accountId)
         return transactionId
@@ -80,24 +80,34 @@ interface TransactionDao {
     suspend fun updateTransactionAndUpdateBalance(transaction: TransactionEntity) {
         val previousTransaction = getTransaction(transaction.id)
         updateTransaction(transaction)
-        previousTransaction?.let { if (it.accountId != transaction.accountId) recalculateBalance(it.accountId) }
-        recalculateBalance(transaction.accountId)
+        previousTransaction?.let { if (it.accountId != transaction.accountId) recalculateBalanceSuspend(it.accountId) }
+        recalculateBalanceSuspend(transaction.accountId)
     }
 
     @Transaction
     suspend fun deleteTransactionAndUpdateBalance(transaction: TransactionEntity) {
         deleteTransaction(transaction)
-        recalculateBalance(transaction.accountId)
+        recalculateBalanceSuspend(transaction.accountId)
     }
 
     @Transaction
     suspend fun deleteTransactionByIdAndUpdateBalance(transactionId: Long) {
         val transaction = getTransaction(transactionId)
         deleteTransactionById(transactionId)
-        transaction?.let { recalculateBalance(it.accountId) }
+        transaction?.let { recalculateBalanceSuspend(it.accountId) }
     }
 
-    private suspend fun recalculateBalance(accountId: Long) {
+    private fun recalculateBalance(accountId: Long) {
         updateCurrencyBalance(accountId, getBalance(accountId))
     }
+
+    private suspend fun recalculateBalanceSuspend(accountId: Long) {
+        updateCurrencyBalanceSuspend(accountId, getBalanceSuspend(accountId))
+    }
+
+    @Query("SELECT COALESCE(SUM(CASE WHEN type = 'RECEIVABLE' THEN amountMinor WHEN type = 'PAYABLE' THEN -amountMinor ELSE 0 END),0) FROM transactions WHERE accountId = :accountId")
+    suspend fun getBalanceSuspend(accountId: Long): Long
+
+    @Query("UPDATE currency_accounts SET balanceMinor = :balanceMinor WHERE id = :accountId")
+    suspend fun updateCurrencyBalanceSuspend(accountId: Long, balanceMinor: Long)
 }
