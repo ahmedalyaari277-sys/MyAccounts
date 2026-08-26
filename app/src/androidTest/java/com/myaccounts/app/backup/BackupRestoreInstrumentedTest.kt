@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.local.AppDatabase
@@ -244,25 +245,74 @@ class BackupRestoreInstrumentedTest {
     }
 
     private fun selectBackupFromDocumentsUi(ui: UiDevice, fileName: String) {
-        var target = ui.wait(Until.findObject(By.text(fileName)), 5_000)
-        if (target == null) {
-            val downloads = ui.findObject(By.text("Downloads"))
-            if (downloads != null) downloads.click()
+        ui.waitForIdle()
+
+        // Open the DocumentsUI roots drawer. The picker commonly starts in Recent,
+        // where Downloads is not visible as a list item.
+        val rootsButton = firstVisible(
+            ui,
+            By.desc("Show roots"),
+            By.desc("Show roots drawer"),
+            By.res("com.google.android.documentsui:id/toolbar_nav_button")
+        )
+        rootsButton?.click()
+        ui.waitForIdle()
+
+        val downloadsRoot = firstVisible(
+            ui,
+            By.text("Downloads"),
+            By.textContains("Downloads")
+        )
+        downloadsRoot?.click()
+        ui.waitForIdle()
+
+        // The backup is deliberately stored in Downloads/MyAccounts. Navigate to
+        // that directory through the real picker rather than assuming the current root.
+        val myAccountsFolder = ui.wait(Until.findObject(By.text("MyAccounts")), 7_000)
+        if (myAccountsFolder != null) {
+            myAccountsFolder.click()
             ui.waitForIdle()
-            val folder = ui.wait(Until.findObject(By.text("MyAccounts")), 5_000)
-            if (folder != null) {
-                folder.click()
-                ui.waitForIdle()
-            }
-            target = ui.wait(Until.findObject(By.text(fileName)), 5_000)
         }
+
+        var target = ui.wait(Until.findObject(By.text(fileName)), 7_000)
         if (target == null) {
-            val list = ui.findObject(By.res("com.google.android.documentsui:id/dir_list"))
-            if (list != null) {
-                ui.swipe(ui.displayWidth / 2, ui.displayHeight * 3 / 4, ui.displayWidth / 2, ui.displayHeight / 4, 20)
-                target = ui.wait(Until.findObject(By.text(fileName)), 5_000)
+            // Some DocumentsUI layouts render the file as a content description or
+            // combine the name with metadata. Try the exact name through both paths.
+            target = ui.findObject(By.textContains(fileName))
+        }
+
+        if (target == null) {
+            // As a final UI-only fallback, use DocumentsUI's search action and enter
+            // the exact filename. No URI is injected into the application.
+            val searchButton = firstVisible(
+                ui,
+                By.desc("Search"),
+                By.res("com.google.android.documentsui:id/option_menu_search")
+            )
+            if (searchButton != null) {
+                searchButton.click()
+                ui.waitForIdle()
+                val searchField = ui.wait(
+                    Until.findObject(By.res("com.google.android.documentsui:id/toolbar_search")),
+                    3_000
+                ) ?: ui.findObject(By.clazz("android.widget.EditText"))
+                if (searchField != null) {
+                    searchField.text = fileName
+                    ui.waitForIdle()
+                    target = ui.wait(Until.findObject(By.text(fileName)), 7_000)
+                        ?: ui.findObject(By.textContains(fileName))
+                }
             }
         }
+
         target?.click() ?: error("Backup file '$fileName' was not selectable in Android DocumentsUI")
+    }
+
+    private fun firstVisible(ui: UiDevice, vararg selectors: androidx.test.uiautomator.BySelector): UiObject2? {
+        for (selector in selectors) {
+            val object2 = ui.findObject(selector)
+            if (object2 != null) return object2
+        }
+        return null
     }
 }
