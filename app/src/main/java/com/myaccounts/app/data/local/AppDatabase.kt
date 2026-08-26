@@ -32,13 +32,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun archiveDao(): ArchiveDao
     abstract fun reportDao(): ReportDao
 
-    /**
-     * Synchronous transaction bridge used only by the Excel import path, which is
-     * deliberately executed from Dispatchers.IO. Room's synchronous transaction
-     * API is required because the existing ExcelDataManager API is synchronous.
-     */
-    fun <R> withTransaction(block: () -> R): R = runInTransaction(block)
-
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
