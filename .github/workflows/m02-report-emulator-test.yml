@@ -54,7 +54,7 @@ jobs:
           pre-emulator-launch-script: adb start-server
           script: |
             cd "$GITHUB_WORKSPACE"
-            gradle connectedDebugAndroidTest --no-daemon --stacktrace --tests com.myaccounts.app.reports.ReportExportInstrumentedTest
+            gradle :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
       - name: Upload instrumented test results
         if: always()
