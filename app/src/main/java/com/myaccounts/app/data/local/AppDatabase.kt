@@ -13,6 +13,7 @@ import com.myaccounts.app.data.local.dao.LedgerDao
 import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
 import com.myaccounts.app.data.reports.ReportDao
+import java.util.concurrent.Callable
 
 @Database(
     entities = [
@@ -31,6 +32,13 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionAttachmentDao(): TransactionAttachmentDao
     abstract fun archiveDao(): ArchiveDao
     abstract fun reportDao(): ReportDao
+
+    /**
+     * Synchronous transaction bridge for the Excel import path.
+     * Callers must execute this bridge from a background dispatcher.
+     */
+    fun <R> withSynchronousTransaction(block: () -> R): R =
+        runInTransaction(Callable { block() })
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
