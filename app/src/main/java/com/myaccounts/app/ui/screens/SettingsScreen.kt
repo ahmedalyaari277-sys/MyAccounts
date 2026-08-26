@@ -2,6 +2,7 @@ package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,16 +22,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.theme.AppearanceMode
 
 private const val PIN_LENGTH = 9
 
 @Composable
 fun SettingsScreen(
     security: AppSecurityManager,
+    appearanceMode: AppearanceMode,
+    onAppearanceModeChange: (AppearanceMode) -> Unit,
     onBack: () -> Unit,
     onDetailsClick: () -> Unit
 ) {
@@ -46,6 +52,38 @@ fun SettingsScreen(
         Text("الإعدادات", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
 
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("المظهر", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    when (appearanceMode) {
+                        AppearanceMode.LIGHT -> "الوضع الفاتح"
+                        AppearanceMode.DARK -> "الوضع الداكن"
+                        AppearanceMode.SYSTEM -> "حسب إعدادات النظام"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(8.dp))
+                AppearanceOption(
+                    label = "فاتح",
+                    selected = appearanceMode == AppearanceMode.LIGHT,
+                    onClick = { onAppearanceModeChange(AppearanceMode.LIGHT) }
+                )
+                AppearanceOption(
+                    label = "داكن",
+                    selected = appearanceMode == AppearanceMode.DARK,
+                    onClick = { onAppearanceModeChange(AppearanceMode.DARK) }
+                )
+                AppearanceOption(
+                    label = "حسب النظام",
+                    selected = appearanceMode == AppearanceMode.SYSTEM,
+                    onClick = { onAppearanceModeChange(AppearanceMode.SYSTEM) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Text("حماية التطبيق عند الدخول", style = MaterialTheme.typography.titleMedium)
@@ -114,6 +152,23 @@ fun SettingsScreen(
                 showDisableConfirmation = false
             }
         )
+    }
+}
+
+@Composable
+private fun AppearanceOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        TextButton(onClick = onClick, modifier = Modifier.weight(1f)) {
+            Text(label, modifier = Modifier.fillMaxWidth())
+        }
     }
 }
 
