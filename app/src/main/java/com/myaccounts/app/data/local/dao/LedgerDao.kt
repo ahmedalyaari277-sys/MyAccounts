@@ -47,13 +47,13 @@ interface LedgerDao {
     suspend fun getPersonForArchive(personId: Long): PersonEntity?
 
     @Query("SELECT * FROM people WHERE externalId = :externalId LIMIT 1")
-    suspend fun getPersonByExternalId(externalId: String): PersonEntity?
+    fun getPersonByExternalId(externalId: String): PersonEntity?
 
     @Query("SELECT EXISTS(SELECT 1 FROM people WHERE isActive = 1 AND id != :excludedPersonId AND name = :name COLLATE NOCASE)")
     suspend fun hasActivePersonWithName(name: String, excludedPersonId: Long): Boolean
 
     @Insert
-    suspend fun insertPerson(person: PersonEntity): Long
+    fun insertPerson(person: PersonEntity): Long
 
     @Update
     suspend fun updatePerson(person: PersonEntity)
@@ -77,7 +77,7 @@ interface LedgerDao {
     fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?>
 
     @Query("SELECT * FROM currency_accounts WHERE personId = :personId AND currencyCode = :currencyCode LIMIT 1")
-    suspend fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
+    fun getCurrencyAccount(personId: Long, currencyCode: String): CurrencyAccountEntity?
 
     @Update
     suspend fun updateCurrencyAccount(account: CurrencyAccountEntity)
@@ -105,7 +105,7 @@ interface LedgerDao {
           AND p.archivedAt IS NULL
         ORDER BY p.id ASC, ca.currencyCode ASC, t.transactionDate ASC, t.id ASC
     """)
-    suspend fun getActiveExcelRows(): List<ExcelExportRow>
+    fun getActiveExcelRows(): List<ExcelExportRow>
 
     @Transaction
     suspend fun insertPersonWithCurrencyAccounts(person: PersonEntity, currencyCodes: List<String>): Long {
