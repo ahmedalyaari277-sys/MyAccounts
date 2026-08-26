@@ -20,11 +20,15 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
-      - name: Prepare Gradle wrapper
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify Gradle project
         run: |
-          chmod +x ./gradlew
-          test -f ./gradlew
-          ./gradlew --version
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f app/build.gradle.kts
+          gradle --version
 
       - name: Enable KVM for Android Emulator
         run: |
@@ -50,9 +54,7 @@ jobs:
           pre-emulator-launch-script: adb start-server
           script: |
             cd "$GITHUB_WORKSPACE"
-            pwd
-            ls -la ./gradlew
-            ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace --tests com.myaccounts.app.reports.ReportExportInstrumentedTest
+            gradle connectedDebugAndroidTest --no-daemon --stacktrace --tests com.myaccounts.app.reports.ReportExportInstrumentedTest
 
       - name: Upload instrumented test results
         if: always()
