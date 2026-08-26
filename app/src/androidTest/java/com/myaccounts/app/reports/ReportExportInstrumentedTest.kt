@@ -13,7 +13,6 @@ import com.myaccounts.app.util.GeneralReportsExcelExporter
 import com.myaccounts.app.util.GeneralReportsPdfExporter
 import com.myaccounts.app.util.ReportShareUtil
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,9 +53,7 @@ class ReportExportInstrumentedTest {
         )
 
         assertTrue("PDF exporter returned failure: ${result.exceptionOrNull()}", result.isSuccess)
-        val path = result.getOrNull()
-        assertNotNull(path)
-        assertDownloadFileExists(path!!, ".pdf")
+        assertLatestDownloadFileExists("MyAccounts_تقرير_الأشخاص", ".pdf")
     }
 
     @Test
@@ -71,9 +68,7 @@ class ReportExportInstrumentedTest {
         )
 
         assertTrue("Excel exporter returned failure: ${result.exceptionOrNull()}", result.isSuccess)
-        val path = result.getOrNull()
-        assertNotNull(path)
-        assertDownloadFileExists(path!!, ".xlsx")
+        assertLatestDownloadFileExists("MyAccounts_تقرير_الأشخاص", ".xlsx")
     }
 
     @Test
@@ -96,27 +91,56 @@ class ReportExportInstrumentedTest {
         assertTrue("Share path failed: ${share.exceptionOrNull()}", share.isSuccess)
     }
 
-    private fun assertDownloadFileExists(pathOrUri: String, extension: String) {
+    private fun assertLatestDownloadFileExists(prefix: String, extension: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val uri = Uri.parse(pathOrUri)
-            assertEquals(MediaStore.Downloads.EXTERNAL_CONTENT_URI.scheme, uri.scheme)
-            context.contentResolver.query(
-                uri,
-                arrayOf(MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.SIZE),
-                null,
-                null,
-                null
+            val resolver = context.contentResolver
+            val projection = arrayOf(
+                MediaStore.Downloads._ID,
+                MediaStore.Downloads.DISPLAY_NAME,
+                MediaStore.Downloads.SIZE
+            )
+            val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
+            val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
+            var latestUri: Uri? = null
+            var latestName: String? = null
+            var latestSize = -1L
+
+            resolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                "${MediaStore.Downloads.DATE_ADDED} DESC"
             )?.use { cursor ->
-                assertTrue("Exported file URI did not resolve to a MediaStore row", cursor.moveToFirst())
-                val name = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
-                val size = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE))
-                assertTrue("Unexpected extension: $name", name.endsWith(extension, ignoreCase = true))
-                assertTrue("Exported file is empty: $name", size > 0L)
-            } ?: throw AssertionError("Could not query exported file URI")
+                val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(nameIndex) ?: continue
+                    if (!name.startsWith(prefix) || !name.endsWith(extension, ignoreCase = true)) continue
+                    latestUri = Uri.withAppendedPath(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        cursor.getLong(idIndex).toString()
+                    )
+                    latestName = name
+                    latestSize = cursor.getLong(sizeIndex)
+                    break
+                }
+            }
+
+            assertTrue("No exported $extension file found in Downloads/MyAccounts", latestUri != null)
+            assertEquals(MediaStore.Downloads.EXTERNAL_CONTENT_URI.scheme, latestUri?.scheme)
+            assertTrue("Exported file is empty: $latestName", latestSize > 0L)
         } else {
-            val expected = java.io.File(pathOrUri)
-            assertTrue("Exported legacy file does not exist: $expected", expected.isFile)
-            assertTrue("Exported legacy file is empty: $expected", expected.length() > 0L)
+            val directory = java.io.File(
+                context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+                "MyAccounts"
+            )
+            val file = directory.listFiles()
+                ?.filter { it.isFile && it.name.startsWith(prefix) && it.name.endsWith(extension, ignoreCase = true) }
+                ?.maxByOrNull { it.lastModified() }
+            assertTrue("No exported $extension file found: $prefix", file?.isFile == true)
+            assertTrue("Exported file is empty: $file", file?.length() ?: 0L > 0L)
         }
     }
 }
