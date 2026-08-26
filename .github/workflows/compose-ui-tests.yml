@@ -3,10 +3,9 @@ name: Compose UI Tests
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Branch or commit to test"
+      commit_sha:
+        description: "Full commit SHA to test"
         required: true
-        default: "fix/report-sharing-archive-restore"
         type: string
 
 jobs:
@@ -17,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.commit_sha }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
