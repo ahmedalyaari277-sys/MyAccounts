@@ -46,6 +46,9 @@ interface LedgerDao {
     @Query("SELECT * FROM people WHERE id = :personId LIMIT 1")
     suspend fun getPersonForArchive(personId: Long): PersonEntity?
 
+    @Query("SELECT * FROM people WHERE externalId = :externalId LIMIT 1")
+    suspend fun getPersonByExternalId(externalId: String): PersonEntity?
+
     @Query("SELECT EXISTS(SELECT 1 FROM people WHERE isActive = 1 AND id != :excludedPersonId AND name = :name COLLATE NOCASE)")
     suspend fun hasActivePersonWithName(name: String, excludedPersonId: Long): Boolean
 
@@ -81,6 +84,28 @@ interface LedgerDao {
 
     @Query("UPDATE currency_accounts SET balanceMinor = :balanceMinor, updatedAt = :updatedAt WHERE id = :accountId")
     suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("""
+        SELECT
+            p.externalId AS personExternalId,
+            t.externalId AS transactionExternalId,
+            p.name AS name,
+            p.phone AS phone,
+            p.address AS address,
+            p.notes AS notes,
+            ca.currencyCode AS currencyCode,
+            t.type AS transactionType,
+            t.amountMinor AS amountMinor,
+            t.description AS description,
+            t.transactionDate AS transactionDate
+        FROM people p
+        INNER JOIN currency_accounts ca ON ca.personId = p.id
+        LEFT JOIN transactions t ON t.accountId = ca.id
+        WHERE p.isActive = 1
+          AND p.archivedAt IS NULL
+        ORDER BY p.id ASC, ca.currencyCode ASC, t.transactionDate ASC, t.id ASC
+    """)
+    suspend fun getActiveExcelRows(): List<ExcelExportRow>
 
     @Transaction
     suspend fun insertPersonWithCurrencyAccounts(person: PersonEntity, currencyCodes: List<String>): Long {
