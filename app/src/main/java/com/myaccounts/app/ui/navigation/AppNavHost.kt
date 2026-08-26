@@ -21,6 +21,7 @@ import com.myaccounts.app.ui.screens.SettingsScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
 import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
+import com.myaccounts.app.ui.theme.AppearanceMode
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModelFactory
@@ -28,7 +29,12 @@ import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import com.myaccounts.app.ui.viewmodel.TransactionViewModelFactory
 
 @Composable
-fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
+fun AppNavHost(
+    navController: NavHostController,
+    viewModel: LedgerViewModel,
+    appearanceMode: AppearanceMode,
+    onAppearanceModeChange: (AppearanceMode) -> Unit
+) {
     val persons by viewModel.personsWithAccounts.collectAsState()
     val archivedPersons by viewModel.archivedPersonsWithAccounts.collectAsState()
     val restorePersonResult by viewModel.restorePersonResult.collectAsState()
@@ -81,7 +87,15 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel) {
             if (person != null) ArchivedPersonDetailScreen(personWithAccounts = person, onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) })
         }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
-        composable(Routes.SETTINGS) { SettingsScreen(security = security, onBack = { navController.popBackStack() }, onDetailsClick = { navController.navigate(Routes.DETAILS) }) }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                security = security,
+                appearanceMode = appearanceMode,
+                onAppearanceModeChange = onAppearanceModeChange,
+                onBack = { navController.popBackStack() },
+                onDetailsClick = { navController.navigate(Routes.DETAILS) }
+            )
+        }
         composable(Routes.DETAILS) { DetailsScreen(onBack = { navController.popBackStack() }) }
     }
 }
