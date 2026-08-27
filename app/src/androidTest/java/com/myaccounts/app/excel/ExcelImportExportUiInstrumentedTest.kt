@@ -1,7 +1,7 @@
 package com.myaccounts.app.excel
 
 import android.content.Context
-import android.os.Bundle
+import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -33,10 +33,7 @@ class ExcelImportExportUiInstrumentedTest {
     fun setUp() {
         clearTestData()
         seedTestData()
-        instrumentation.startActivitySync(
-            MainActivity::class.java,
-            Bundle().apply { putBoolean("android.intent.extra.ALLOW_MULTIPLE", false) }
-        )
+        instrumentation.startActivitySync(Intent(context, MainActivity::class.java))
         device.waitForIdle()
     }
 
@@ -47,19 +44,15 @@ class ExcelImportExportUiInstrumentedTest {
 
     @Test
     fun exportThenImportThroughRealUiAndSystemPickerRestoresOnlyActiveData() {
-        // Home -> Backup/Restore screen through the same visible control a user taps.
         clickByDescription("النسخ الاحتياطي والاستعادة")
         waitForText("النسخ الاحتياطي والمزامنة")
 
-        // Start export through the real Compose button and complete Android's CreateDocument picker.
         clickByText("تصدير البيانات إلى Excel")
         saveDocumentThroughSystemPicker(exportFileName)
 
-        // The export completion dialog is part of the real application UI.
         waitForText("تم تصدير البيانات النشطة بنجاح.")
         clickByText("موافق")
 
-        // Remove active records while preserving the archived record, then import the file through UI.
         deleteActiveTestData()
         assertEquals(1, countPeopleByExternalId(archivedPersonExternalId))
         assertEquals(0, countPeopleByExternalId(testPersonExternalId))
@@ -68,14 +61,12 @@ class ExcelImportExportUiInstrumentedTest {
         clickByText("استيراد البيانات من Excel")
         openExportedDocumentThroughSystemPicker(exportFileName)
 
-        // The application must show its preview before committing anything.
         waitForText("مراجعة ملف Excel")
         waitForText("الأشخاص: 1")
         waitForText("الحسابات: 1")
         waitForText("العمليات: 1")
         clickByText("استيراد")
 
-        // Wait for the real success dialog, then verify the database state independently.
         waitForText("تم الاستيراد بنجاح.")
         clickByText("موافق")
         instrumentation.waitForIdleSync()
@@ -100,8 +91,6 @@ class ExcelImportExportUiInstrumentedTest {
 
     private fun openExportedDocumentThroughSystemPicker(fileName: String) {
         waitForDocumentsUi()
-        // The export was saved through CreateDocument. OpenDocument normally returns to the same
-        // recent/location view, so select the exact filename rather than relying on coordinates.
         val file = device.wait(Until.findObject(By.text(fileName)), 10_000)
             ?: findDocumentByDescription(fileName)
         assertNotNull("Exported Excel file was not visible in the system picker", file)
