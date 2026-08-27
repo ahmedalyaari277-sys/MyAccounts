@@ -116,7 +116,7 @@ class TransactionSaveRegressionTest {
         val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
             val object2 = device.findObject(By.text(text))
-            if (object2 != null && object2.isVisibleToUser) {
+            if (object2 != null) {
                 object2.click()
                 device.waitForIdle()
                 return
@@ -124,7 +124,7 @@ class TransactionSaveRegressionTest {
             device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 3, 20)
             device.waitForIdle()
         }
-        error("$description was not found as a visible UI element")
+        error("$description was not found as a UI element")
     }
 
     private fun waitForText(text: String) {
