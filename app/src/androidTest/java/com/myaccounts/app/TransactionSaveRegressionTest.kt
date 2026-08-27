@@ -78,7 +78,10 @@ class TransactionSaveRegressionTest {
         dismissKeyboard()
         clickSemanticCenter(By.desc("حفظ العملية"), "Embedded transaction save")
 
-        assertTrue("Embedded transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
+        // The embedded screen itself also contains an underlying "إضافة عملية" button.
+        // Therefore waiting for that text to disappear cannot prove that the dialog closed.
+        // The dialog-owned semantic save control disappears only when the dialog is dismissed.
+        assertTrue("Embedded transaction dialog did not close", device.wait(Until.gone(By.desc("حفظ العملية")), 10_000))
         assertTransactionPersisted("عملية حفظ عادية", 5000L)
     }
 
