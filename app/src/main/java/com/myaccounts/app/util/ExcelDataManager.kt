@@ -82,13 +82,13 @@ object ExcelDataManager {
         validateRows(rows, AppDatabase.getInstance(context))
     }
 
-    fun import(context: Context, uri: Uri): Result<ImportSummary> = runCatching {
+    suspend fun import(context: Context, uri: Uri): Result<ImportSummary> = runCatching {
         val db = AppDatabase.getInstance(context)
         val rows = parseWorkbook(context, uri)
         val preview = validateRows(rows, db)
         check(preview.isValid) { preview.errors.joinToString("\n") }
 
-        db.withSynchronousTransaction {
+        db.withTransaction {
             var peopleAdded = 0
             var accountsAdded = 0
             var transactionsAdded = 0
@@ -350,124 +350,109 @@ object ExcelDataManager {
         else -> value.trim().uppercase(Locale.ROOT)
     }
 
-    private fun columnIndex(ref: String): Int {
-        val letters = ref.takeWhile { it.isLetter() }.uppercase(Locale.ROOT)
-        var result = 0
-        letters.forEach { result = result * 26 + (it - 'A' + 1) }
-        return result - 1
+    private fun columnIndex(reference: String): Int {
+        val letters = reference.takeWhile { it.isLetter() }
+        var index = 0
+        letters.forEach { index = index * 26 + (it.uppercaseChar() - 'A' + 1) }
+        return index - 1
     }
 
     private fun createWorkbook(output: java.io.OutputStream, rows: List<ExcelExportRow>) {
         ZipOutputStream(output.buffered()).use { zip ->
             writeEntry(zip, "[Content_Types].xml", contentTypesXml())
-            writeEntry(zip, "_rels/.rels", rootRelationshipsXml())
+            writeEntry(zip, "_rels/.rels", rootRelsXml())
             writeEntry(zip, "xl/workbook.xml", workbookXml())
-            writeEntry(zip, "xl/_rels/workbook.xml.rels", workbookRelationshipsXml())
-            writeEntry(zip, "xl/styles.xml", stylesXml())
-            writeEntry(zip, "xl/worksheets/sheet1.xml", worksheetXml(rows))
+            writeEntry(zip, "xl/_rels/workbook.xml.rels", workbookRelsXml())
+            writeEntry(zip, "xl/worksheets/sheet1.xml", sheetXml(rows))
         }
     }
 
-    private fun writeEntry(zip: ZipOutputStream, path: String, content: String) {
-        zip.putNextEntry(ZipEntry(path))
+    private fun writeEntry(zip: ZipOutputStream, name: String, content: String) {
+        zip.putNextEntry(ZipEntry(name))
         zip.write(content.toByteArray(Charsets.UTF_8))
         zip.closeEntry()
     }
 
+    private fun xmlEscape(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;")
+
     private fun contentTypesXml() = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-            <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-            <Default Extension="xml" ContentType="application/xml"/>
-            <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-            <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-            <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+          <Default Extension="xml" ContentType="application/xml"/>
+          <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+          <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
         </Types>
     """.trimIndent()
 
-    private fun rootRelationshipsXml() = """
+    private fun rootRelsXml() = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+          <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
         </Relationships>
     """.trimIndent()
 
     private fun workbookXml() = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-            <sheets><sheet name="$SHEET_NAME" sheetId="1" r:id="rId1"/></sheets>
+          <sheets><sheet name="${xmlEscape(SHEET_NAME)}" sheetId="1" r:id="rId1"/></sheets>
         </workbook>
     """.trimIndent()
 
-    private fun workbookRelationshipsXml() = """
+    private fun workbookRelsXml() = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-            <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+          <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
         </Relationships>
     """.trimIndent()
 
-    private fun stylesXml() = """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-            <fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts>
-            <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-            <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-            <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellStyleXfs>
-            <cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/></cellXfs>
-        </styleSheet>
-    """.trimIndent()
-
-    private fun worksheetXml(rows: List<ExcelExportRow>): String {
-        val xmlRows = mutableListOf<String>()
-        xmlRows += rowXml(1, HEADERS.map { textCell(it, 1) })
-        var rowNumber = 2
-        rows.forEach { item ->
-            xmlRows += rowXml(rowNumber++, listOf(
-                textCell(item.personExternalId),
-                textCell(item.transactionExternalId ?: ""),
-                textCell(item.name),
-                textCell(item.phone),
-                textCell(item.address),
-                textCell(item.notes),
-                textCell(item.currencyCode),
-                textCell(item.transactionType?.let { if (it == TransactionType.RECEIVABLE) "عليه" else "له" } ?: ""),
-                item.amountMinor?.let { numericCell(it) } ?: textCell(""),
-                textCell(item.description ?: ""),
-                item.transactionDate?.let { textCell(SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(it))) } ?: textCell("")
+    private fun sheetXml(rows: List<ExcelExportRow>): String {
+        val builder = StringBuilder()
+        builder.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
+        builder.append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>")
+        appendRow(builder, 1, HEADERS)
+        rows.forEachIndexed { index, row ->
+            val type = when (row.transactionType) {
+                TransactionType.RECEIVABLE -> "عليه"
+                TransactionType.PAYABLE -> "له"
+                null -> ""
+            }
+            val date = row.transactionDate?.let { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(it)) } ?: ""
+            appendRow(builder, index + 2, listOf(
+                row.personExternalId ?: "", row.transactionExternalId ?: "", row.name ?: "", row.phone ?: "",
+                row.address ?: "", row.notes ?: "", row.currencyCode ?: "", type,
+                row.amountMinor?.let { BigDecimal(it).movePointLeft(2).setScale(2, RoundingMode.UNNECESSARY).toPlainString() } ?: "",
+                row.description ?: "", date
             ))
         }
-        return """
-            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-                <sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews>
-                <sheetFormatPr defaultRowHeight="18"/>
-                <cols>
-                    <col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/>
-                    <col min="3" max="3" width="28" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/>
-                    <col min="5" max="6" width="28" customWidth="1"/><col min="7" max="8" width="16" customWidth="1"/>
-                    <col min="9" max="9" width="16" customWidth="1"/><col min="10" max="10" width="30" customWidth="1"/>
-                    <col min="11" max="11" width="14" customWidth="1"/>
-                </cols>
-                <sheetData>${xmlRows.joinToString("\n")}</sheetData>
-                <autoFilter ref="A1:K${maxOf(1, rowNumber - 1)}"/>
-            </worksheet>
-        """.trimIndent()
+        builder.append("</sheetData></worksheet>")
+        return builder.toString()
     }
 
-    private fun rowXml(number: Int, cells: List<String>) = "<row r=\"$number\">${cells.mapIndexed { index, cell -> cell.replace("CELLREF", columnName(index + 1) + number) }.joinToString("")}</row>"
-
-    private fun textCell(value: String, style: Int = 0) = "<c r=\"CELLREF\" t=\"inlineStr\" s=\"$style\"><is><t xml:space=\"preserve\">${xmlEscape(value)}</t></is></c>"
-    private fun numericCell(amountMinor: Long) = "<c r=\"CELLREF\" t=\"n\"><v>${BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()}</v></c>"
-
-    private fun columnName(number: Int): String {
-        var n = number
-        val out = StringBuilder()
-        while (n > 0) { val rem = (n - 1) % 26; out.append(('A'.code + rem).toChar()); n = (n - 1) / 26 }
-        return out.reverse().toString()
+    private fun appendRow(builder: StringBuilder, rowNumber: Int, values: List<String>) {
+        builder.append("<row r=\"").append(rowNumber).append("\">")
+        values.forEachIndexed { index, value ->
+            val ref = columnName(index) + rowNumber
+            builder.append("<c r=\"").append(ref).append("\" t=\"inlineStr\"><is><t>")
+                .append(xmlEscape(value))
+                .append("</t></is></c>")
+        }
+        builder.append("</row>")
     }
 
-    private fun xmlEscape(value: String): String = value
-        .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        .replace("\"", "&quot;").replace("'", "&apos;")
+    private fun columnName(index: Int): String {
+        var n = index + 1
+        val result = StringBuilder()
+        while (n > 0) {
+            val rem = (n - 1) % 26
+            result.append(('A'.code + rem).toChar())
+            n = (n - 1) / 26
+        }
+        return result.reverse().toString()
+    }
 }
