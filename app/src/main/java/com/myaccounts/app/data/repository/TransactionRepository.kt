@@ -7,14 +7,18 @@ import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.TransactionAttachmentDao
 import com.myaccounts.app.data.local.dao.TransactionDao
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 class TransactionRepository(
     private val transactionDao: TransactionDao,
     private val attachmentDao: TransactionAttachmentDao,
     private val database: AppDatabase
 ) : TransactionRepositoryContract {
-    override suspend fun addTransaction(transaction: TransactionEntity): Long = transactionDao.insertTransactionAndUpdateBalance(transaction)
+    override suspend fun addTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
+        transactionDao.insertTransactionAndUpdateBalance(transaction)
+    }
 
     override suspend fun updateTransaction(transaction: TransactionEntity) = transactionDao.updateTransactionAndUpdateBalance(transaction)
 
