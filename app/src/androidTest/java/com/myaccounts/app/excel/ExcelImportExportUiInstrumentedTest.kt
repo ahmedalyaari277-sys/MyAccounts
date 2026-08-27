@@ -33,7 +33,10 @@ class ExcelImportExportUiInstrumentedTest {
     fun setUp() {
         clearTestData()
         seedTestData()
-        instrumentation.startActivitySync(Intent(context, MainActivity::class.java))
+        val intent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        instrumentation.startActivitySync(intent)
         device.waitForIdle()
     }
 
