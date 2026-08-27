@@ -57,6 +57,7 @@ class TransactionSaveRegressionTest {
         fields[0].text = "100"
         fields[2].clear()
         fields[2].text = "عملية حفظ سريعة"
+        dismissKeyboard()
         clickVisibleText("حفظ", "Quick transaction save")
 
         assertTrue("Quick transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
@@ -74,6 +75,7 @@ class TransactionSaveRegressionTest {
         fields[0].text = "50"
         fields[1].clear()
         fields[1].text = "عملية حفظ عادية"
+        dismissKeyboard()
         clickVisibleText("حفظ", "Embedded transaction save")
 
         assertTrue("Transaction dialog did not close", device.wait(Until.gone(By.text("التفاصيل")), 10_000))
@@ -109,6 +111,11 @@ class TransactionSaveRegressionTest {
     private fun click(selector: BySelector, description: String) {
         val object2 = device.wait(Until.findObject(selector), 10_000) ?: error("$description was not found")
         object2.click()
+        device.waitForIdle()
+    }
+
+    private fun dismissKeyboard() {
+        device.pressBack()
         device.waitForIdle()
     }
 
