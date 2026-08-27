@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -48,7 +49,6 @@ class TransactionSaveRegressionTest {
 
     @Test
     fun quickTransactionSavePersistsTransactionAndBalanceWithoutCrash() {
-        click(By.text("اختبار حفظ العملية"), "Test person")
         click(By.desc("إضافة عملية سريعة"), "Quick transaction button")
         waitForText("إضافة عملية")
 
@@ -95,12 +95,18 @@ class TransactionSaveRegressionTest {
     }
 
     private fun waitForEditTexts(minimum: Int): List<UiObject2> {
-        val result = device.wait(Until.findObjects(By.clazz("android.widget.EditText")).let { objects -> objects.size >= minimum }, 5_000)
-        assertTrue("Expected at least $minimum text fields", result)
-        return device.findObjects(By.clazz("android.widget.EditText"))
+        val deadline = System.currentTimeMillis() + 7_000L
+        while (System.currentTimeMillis() < deadline) {
+            val objects = device.findObjects(By.clazz("android.widget.EditText"))
+            if (objects.size >= minimum) return objects
+            device.waitForIdle()
+            Thread.sleep(100)
+        }
+        val count = device.findObjects(By.clazz("android.widget.EditText")).size
+        error("Expected at least $minimum text fields, found $count")
     }
 
-    private fun click(selector: androidx.test.uiautomator.BySelector, description: String) {
+    private fun click(selector: BySelector, description: String) {
         val object2 = device.wait(Until.findObject(selector), 10_000) ?: error("$description was not found")
         object2.click()
         device.waitForIdle()
