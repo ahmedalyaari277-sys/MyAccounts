@@ -43,6 +43,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -156,9 +158,7 @@ fun QuickTransactionScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 isError = amountError,
-                trailingIcon = {
-                    CalculatorButton(onClick = calculatorController::open)
-                }
+                trailingIcon = { CalculatorButton(onClick = calculatorController::open) }
             )
             OutlinedTextField(
                 value = dateText,
@@ -185,25 +185,12 @@ fun QuickTransactionScreen(
         }
         if (amountError) Text("أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
 
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("التفاصيل") },
-            singleLine = true
-        )
+        OutlinedTextField(value = description, onValueChange = { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("التفاصيل") }, singleLine = true)
 
         Text("العملة", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             accounts.sortedBy { currencyOrder[it.currencyCode] ?: Int.MAX_VALUE }.forEach { account ->
-                FilterChip(
-                    selected = selectedCurrency == account.currencyCode,
-                    onClick = { selectedCurrency = account.currencyCode },
-                    label = { Text(currencyLabels[account.currencyCode] ?: account.currencyCode, fontSize = 12.sp) }
-                )
+                FilterChip(selected = selectedCurrency == account.currencyCode, onClick = { selectedCurrency = account.currencyCode }, label = { Text(currencyLabels[account.currencyCode] ?: account.currencyCode, fontSize = 12.sp) })
             }
         }
 
@@ -217,10 +204,7 @@ fun QuickTransactionScreen(
         }
 
         if (editMode && visibleExistingAttachments.isNotEmpty()) {
-            ExistingAttachmentsSection(
-                attachments = visibleExistingAttachments,
-                onDelete = { attachment -> deletedExistingAttachments = deletedExistingAttachments + attachment }
-            )
+            ExistingAttachmentsSection(attachments = visibleExistingAttachments, onDelete = { attachment -> deletedExistingAttachments = deletedExistingAttachments + attachment })
         }
 
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -234,97 +218,44 @@ fun QuickTransactionScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Button(
                 onClick = {
-                    val parsedAmount = runCatching {
-                        BigDecimal(amount.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact()
-                    }.getOrNull()
-                    if (parsedAmount == null || parsedAmount <= 0L) {
-                        amountError = true
-                        return@Button
-                    }
+                    val parsedAmount = runCatching { BigDecimal(amount.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
+                    if (parsedAmount == null || parsedAmount <= 0L) { amountError = true; return@Button }
                     val account = accounts.firstOrNull { it.currencyCode == selectedCurrency }
-                    if (account == null) {
-                        amountError = true
-                        return@Button
-                    }
+                    if (account == null) { amountError = true; return@Button }
                     keyboardController?.hide()
                     val transaction = if (editMode) {
-                        initialTransaction!!.copy(
-                            accountId = account.id,
-                            type = selectedType,
-                            amountMinor = parsedAmount,
-                            description = description.trim(),
-                            transactionDate = transactionDate
-                        )
+                        initialTransaction!!.copy(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate)
                     } else {
-                        TransactionEntity(
-                            accountId = account.id,
-                            type = selectedType,
-                            amountMinor = parsedAmount,
-                            description = description.trim(),
-                            transactionDate = transactionDate
-                        )
+                        TransactionEntity(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate)
                     }
-                    if (editMode) {
-                        onEditSave!!(transaction, attachments, deletedExistingAttachments)
-                    } else {
-                        onSave(transaction, attachments)
-                    }
+                    if (editMode) onEditSave!!(transaction, attachments, deletedExistingAttachments) else onSave(transaction, attachments)
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }
             ) { Text("حفظ", fontWeight = FontWeight.Bold) }
             OutlinedButton(onClick = { keyboardController?.hide(); onCancel() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
         }
     }
 
     if (calculatorController.isOpen) {
-        Dialog(
-            onDismissRequest = calculatorController::close,
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
-            )
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .imePadding(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-            ) {
-                CalculatorOverlay(
-                    expression = calculatorController.expression,
-                    result = calculatorController.result.orEmpty(),
-                    onKey = calculatorController::press,
-                    onClear = calculatorController::clear,
-                    onBackspace = calculatorController::backspace,
-                    onDismiss = calculatorController::close,
-                    onUseResult = calculatorController::useResult
-                )
+        Dialog(onDismissRequest = calculatorController::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            Card(modifier = Modifier.fillMaxWidth(0.92f).imePadding(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)) {
+                CalculatorOverlay(expression = calculatorController.expression, result = calculatorController.result.orEmpty(), onKey = calculatorController::press, onClear = calculatorController::clear, onBackspace = calculatorController::backspace, onDismiss = calculatorController::close, onUseResult = calculatorController::useResult)
             }
         }
     }
 }
 
 @Composable
-private fun ExistingAttachmentsSection(
-    attachments: List<TransactionAttachmentEntity>,
-    onDelete: (TransactionAttachmentEntity) -> Unit
-) {
+private fun ExistingAttachmentsSection(attachments: List<TransactionAttachmentEntity>, onDelete: (TransactionAttachmentEntity) -> Unit) {
     val context = LocalContext.current
     val security = remember(context) { AppSecurityManager(context.applicationContext) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("المرفقات الحالية", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
         attachments.forEach { attachment ->
             Card(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Row(modifier = Modifier.weight(1f)) {
-                        Icon(
-                            imageVector = if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description,
-                            contentDescription = null
-                        )
+                        Icon(imageVector = if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description, contentDescription = null)
                         Text(attachment.fileName, modifier = Modifier.padding(start = 8.dp), maxLines = 2)
                     }
                     IconButton(onClick = {
@@ -332,30 +263,16 @@ private fun ExistingAttachmentsSection(
                             val file = TransactionAttachmentStorage.fileFor(context, attachment)
                             if (!file.exists()) return@runCatching
                             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, attachment.mimeType)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
+                            val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, attachment.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
                             security.markExternalActivityPending()
                             context.startActivity(Intent.createChooser(intent, "فتح المرفق"))
-                        }.onFailure {
-                            security.clearExternalActivityPending()
-                            if (it is ActivityNotFoundException) return@onFailure
-                        }
-                    }) {
-                        Icon(Icons.Default.OpenInNew, contentDescription = "فتح المرفق")
-                    }
-                    IconButton(onClick = { onDelete(attachment) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "حذف المرفق")
-                    }
+                        }.onFailure { security.clearExternalActivityPending(); if (it is ActivityNotFoundException) return@onFailure }
+                    }) { Icon(Icons.Default.OpenInNew, contentDescription = "فتح المرفق") }
+                    IconButton(onClick = { onDelete(attachment) }) { Icon(Icons.Default.Delete, contentDescription = "حذف المرفق") }
                 }
             }
         }
     }
 }
 
-private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor)
-    .movePointLeft(2)
-    .setScale(2, RoundingMode.UNNECESSARY)
-    .stripTrailingZeros()
-    .toPlainString()
+private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).setScale(2, RoundingMode.UNNECESSARY).stripTrailingZeros().toPlainString()
