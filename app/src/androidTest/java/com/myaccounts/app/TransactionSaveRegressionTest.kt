@@ -57,7 +57,7 @@ class TransactionSaveRegressionTest {
         fields[0].text = "100"
         fields[2].clear()
         fields[2].text = "عملية حفظ سريعة"
-        click(By.text("حفظ"), "Quick transaction save")
+        clickVisibleText("حفظ", "Quick transaction save")
 
         assertTrue("Quick transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
         assertTransactionPersisted("عملية حفظ سريعة", 10000L)
@@ -74,9 +74,9 @@ class TransactionSaveRegressionTest {
         fields[0].text = "50"
         fields[1].clear()
         fields[1].text = "عملية حفظ عادية"
-        click(By.text("حفظ"), "Embedded transaction save")
+        clickVisibleText("حفظ", "Embedded transaction save")
 
-        assertTrue("Transaction dialog did not close", device.wait(Until.gone(By.text("الوصف")), 10_000))
+        assertTrue("Transaction dialog did not close", device.wait(Until.gone(By.text("التفاصيل")), 10_000))
         assertTransactionPersisted("عملية حفظ عادية", 5000L)
     }
 
@@ -110,6 +110,21 @@ class TransactionSaveRegressionTest {
         val object2 = device.wait(Until.findObject(selector), 10_000) ?: error("$description was not found")
         object2.click()
         device.waitForIdle()
+    }
+
+    private fun clickVisibleText(text: String, description: String) {
+        val deadline = System.currentTimeMillis() + 10_000L
+        while (System.currentTimeMillis() < deadline) {
+            val object2 = device.findObject(By.text(text))
+            if (object2 != null && object2.isVisibleToUser) {
+                object2.click()
+                device.waitForIdle()
+                return
+            }
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 3, 20)
+            device.waitForIdle()
+        }
+        error("$description was not found as a visible UI element")
     }
 
     private fun waitForText(text: String) {
