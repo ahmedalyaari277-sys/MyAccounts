@@ -53,6 +53,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.util.TransactionAttachmentStorage
@@ -265,20 +267,65 @@ private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Un
                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
             if (personWithAccounts.person.address.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(personWithAccounts.person.address, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Text("العنوان: ${personWithAccounts.person.address}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (personWithAccounts.person.notes.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(personWithAccounts.person.notes, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.height(8.dp))
-            personWithAccounts.accounts.forEach { account ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(account.currencyCode, fontWeight = FontWeight.Bold)
-                    Text(account.balanceMinor.toString())
-                }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                CurrencyLabel("ريال يمني", personWithAccounts.balance("YER"))
+                CurrencyLabel("ريال سعودي", personWithAccounts.balance("SAR"))
+                CurrencyLabel("دولار", personWithAccounts.balance("USD"))
             }
         }
     }
+}
+
+private fun PersonWithAccounts.balance(currencyCode: String): Long = accounts.firstOrNull { it.currencyCode == currencyCode }?.balanceMinor ?: 0L
+
+@Composable
+private fun CurrencyLabel(currency: String, balance: Long) {
+    val balanceColor = when {
+        balance > 0L -> MaterialTheme.colorScheme.error
+        balance < 0L -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(currency, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(formatBalance(balance), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = balanceColor)
+    }
+}
+
+private fun formatBalance(balance: Long): String = when {
+    balance > 0L -> "عليه ${formatAmount(balance)}"
+    balance < 0L -> "له ${formatAmount(-balance)}"
+    else -> "متوازن 0"
+}
+
+private fun formatAmount(amount: Long): String = BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
+
+@Composable
+private fun AddPersonDialog(onDismiss: () -> Unit, onSave: (String, String, String, String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var nameError by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("إضافة شخص جديد", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                OutlinedTextField(name, { name = it; nameError = false }, Modifier.fillMaxWidth(), label = { Text("اسم الشخص") }, singleLine = true, isError = nameError, shape = RoundedCornerShape(12.dp))
+                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true, shape = RoundedCornerShape(12.dp))
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, minLines = 2, shape = RoundedCornerShape(12.dp))
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, shape = RoundedCornerShape(12.dp))
+            }
+        },
+        confirmButton = { Button(onClick = { if (name.isBlank()) nameError = true else onSave(name.trim(), phone.trim(), address.trim(), notes.trim()) }) { Text("حفظ") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+    )
 }
