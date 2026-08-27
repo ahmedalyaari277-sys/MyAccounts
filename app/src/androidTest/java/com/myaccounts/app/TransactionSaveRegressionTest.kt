@@ -75,7 +75,6 @@ class TransactionSaveRegressionTest {
         fields[0].text = "50"
         fields[1].clear()
         fields[1].text = "عملية حفظ عادية"
-        dismissKeyboard()
         clickVisibleText("حفظ", "Embedded transaction save")
 
         assertTrue("Transaction dialog did not close", device.wait(Until.gone(By.text("التفاصيل")), 10_000))
@@ -121,12 +120,19 @@ class TransactionSaveRegressionTest {
 
     private fun clickVisibleText(text: String, description: String) {
         val deadline = System.currentTimeMillis() + 12_000L
+        var keyboardDismissed = false
         while (System.currentTimeMillis() < deadline) {
             val object2 = device.findObject(By.text(text))
             if (object2 != null) {
                 object2.click()
                 device.waitForIdle()
                 return
+            }
+            if (!keyboardDismissed) {
+                keyboardDismissed = true
+                device.pressBack()
+                device.waitForIdle()
+                continue
             }
             device.swipe(
                 device.displayWidth / 2,
