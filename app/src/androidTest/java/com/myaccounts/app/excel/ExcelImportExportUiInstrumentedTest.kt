@@ -33,26 +33,20 @@ class ExcelImportExportUiInstrumentedTest {
     fun setUp() {
         clearTestData()
         seedTestData()
-        val intent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val intent = Intent(context, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         instrumentation.startActivitySync(intent)
         device.waitForIdle()
     }
 
     @After
-    fun tearDown() {
-        clearTestData()
-    }
+    fun tearDown() = clearTestData()
 
     @Test
     fun exportThenImportThroughRealUiAndSystemPickerRestoresOnlyActiveData() {
         clickByDescription("النسخ الاحتياطي والاستعادة")
         waitForText("النسخ الاحتياطي والمزامنة")
-
         clickByText("تصدير البيانات إلى Excel")
         saveDocumentThroughSystemPicker(exportFileName)
-
         waitForText("تم تصدير البيانات النشطة بنجاح.")
         clickByText("موافق")
 
@@ -63,13 +57,11 @@ class ExcelImportExportUiInstrumentedTest {
 
         clickByText("استيراد البيانات من Excel")
         openExportedDocumentThroughSystemPicker(exportFileName)
-
         waitForText("مراجعة ملف Excel")
         waitForText("الأشخاص: 1")
         waitForText("الحسابات: 1")
         waitForText("العمليات: 1")
         clickByText("استيراد")
-
         waitForText("تم الاستيراد بنجاح.")
         clickByText("موافق")
         instrumentation.waitForIdleSync()
@@ -87,51 +79,51 @@ class ExcelImportExportUiInstrumentedTest {
         filename.clear()
         filename.text = fileName
         clickPickerAction("Save")
-        device.wait(Until.gone(By.text("Save")), 5_000)
-        device.waitForIdle()
-        assertTrue("System picker did not close after saving Excel", waitForTextOptional("النسخ الاحتياطي والمزامنة", 5_000))
+        assertTrue("System picker did not close after saving Excel", waitForTextOptional("النسخ الاحتياطي والمزامنة", 10_000))
     }
 
     private fun openExportedDocumentThroughSystemPicker(fileName: String) {
         waitForDocumentsUi()
-        val file = device.wait(Until.findObject(By.text(fileName)), 10_000)
-            ?: findDocumentByDescription(fileName)
+        val file = device.wait(Until.findObject(By.text(fileName)), 10_000) ?: findDocumentByDescription(fileName)
         assertNotNull("Exported Excel file was not visible in the system picker", file)
         file!!.click()
         device.waitForIdle()
     }
 
     private fun waitForDocumentsUi() {
-        val packageName = "com.google.android.documentsui"
-        device.wait(Until.hasObject(By.pkg(packageName)), 10_000)
-        assertTrue("Android System File Picker did not open", device.hasObject(By.pkg(packageName)))
+        assertTrue("Android System File Picker did not open", device.wait(Until.hasObject(By.pkg("com.google.android.documentsui")), 10_000))
     }
 
     private fun findFilenameField(): UiObject2 {
-        val candidates = listOf(
+        val resourceCandidates = listOf(
             By.res("com.google.android.documentsui:id/filename"),
             By.res("com.android.documentsui:id/filename")
         )
-        candidates.forEach { selector ->
-            device.wait(Until.hasObject(selector), 5_000)
+        resourceCandidates.forEach { selector ->
+            device.wait(Until.hasObject(selector), 2_000)
             device.findObject(selector)?.let { return it }
         }
-        error("System picker filename field was not found")
+
+        // DocumentsUI implementations vary across Android images. The save dialog
+        // exposes the filename as an EditText even when the resource id changes.
+        val editTexts = device.findObjects(By.clazz("android.widget.EditText"))
+        if (editTexts.size == 1) return editTexts.first()
+        editTexts.firstOrNull { it.isEnabled && it.isFocusable && it.isClickable }?.let { return it }
+        error("System picker filename field was not found; EditText count=${editTexts.size}")
     }
 
     private fun clickPickerAction(label: String) {
-        val exact = device.findObject(By.text(label))
-            ?: device.findObject(By.textContains(label))
+        val exact = device.wait(Until.findObject(By.text(label)), 5_000)
+            ?: device.wait(Until.findObject(By.textContains(label)), 5_000)
             ?: error("System picker action '$label' was not found")
         exact.click()
+        device.waitForIdle()
     }
 
-    private fun findDocumentByDescription(fileName: String): UiObject2? =
-        device.findObject(By.descContains(fileName))
+    private fun findDocumentByDescription(fileName: String): UiObject2? = device.findObject(By.descContains(fileName))
 
     private fun clickByText(text: String) {
-        val object2 = device.wait(Until.findObject(By.text(text)), 10_000)
-            ?: error("Application text '$text' was not found")
+        val object2 = device.wait(Until.findObject(By.text(text)), 10_000) ?: error("Application text '$text' was not found")
         object2.click()
         device.waitForIdle()
     }
@@ -143,12 +135,9 @@ class ExcelImportExportUiInstrumentedTest {
         device.waitForIdle()
     }
 
-    private fun waitForText(text: String) {
-        assertTrue("Application text '$text' was not found", waitForTextOptional(text, 10_000))
-    }
+    private fun waitForText(text: String) = assertTrue("Application text '$text' was not found", waitForTextOptional(text, 15_000))
 
-    private fun waitForTextOptional(text: String, timeoutMs: Long): Boolean =
-        device.wait(Until.hasObject(By.text(text)), timeoutMs)
+    private fun waitForTextOptional(text: String, timeoutMs: Long): Boolean = device.wait(Until.hasObject(By.text(text)), timeoutMs)
 
     private fun clearTestData() {
         val db = database.openHelper.writableDatabase
@@ -186,15 +175,8 @@ class ExcelImportExportUiInstrumentedTest {
         db.execSQL("DELETE FROM people WHERE externalId=? AND isActive=1", arrayOf(testPersonExternalId))
     }
 
-    private fun countPeopleByExternalId(id: String): Int = database.openHelper.writableDatabase
-        .query("SELECT COUNT(*) FROM people WHERE externalId=?", arrayOf(id)).use { c -> c.moveToFirst(); c.getInt(0) }
-
-    private fun countTransactionsByExternalId(id: String): Int = database.openHelper.writableDatabase
-        .query("SELECT COUNT(*) FROM transactions WHERE externalId=?", arrayOf(id)).use { c -> c.moveToFirst(); c.getInt(0) }
-
-    private fun countAccountsForPerson(externalId: String): Int = database.openHelper.writableDatabase
-        .query("SELECT COUNT(*) FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?)", arrayOf(externalId)).use { c -> c.moveToFirst(); c.getInt(0) }
-
-    private fun balanceForPerson(externalId: String, currency: String): Long = database.openHelper.writableDatabase
-        .query("SELECT balanceMinor FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?) AND currencyCode=?", arrayOf(externalId, currency)).use { c -> assertTrue(c.moveToFirst()); c.getLong(0) }
+    private fun countPeopleByExternalId(id: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM people WHERE externalId=?", arrayOf(id)).use { c -> c.moveToFirst(); c.getInt(0) }
+    private fun countTransactionsByExternalId(id: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM transactions WHERE externalId=?", arrayOf(id)).use { c -> c.moveToFirst(); c.getInt(0) }
+    private fun countAccountsForPerson(externalId: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?)", arrayOf(externalId)).use { c -> c.moveToFirst(); c.getInt(0) }
+    private fun balanceForPerson(externalId: String, currency: String): Long = database.openHelper.writableDatabase.query("SELECT balanceMinor FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?) AND currencyCode=?", arrayOf(externalId, currency)).use { c -> assertTrue(c.moveToFirst()); c.getLong(0) }
 }
