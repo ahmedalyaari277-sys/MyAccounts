@@ -1,23 +1,120 @@
 package com.myaccounts.app
 
+import android.content.Context
+import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.Until
+import com.myaccounts.app.data.local.AppDatabase
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Regression coverage for the transaction-save path.
- * The production crash was caused by a synchronous Room insert being invoked
- * from Dispatchers.Main. The production path is now suspend-aware.
- *
- * Full UI/database assertions should be kept in the existing M-01/M-02
- * instrumentation suite rather than duplicating application setup here.
- */
 @RunWith(AndroidJUnit4::class)
 class TransactionSaveRegressionTest {
+    private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
+    private val context: Context get() = instrumentation.targetContext
+    private val device: UiDevice get() = UiDevice.getInstance(instrumentation)
+    private val database get() = AppDatabase.getInstance(context)
+    private val personId = 960001L
+    private val accountId = 960002L
+    private val personExternalId = "P-M01-SAVE-001"
+
+    @Before
+    fun setUp() {
+        clearData()
+        val db = database.openHelper.writableDatabase
+        db.execSQL(
+            "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)",
+            arrayOf(personId, "اختبار حفظ العملية", "777000901", "صنعاء", "M01 save", 3000L, 1, null, personExternalId)
+        )
+        db.execSQL(
+            "INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",
+            arrayOf(accountId, personId, "YER", 0L, 3001L, 3002L)
+        )
+        instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        device.waitForIdle()
+        assertTrue("MyAccounts did not become visible", device.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
+    }
+
+    @After
+    fun tearDown() = clearData()
+
     @Test
-    fun transactionSaveRegressionTestIsInstrumented() {
-        // This test intentionally verifies that the instrumentation source is
-        // compiled and discoverable. The real save scenario remains covered
-        // by the application's existing transaction UI tests.
+    fun quickTransactionSavePersistsTransactionAndBalanceWithoutCrash() {
+        click(By.text("اختبار حفظ العملية"), "Test person")
+        click(By.desc("إضافة عملية سريعة"), "Quick transaction button")
+        waitForText("إضافة عملية")
+
+        val fields = waitForEditTexts(3)
+        fields[0].clear()
+        fields[0].text = "100"
+        fields[2].clear()
+        fields[2].text = "عملية حفظ سريعة"
+        click(By.text("حفظ"), "Quick transaction save")
+
+        assertTrue("Quick transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
+        assertTransactionPersisted("عملية حفظ سريعة", 10000L)
+    }
+
+    @Test
+    fun embeddedTransactionSavePersistsTransactionAndBalanceWithoutCrash() {
+        click(By.text("اختبار حفظ العملية"), "Test person")
+        waitForText("إضافة عملية")
+        click(By.text("إضافة عملية"), "Embedded add transaction button")
+
+        val fields = waitForEditTexts(2)
+        fields[0].clear()
+        fields[0].text = "50"
+        fields[1].clear()
+        fields[1].text = "عملية حفظ عادية"
+        click(By.text("حفظ"), "Embedded transaction save")
+
+        assertTrue("Transaction dialog did not close", device.wait(Until.gone(By.text("الوصف")), 10_000))
+        assertTransactionPersisted("عملية حفظ عادية", 5000L)
+    }
+
+    private fun assertTransactionPersisted(description: String, expectedBalance: Long) {
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT accountId, amountMinor, description FROM transactions WHERE accountId=? ORDER BY id DESC LIMIT 1", arrayOf(accountId.toString())).use { c ->
+            assertTrue("Saved transaction was not found", c.moveToFirst())
+            assertEquals(accountId, c.getLong(0))
+            assertEquals(expectedBalance, c.getLong(1))
+            assertEquals(description, c.getString(2))
+        }
+        db.query("SELECT balanceMinor FROM currency_accounts WHERE id=?", arrayOf(accountId.toString())).use { c ->
+            assertTrue("Currency account was not found", c.moveToFirst())
+            assertEquals(expectedBalance, c.getLong(0))
+        }
+    }
+
+    private fun waitForEditTexts(minimum: Int): List<UiObject2> {
+        val result = device.wait(Until.findObjects(By.clazz("android.widget.EditText")).let { objects -> objects.size >= minimum }, 5_000)
+        assertTrue("Expected at least $minimum text fields", result)
+        return device.findObjects(By.clazz("android.widget.EditText"))
+    }
+
+    private fun click(selector: androidx.test.uiautomator.BySelector, description: String) {
+        val object2 = device.wait(Until.findObject(selector), 10_000) ?: error("$description was not found")
+        object2.click()
+        device.waitForIdle()
+    }
+
+    private fun waitForText(text: String) {
+        assertTrue("Text '$text' was not found", device.wait(Until.hasObject(By.text(text)), 10_000))
+    }
+
+    private fun clearData() {
+        val db = database.openHelper.writableDatabase
+        db.execSQL("DELETE FROM transaction_attachments")
+        db.execSQL("DELETE FROM transactions WHERE accountId=?", arrayOf(accountId))
+        db.execSQL("DELETE FROM currency_accounts WHERE id=?", arrayOf(accountId))
+        db.execSQL("DELETE FROM people WHERE id=?", arrayOf(personId))
     }
 }
