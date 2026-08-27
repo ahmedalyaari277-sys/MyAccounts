@@ -58,7 +58,7 @@ class TransactionSaveRegressionTest {
         fields[2].clear()
         fields[2].text = "عملية حفظ سريعة"
         dismissKeyboard()
-        click(By.desc("حفظ العملية"), "Quick transaction save")
+        clickSemanticCenter(By.desc("حفظ العملية"), "Quick transaction save")
 
         assertTrue("Quick transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
         assertTransactionPersisted("عملية حفظ سريعة", 10000L)
@@ -76,7 +76,7 @@ class TransactionSaveRegressionTest {
         fields[2].clear()
         fields[2].text = "عملية حفظ عادية"
         dismissKeyboard()
-        click(By.desc("حفظ العملية"), "Embedded transaction save")
+        clickSemanticCenter(By.desc("حفظ العملية"), "Embedded transaction save")
 
         assertTrue("Embedded transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
         assertTransactionPersisted("عملية حفظ عادية", 5000L)
@@ -111,6 +111,14 @@ class TransactionSaveRegressionTest {
     private fun click(selector: BySelector, description: String) {
         val object2 = device.wait(Until.findObject(selector), 10_000) ?: error("$description was not found")
         object2.click()
+        device.waitForIdle()
+    }
+
+    private fun clickSemanticCenter(selector: BySelector, description: String) {
+        val object2 = device.wait(Until.findObject(selector), 10_000) ?: error("$description was not found")
+        val bounds = object2.visibleBounds
+        require(!bounds.isEmpty) { "$description has no visible bounds" }
+        device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
     }
 
