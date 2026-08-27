@@ -128,7 +128,8 @@ fun PersonAccountScreen(
                     onBack = {},
                     transactionViewModel = transactionViewModel,
                     embedded = true,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    personName = person.name
                 )
             }
         }
