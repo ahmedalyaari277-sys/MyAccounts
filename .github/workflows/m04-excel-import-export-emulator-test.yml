@@ -56,6 +56,7 @@ jobs:
           test -f app/build.gradle.kts
           test -f app/src/main/java/com/myaccounts/app/util/ExcelDataManager.kt
           test -f app/src/androidTest/java/com/myaccounts/app/excel/ExcelImportExportInstrumentedTest.kt
+          test -f app/src/androidTest/java/com/myaccounts/app/excel/ExcelImportExportUiInstrumentedTest.kt
           gradle --version
 
       - name: Enable KVM for Android Emulator
@@ -65,7 +66,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo chmod 666 /dev/kvm
 
-      - name: Run M-04 Excel tests on emulator
+      - name: Run M-04 real UI Excel test on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -82,13 +83,13 @@ jobs:
           pre-emulator-launch-script: adb start-server
           script: |
             cd "$GITHUB_WORKSPACE"
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.excel.ExcelImportExportInstrumentedTest --no-daemon --stacktrace
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.excel.ExcelImportExportUiInstrumentedTest --no-daemon --stacktrace
 
       - name: Upload M-04 instrumented test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m04-excel-import-export-emulator-results
+          name: m04-excel-import-export-ui-emulator-results
           path: |
             app/build/outputs/androidTest-results/connected/**
             app/build/reports/androidTests/connected/**
