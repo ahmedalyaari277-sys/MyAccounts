@@ -58,7 +58,7 @@ class TransactionSaveRegressionTest {
         fields[2].clear()
         fields[2].text = "عملية حفظ سريعة"
         dismissKeyboard()
-        clickVisibleText("حفظ", "Quick transaction save")
+        click(By.desc("حفظ العملية"), "Quick transaction save")
 
         assertTrue("Quick transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
         assertTransactionPersisted("عملية حفظ سريعة", 10000L)
@@ -76,7 +76,7 @@ class TransactionSaveRegressionTest {
         fields[2].clear()
         fields[2].text = "عملية حفظ عادية"
         dismissKeyboard()
-        clickVisibleText("حفظ", "Embedded transaction save")
+        click(By.desc("حفظ العملية"), "Embedded transaction save")
 
         assertTrue("Embedded transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
         assertTransactionPersisted("عملية حفظ عادية", 5000L)
@@ -117,35 +117,6 @@ class TransactionSaveRegressionTest {
     private fun dismissKeyboard() {
         device.pressBack()
         device.waitForIdle()
-    }
-
-    private fun clickVisibleText(text: String, description: String) {
-        val deadline = System.currentTimeMillis() + 12_000L
-        var keyboardDismissed = false
-        while (System.currentTimeMillis() < deadline) {
-            val object2 = device.findObject(By.text(text))
-            if (object2 != null) {
-                object2.click()
-                device.waitForIdle()
-                return
-            }
-            if (!keyboardDismissed) {
-                keyboardDismissed = true
-                device.pressBack()
-                device.waitForIdle()
-                continue
-            }
-            device.swipe(
-                device.displayWidth / 2,
-                device.displayHeight * 3 / 4,
-                device.displayWidth / 2,
-                device.displayHeight / 3,
-                350
-            )
-            device.waitForIdle()
-            Thread.sleep(150)
-        }
-        error("$description was not found as a UI element")
     }
 
     private fun waitForText(text: String) {
