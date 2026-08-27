@@ -120,7 +120,7 @@ class TransactionSaveRegressionTest {
     }
 
     private fun clickVisibleText(text: String, description: String) {
-        val deadline = System.currentTimeMillis() + 10_000L
+        val deadline = System.currentTimeMillis() + 12_000L
         while (System.currentTimeMillis() < deadline) {
             val object2 = device.findObject(By.text(text))
             if (object2 != null) {
@@ -128,8 +128,15 @@ class TransactionSaveRegressionTest {
                 device.waitForIdle()
                 return
             }
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4, device.displayWidth / 2, device.displayHeight / 3, 20)
+            device.swipe(
+                device.displayWidth / 2,
+                device.displayHeight * 3 / 4,
+                device.displayWidth / 2,
+                device.displayHeight / 3,
+                350
+            )
             device.waitForIdle()
+            Thread.sleep(150)
         }
         error("$description was not found as a UI element")
     }
