@@ -279,7 +279,7 @@ fun TransactionScreen(
     } }, confirmButton = { TextButton(onClick = {
         val amountMinor = runCatching { BigDecimal(amountText.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
         if (amountMinor == null || amountMinor <= 0L) amountError = true else onSave(selectedType, amountMinor, description.trim(), attachments)
-    }) { Text("حفظ", fontWeight = FontWeight.Bold) }, dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } })
+    }) { Text("حفظ", fontWeight = FontWeight.Bold) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } })
 }
 
 @Composable private fun TransactionItem(transaction: TransactionEntity, transactionViewModel: TransactionViewModel, onEdit: () -> Unit, onDelete: () -> Unit, onAttachments: () -> Unit) {
