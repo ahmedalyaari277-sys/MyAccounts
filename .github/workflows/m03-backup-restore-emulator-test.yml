@@ -7,6 +7,7 @@ on:
     paths:
       - 'app/src/main/java/com/myaccounts/app/util/DatabaseBackupManager.kt'
       - 'app/src/main/java/com/myaccounts/app/data/local/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/HomeScreen.kt'
       - 'app/src/androidTest/java/com/myaccounts/app/backup/**'
       - 'app/build.gradle.kts'
       - 'build.gradle.kts'
