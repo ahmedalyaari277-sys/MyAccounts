@@ -68,7 +68,8 @@ fun TransactionScreen(
     transactionViewModel: TransactionViewModel,
     accounts: List<CurrencyAccountEntity> = emptyList(),
     embedded: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    personName: String = ""
 ) {
     var selectedAccountId by remember(accountId) { mutableStateOf(accountId) }
     var selectedCurrencyCode by remember(currencyCode) { mutableStateOf(currencyCode) }
@@ -169,7 +170,21 @@ fun TransactionScreen(
         }
     }
 
-    if (showAddTransactionDialog) {
+    if (showAddTransactionDialog && embedded && availableAccounts.isNotEmpty()) {
+        Dialog(onDismissRequest = { showAddTransactionDialog = false }) {
+            Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
+                QuickTransactionScreen(
+                    personName = personName,
+                    accounts = availableAccounts,
+                    onSave = { transaction, attachments ->
+                        transactionViewModel.addTransaction(transaction, attachments)
+                        showAddTransactionDialog = false
+                    },
+                    onCancel = { showAddTransactionDialog = false }
+                )
+            }
+        }
+    } else if (showAddTransactionDialog) {
         AddTransactionDialog(selectedCurrencyCode, onDismiss = { showAddTransactionDialog = false }, onSave = { type, amountMinor, description, attachments ->
             transactionViewModel.addTransaction(
                 TransactionEntity(
