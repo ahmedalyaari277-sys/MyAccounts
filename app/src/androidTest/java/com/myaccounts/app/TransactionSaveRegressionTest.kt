@@ -70,14 +70,15 @@ class TransactionSaveRegressionTest {
         waitForText("إضافة عملية")
         click(By.text("إضافة عملية"), "Embedded add transaction button")
 
-        val fields = waitForEditTexts(2)
+        val fields = waitForEditTexts(3)
         fields[0].clear()
         fields[0].text = "50"
-        fields[1].clear()
-        fields[1].text = "عملية حفظ عادية"
+        fields[2].clear()
+        fields[2].text = "عملية حفظ عادية"
+        dismissKeyboard()
         clickVisibleText("حفظ", "Embedded transaction save")
 
-        assertTrue("Transaction dialog did not close", device.wait(Until.gone(By.text("التفاصيل")), 10_000))
+        assertTrue("Embedded transaction dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
         assertTransactionPersisted("عملية حفظ عادية", 5000L)
     }
 
