@@ -70,9 +70,9 @@ interface TransactionDao {
     suspend fun insertTransactionAttachment(attachment: TransactionAttachmentEntity): Long
 
     @Transaction
-    fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
+    suspend fun insertTransactionAndUpdateBalance(transaction: TransactionEntity): Long {
         val transactionId = insertTransaction(transaction)
-        recalculateBalance(transaction.accountId)
+        recalculateBalanceSuspend(transaction.accountId)
         return transactionId
     }
 
@@ -95,10 +95,6 @@ interface TransactionDao {
         val transaction = getTransaction(transactionId)
         deleteTransactionById(transactionId)
         transaction?.let { recalculateBalanceSuspend(it.accountId) }
-    }
-
-    private fun recalculateBalance(accountId: Long) {
-        updateCurrencyBalance(accountId, getBalance(accountId))
     }
 
     private suspend fun recalculateBalanceSuspend(accountId: Long) {
