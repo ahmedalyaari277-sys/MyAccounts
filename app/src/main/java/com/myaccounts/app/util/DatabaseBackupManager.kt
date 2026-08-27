@@ -182,7 +182,7 @@ object DatabaseBackupManager {
         for (i in 0 until people.length()) {
             val p = people.getJSONObject(i)
             require(p.has("id") && p.has("name") && p.has("createdAt") && p.has("isActive"))
-            if (version >= TRANSACTION_ARCHIVE_FORMAT_VERSION) require(p.has("archivedAt")) { "حالة أرشفة الحساب غير مكتملة." }
+            if (version >= 4) require(p.has("archivedAt")) { "حالة أرشفة الحساب غير مكتملة." }
             if (version >= EXTERNAL_ID_FORMAT_VERSION) require(p.has("externalId") && p.getString("externalId").isNotBlank()) { "معرف الشخص غير موجود." }
             require(personIds.add(p.getLong("id"))) { "النسخة الاحتياطية تحتوي على شخص مكرر." }
         }

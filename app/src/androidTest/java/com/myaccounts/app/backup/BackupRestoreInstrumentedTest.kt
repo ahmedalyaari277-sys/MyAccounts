@@ -16,6 +16,8 @@ import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.util.DatabaseBackupManager
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -74,6 +76,76 @@ class BackupRestoreInstrumentedTest {
         val restoreResult = DatabaseBackupManager.restoreBackup(context, backupUri!!)
         assertTrue("Restore failed: ${restoreResult.exceptionOrNull()}", restoreResult.isSuccess)
         assertRestoredData(db)
+    }
+
+    @Test
+    fun restoreLegacyFormatV3WithoutArchiveOrExternalIds() = runBlocking {
+        val db = database.openHelper.writableDatabase
+        db.execSQL("DELETE FROM transaction_attachments")
+        db.execSQL("DELETE FROM transactions")
+        db.execSQL("DELETE FROM currency_accounts")
+        db.execSQL("DELETE FROM people")
+
+        val legacyBackup = JSONObject()
+            .put("backupType", "myaccounts_full_backup")
+            .put("formatVersion", 3)
+            .put("createdAt", 3000L)
+            .put("people", JSONArray().put(
+                JSONObject()
+                    .put("id", 940001L)
+                    .put("name", "شخص من النسخة القديمة")
+                    .put("phone", "0522222222")
+                    .put("address", "عنوان قديم")
+                    .put("notes", "ملاحظة قديمة")
+                    .put("createdAt", 3001L)
+                    .put("isActive", true)
+            ))
+            .put("currencyAccounts", JSONArray().put(
+                JSONObject()
+                    .put("id", 950001L)
+                    .put("personId", 940001L)
+                    .put("currencyCode", "YER")
+                    .put("balanceMinor", 375000L)
+                    .put("createdAt", 3002L)
+                    .put("updatedAt", 3003L)
+            ))
+            .put("transactions", JSONArray().put(
+                JSONObject()
+                    .put("id", 960001L)
+                    .put("accountId", 950001L)
+                    .put("type", "RECEIVABLE")
+                    .put("amountMinor", 375000L)
+                    .put("description", "عملية من النسخة القديمة")
+                    .put("transactionDate", 3004L)
+                    .put("createdAt", 3005L)
+            ))
+            .put("attachments", JSONArray())
+
+        backupUri = createBackupUri("m03_legacy_v3_${System.currentTimeMillis()}.myaccounts")
+        context.contentResolver.openOutputStream(backupUri!!)?.use { output ->
+            output.write(legacyBackup.toString().toByteArray(Charsets.UTF_8))
+        } ?: error("Could not write legacy v3 backup")
+        publishBackupUri(backupUri!!)
+
+        val restoreResult = DatabaseBackupManager.restoreBackup(context, backupUri!!)
+        assertTrue("Legacy v3 restore failed: ${restoreResult.exceptionOrNull()}", restoreResult.isSuccess)
+
+        db.query("SELECT name,archivedAt,externalId FROM people WHERE id=940001").use { c ->
+            assertTrue("Legacy v3 person was not restored", c.moveToFirst())
+            assertEquals("شخص من النسخة القديمة", c.getString(0))
+            assertTrue("Legacy v3 archivedAt should default to NULL", c.isNull(1))
+            assertEquals("P-940001", c.getString(2))
+        }
+        db.query("SELECT balanceMinor FROM currency_accounts WHERE id=950001").use { c ->
+            assertTrue("Legacy v3 account was not restored", c.moveToFirst())
+            assertEquals(375000L, c.getLong(0))
+        }
+        db.query("SELECT amountMinor,description,externalId FROM transactions WHERE id=960001").use { c ->
+            assertTrue("Legacy v3 transaction was not restored", c.moveToFirst())
+            assertEquals(375000L, c.getLong(0))
+            assertEquals("عملية من النسخة القديمة", c.getString(1))
+            assertEquals("T-960001", c.getString(2))
+        }
     }
 
     @Test
