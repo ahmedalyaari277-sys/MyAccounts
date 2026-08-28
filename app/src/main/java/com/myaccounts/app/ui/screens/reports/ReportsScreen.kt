@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.util.GeneralReportsExcelExporter
 import com.myaccounts.app.util.GeneralReportsPdfExporter
@@ -97,44 +96,169 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("التقارير العامة", fontWeight = FontWeight.Bold) }, navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } }, actions = { TextButton(onClick = { showCurrencyMenu = true }) { Text("المزيد ⋮") }; DropdownMenu(expanded = showCurrencyMenu, onDismissRequest = { showCurrencyMenu = false }) { DropdownMenuItem(text = { Text("جميع العملات") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("ALL") }); DropdownMenuItem(text = { Text("الريال اليمني") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("YER") }); DropdownMenuItem(text = { Text("الريال السعودي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("SAR") }); DropdownMenuItem(text = { Text("الدولار الأمريكي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("USD") }) } }) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("التقارير العامة", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                navigationIcon = { TextButton(onClick = onBack) { Text("رجوع", style = MaterialTheme.typography.labelLarge) } },
+                actions = {
+                    TextButton(onClick = { showCurrencyMenu = true }) { Text("المزيد ⋮", style = MaterialTheme.typography.labelLarge) }
+                    DropdownMenu(expanded = showCurrencyMenu, onDismissRequest = { showCurrencyMenu = false }) {
+                        DropdownMenuItem(text = { Text("جميع العملات") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("ALL") })
+                        DropdownMenuItem(text = { Text("الريال اليمني") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("YER") })
+                        DropdownMenuItem(text = { Text("الريال السعودي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("SAR") })
+                        DropdownMenuItem(text = { Text("الدولار الأمريكي") }, onClick = { showCurrencyMenu = false; viewModel.selectCurrency("USD") })
+                    }
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbar) }
+    ) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                Text("التقارير العامة", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text(if (state.selectedCurrencyCode == "ALL") "التقرير الكامل يعرض العملات الثلاث مستقلة." else "تقرير منفصل: ${currencyName(state.selectedCurrencyCode)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(6.dp)); PeriodSelector(period, ::choose)
-                if (period == Period.CUSTOM) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { showStart = true }, Modifier.weight(1f)) { Text("من: ${formatDate(customStart)}") }; OutlinedButton(onClick = { showEnd = true }, Modifier.weight(1f)) { Text("إلى: ${formatDate(customEnd)}") } }
-                Spacer(Modifier.height(6.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") }); FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التقرير العام") }); FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("أرصدة الحسابات") }) }
-                Spacer(Modifier.height(6.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }; Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") } }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { share(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة Excel") }; OutlinedButton(onClick = { share(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة PDF") } }
+                Card(
+                    Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = MaterialTheme.shapes.large,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("التقارير العامة", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            if (state.selectedCurrencyCode == "ALL") "التقرير الكامل يعرض العملات الثلاث مستقلة." else "تقرير منفصل: ${currencyName(state.selectedCurrencyCode)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("الفترة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        PeriodSelector(period, ::choose)
+                        if (period == Period.CUSTOM) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { showStart = true }, Modifier.weight(1f), shape = MaterialTheme.shapes.small) { Text("من: ${formatDate(customStart)}") }
+                            OutlinedButton(onClick = { showEnd = true }, Modifier.weight(1f), shape = MaterialTheme.shapes.small) { Text("إلى: ${formatDate(customEnd)}") }
+                        }
+                        Text("نوع التقرير", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") })
+                            FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التقرير العام") })
+                            FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("أرصدة الحسابات") })
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading, shape = MaterialTheme.shapes.small) { Text("Excel", fontWeight = FontWeight.Bold) }
+                            Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading, shape = MaterialTheme.shapes.small) { Text("PDF", fontWeight = FontWeight.Bold) }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { share(false) }, Modifier.weight(1f), enabled = !state.isLoading, shape = MaterialTheme.shapes.small) { Text("مشاركة Excel") }
+                            OutlinedButton(onClick = { share(true) }, Modifier.weight(1f), enabled = !state.isLoading, shape = MaterialTheme.shapes.small) { Text("مشاركة PDF") }
+                        }
+                    }
+                }
             }
             if (state.selectedCurrencyCode == "ALL") {
                 item { CurrencyTotals(state.allCurrencySummaries) }
                 when (reportType) {
-                    ReportType.PEOPLE -> { item { Text("الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.allCurrencyPeople) { p -> PersonCard(p.personName, p.currencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) } }
-                    ReportType.DETAILED -> { item { Text("التقرير العام للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.allCurrencyGeneralTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) } }
-                    ReportType.SUMMARY -> { item { Text("أرصدة الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.allCurrencyPersonSummaries) { r -> PersonCard(r.personName, r.currencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) } }
+                    ReportType.PEOPLE -> { item { SectionTitle("الأشخاص") }; items(state.allCurrencyPeople) { p -> PersonCard(p.personName, p.currencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) } }
+                    ReportType.DETAILED -> { item { SectionTitle("التقرير العام للعمليات") }; items(state.allCurrencyGeneralTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) } }
+                    ReportType.SUMMARY -> { item { SectionTitle("أرصدة الحسابات") }; items(state.allCurrencyPersonSummaries) { r -> PersonCard(r.personName, r.currencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) } }
                 }
             } else {
                 item { SingleCurrencyTotals(state.currencySummary) }
                 when (reportType) {
-                    ReportType.PEOPLE -> { item { Text("الأشخاص", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.people) { p -> PersonCard(p.personName, state.selectedCurrencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) } }
-                    ReportType.DETAILED -> { item { Text("التقرير العام للعمليات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.generalTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) } }
-                    ReportType.SUMMARY -> { item { Text("أرصدة الحسابات", fontSize = 20.sp, fontWeight = FontWeight.Bold) }; items(state.personCurrencySummaries) { r -> PersonCard(r.personName, state.selectedCurrencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) } }
+                    ReportType.PEOPLE -> { item { SectionTitle("الأشخاص") }; items(state.people) { p -> PersonCard(p.personName, state.selectedCurrencyCode, p.totalReceivableMinor, p.totalPayableMinor, p.balanceMinor, p.transactionCount, null) } }
+                    ReportType.DETAILED -> { item { SectionTitle("التقرير العام للعمليات") }; items(state.generalTransactions) { t -> TransactionCard(t.transactionDate, t.personName, t.description, t.currencyCode, t.type, t.amountMinor) } }
+                    ReportType.SUMMARY -> { item { SectionTitle("أرصدة الحسابات") }; items(state.personCurrencySummaries) { r -> PersonCard(r.personName, state.selectedCurrencyCode, r.totalReceivableMinor, r.totalPayableMinor, r.balanceMinor, r.transactionCount, null) } }
                 }
             }
-            if (state.errorMessage != null) item { Text(state.errorMessage!!, color = MaterialTheme.colorScheme.error) }
+            if (state.errorMessage != null) item {
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), shape = MaterialTheme.shapes.medium) {
+                    Text(state.errorMessage!!, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
     if (showStart) DatePickerDialog(onDismissRequest = { showStart = false }, confirmButton = { TextButton({ showStart = false }) { Text("إغلاق") } }) { val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customStart); DatePicker(picker); LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customStart = it; if (customEnd != null) viewModel.setDateRange(dayStart(it), dayEnd(customEnd!!)) } } }
     if (showEnd) DatePickerDialog(onDismissRequest = { showEnd = false }, confirmButton = { TextButton({ showEnd = false }) { Text("إغلاق") } }) { val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = customEnd); DatePicker(picker); LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { customEnd = it; if (customStart != null) viewModel.setDateRange(dayStart(customStart!!), dayEnd(it)) } } }
 }
 
-@Composable private fun PersonCard(name: String, currency: String, receivable: Long, payable: Long, balanceValue: Long, transactionCount: Int, onClick: (() -> Unit)?) { Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(name, fontWeight = FontWeight.Bold); Text(currencyName(currency), color = MaterialTheme.colorScheme.onSurfaceVariant) }; Column { Text("عليه ${amount(receivable)}", color = MaterialTheme.colorScheme.error); Text("له ${amount(payable)}", color = MaterialTheme.colorScheme.secondary); Text(balance(balanceValue), fontWeight = FontWeight.Bold); Text("العمليات: $transactionCount") } } } }
-@Composable private fun TransactionCard(date: Long, personName: String, description: String, currency: String, type: String, value: Long) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) { Text("${formatDate(date)} — $personName", fontWeight = FontWeight.Bold); Text(description.ifBlank { "—" }); Text(currencyName(currency), color = MaterialTheme.colorScheme.onSurfaceVariant); Text(if (type == "RECEIVABLE") "عليه ${amount(value)}" else "له ${amount(value)}", color = if (type == "RECEIVABLE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary) } } }
-@Composable private fun PeriodSelector(selected: Period, onSelect: (Period) -> Unit) { Column { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) { FilterChip(selected == Period.ALL, { onSelect(Period.ALL) }, label = { Text("كل الحساب") }); FilterChip(selected == Period.TODAY, { onSelect(Period.TODAY) }, label = { Text("اليوم") }); FilterChip(selected == Period.WEEK, { onSelect(Period.WEEK) }, label = { Text("هذا الأسبوع") }) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) { FilterChip(selected == Period.MONTH, { onSelect(Period.MONTH) }, label = { Text("هذا الشهر") }); FilterChip(selected == Period.CUSTOM, { onSelect(Period.CUSTOM) }, label = { Text("فترة مخصصة") }) } } }
-@Composable private fun CurrencyTotals(summaries: List<com.myaccounts.app.data.reports.CurrencyReportSummary>) { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { summaries.forEach { s -> Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) { Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(currencyName(s.currencyCode), fontWeight = FontWeight.Bold); Text("عليه ${amount(s.totalReceivableMinor)}", color = MaterialTheme.colorScheme.error); Text("له ${amount(s.totalPayableMinor)}", color = MaterialTheme.colorScheme.secondary); Text(balance(s.balanceMinor), fontWeight = FontWeight.Bold) } } } } }
-@Composable private fun SingleCurrencyTotals(summary: com.myaccounts.app.data.reports.CurrencyReportSummary?) { if (summary == null) return; Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) { Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(currencyName(summary.currencyCode), fontWeight = FontWeight.Bold); Text("عليه ${amount(summary.totalReceivableMinor)}", color = MaterialTheme.colorScheme.error); Text("له ${amount(summary.totalPayableMinor)}", color = MaterialTheme.colorScheme.secondary); Text(balance(summary.balanceMinor), fontWeight = FontWeight.Bold) } } }
+@Composable private fun SectionTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+}
+
+@Composable private fun PersonCard(name: String, currency: String, receivable: Long, payable: Long, balanceValue: Long, transactionCount: Int, onClick: (() -> Unit)?) {
+    Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(currencyName(currency), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("عليه ${amount(receivable)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                Text("له ${amount(payable)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                Text(balance(balanceValue), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("العمليات: $transactionCount", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable private fun TransactionCard(date: Long, personName: String, description: String, currency: String, type: String, value: Long) {
+    Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("${formatDate(date)} — $personName", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(description.ifBlank { "—" }, style = MaterialTheme.typography.bodyMedium)
+            Text(currencyName(currency), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (type == "RECEIVABLE") "عليه ${amount(value)}" else "له ${amount(value)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = if (type == "RECEIVABLE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+        }
+    }
+}
+
+@Composable private fun PeriodSelector(selected: Period, onSelect: (Period) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(selected == Period.ALL, { onSelect(Period.ALL) }, label = { Text("كل الحساب") })
+            FilterChip(selected == Period.TODAY, { onSelect(Period.TODAY) }, label = { Text("اليوم") })
+            FilterChip(selected == Period.WEEK, { onSelect(Period.WEEK) }, label = { Text("هذا الأسبوع") })
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(selected == Period.MONTH, { onSelect(Period.MONTH) }, label = { Text("هذا الشهر") })
+            FilterChip(selected == Period.CUSTOM, { onSelect(Period.CUSTOM) }, label = { Text("فترة مخصصة") })
+        }
+    }
+}
+
+@Composable private fun CurrencyTotals(summaries: List<com.myaccounts.app.data.reports.CurrencyReportSummary>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("إجمالي العملات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        summaries.forEach { s ->
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = MaterialTheme.shapes.medium) {
+                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(currencyName(s.currencyCode), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("عليه ${amount(s.totalReceivableMinor)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        Text("له ${amount(s.totalPayableMinor)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        Text(balance(s.balanceMinor), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun SingleCurrencyTotals(summary: com.myaccounts.app.data.reports.CurrencyReportSummary?) {
+    if (summary == null) return
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(currencyName(summary.currencyCode), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("عليه ${amount(summary.totalReceivableMinor)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                Text("له ${amount(summary.totalPayableMinor)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Text(balance(summary.balanceMinor), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 private fun amount(v: Long) = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun balance(v: Long) = when { v > 0L -> "عليه ${amount(v)}"; v < 0L -> "له ${amount(-v)}"; else -> "متعادل 0" }
 private fun currencyName(c: String) = when (c) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> c }
