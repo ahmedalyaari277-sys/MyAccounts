@@ -12,18 +12,18 @@ import java.io.File
 object ReportShareUtil {
     /**
      * Generates the requested report as part of the share action, copies it to a
-     * private temporary cache file, opens Android's share sheet, and removes the
-     * exported source file so sharing never depends on a previous user export.
+     * private temporary cache file, optionally opens Android's share sheet, and
+     * removes the generated export source so sharing never depends on a previous export.
      */
     fun shareGeneratedReport(
         context: Context,
         fileNamePrefix: String,
         mimeType: String,
+        launchChooser: Boolean = true,
         generate: () -> Result<String>
     ): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
-        val generated = generate()
-        generated.getOrThrow()
+        generate().getOrThrow()
 
         val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
@@ -53,13 +53,15 @@ object ReportShareUtil {
 
             if (!shareFile.isFile || shareFile.length() == 0L) throw IllegalStateException("تعذر تجهيز التقرير للمشاركة.")
 
-            val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = mimeType
-                putExtra(Intent.EXTRA_STREAM, shareUri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (launchChooser) {
+                val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, shareUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 context.contentResolver.delete(source as Uri, null, null)
@@ -75,7 +77,7 @@ object ReportShareUtil {
         Result.failure(e)
     }
 
-    /** Kept for compatibility with older callers; new share actions must use shareGeneratedReport. */
+    /** Kept for compatibility with older callers. New share actions must use shareGeneratedReport. */
     fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
         val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
