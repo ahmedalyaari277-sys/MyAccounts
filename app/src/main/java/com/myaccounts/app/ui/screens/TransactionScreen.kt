@@ -62,53 +62,25 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionScreen(
-    accountId: Long,
-    currencyCode: String,
-    onBack: () -> Unit,
-    transactionViewModel: TransactionViewModel,
-    accounts: List<CurrencyAccountEntity> = emptyList(),
-    embedded: Boolean = false,
-    modifier: Modifier = Modifier,
-    personName: String = ""
-) {
+fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit, transactionViewModel: TransactionViewModel, accounts: List<CurrencyAccountEntity> = emptyList(), embedded: Boolean = false, modifier: Modifier = Modifier, personName: String = "") {
     var selectedAccountId by remember(accountId) { mutableStateOf(accountId) }
     var selectedCurrencyCode by remember(currencyCode) { mutableStateOf(currencyCode) }
     LaunchedEffect(selectedAccountId) { transactionViewModel.selectAccount(selectedAccountId) }
-
     val transactions by transactionViewModel.transactions.collectAsState()
     val balance by transactionViewModel.balance.collectAsState()
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionForAttachments by remember { mutableStateOf<TransactionEntity?>(null) }
     var showAddTransactionDialog by remember { mutableStateOf(false) }
-
     val availableAccounts = accounts
 
     val currencySelector: @Composable () -> Unit = {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("YER", "SAR", "USD").forEach { code ->
                 val account = availableAccounts.firstOrNull { it.currencyCode == code }
                 if (account != null) {
-                    if (selectedCurrencyCode == code) {
-                        Button(
-                            onClick = {},
-                            Modifier.weight(1f),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                        ) { Text(code, fontWeight = FontWeight.Bold) }
-                    } else {
-                        OutlinedButton(
-                            onClick = {
-                                selectedCurrencyCode = code
-                                selectedAccountId = account.id
-                            },
-                            Modifier.weight(1f),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                        ) { Text(code, fontWeight = FontWeight.Bold) }
-                    }
+                    if (selectedCurrencyCode == code) Button(onClick = {}, Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)) { Text(code, fontWeight = FontWeight.Bold) }
+                    else OutlinedButton(onClick = { selectedCurrencyCode = code; selectedAccountId = account.id }, Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 10.dp)) { Text(code, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -116,95 +88,28 @@ fun TransactionScreen(
 
     val transactionContent: @Composable (Modifier) -> Unit = { contentModifier ->
         Column(contentModifier.fillMaxSize()) {
-            if (availableAccounts.isNotEmpty()) {
-                currencySelector()
-                Spacer(Modifier.height(10.dp))
-            }
+            if (availableAccounts.isNotEmpty()) { currencySelector(); Spacer(Modifier.height(10.dp)) }
             BalanceCard(balance = balance, currencyCode = selectedCurrencyCode)
             Spacer(Modifier.height(14.dp))
-            if (transactions.isEmpty()) {
-                EmptyTransactionsState()
-            } else {
-                LazyColumn(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)
-                ) {
-                    items(transactions, key = { it.id }) { transaction ->
-                        TransactionItem(
-                            transaction,
-                            transactionViewModel,
-                            onEdit = { transactionToEdit = transaction },
-                            onDelete = { transactionToDelete = transaction },
-                            onAttachments = { transactionForAttachments = transaction }
-                        )
-                    }
+            if (transactions.isEmpty()) EmptyTransactionsState() else {
+                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)) {
+                    items(transactions, key = { it.id }) { transaction -> TransactionItem(transaction, transactionViewModel, onEdit = { transactionToEdit = transaction }, onDelete = { transactionToDelete = transaction }, onAttachments = { transactionForAttachments = transaction }) }
                 }
             }
-            if (embedded) {
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = { showAddTransactionDialog = true }, Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("إضافة عملية")
-                }
-            }
+            if (embedded) { Spacer(Modifier.height(8.dp)); Button(onClick = { showAddTransactionDialog = true }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("إضافة عملية") } }
         }
     }
 
-    if (embedded) {
-        transactionContent(modifier)
-    } else {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                androidx.compose.material3.TopAppBar(
-                    title = { Text("عمليات $selectedCurrencyCode", fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } }
-                )
-            },
-            floatingActionButton = { FloatingActionButton(onClick = { showAddTransactionDialog = true }) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }
-        ) { paddingValues ->
-            Column(Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
-                transactionContent(modifier.weight(1f))
-            }
-        }
-    }
+    if (embedded) transactionContent(modifier) else Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { androidx.compose.material3.TopAppBar(title = { Text("عمليات $selectedCurrencyCode", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } }) }, floatingActionButton = { FloatingActionButton(onClick = { showAddTransactionDialog = true }) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }) { paddingValues -> Column(Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) { transactionContent(modifier.weight(1f)) } }
 
     if (showAddTransactionDialog && embedded && availableAccounts.isNotEmpty()) {
-        Dialog(
-            onDismissRequest = { showAddTransactionDialog = false },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
-            )
-        ) {
+        Dialog(onDismissRequest = { showAddTransactionDialog = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             Surface(Modifier.fillMaxWidth(0.92f), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
-                QuickTransactionScreen(
-                    personName = personName,
-                    accounts = availableAccounts,
-                    onSave = { transaction, attachments ->
-                        transactionViewModel.addTransaction(transaction, attachments)
-                        showAddTransactionDialog = false
-                    },
-                    onCancel = { showAddTransactionDialog = false }
-                )
+                QuickTransactionScreen(personName = personName, accounts = availableAccounts, onSave = { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments); showAddTransactionDialog = false }, onCancel = { showAddTransactionDialog = false })
             }
         }
     } else if (showAddTransactionDialog) {
-        AddTransactionDialog(selectedCurrencyCode, onDismiss = { showAddTransactionDialog = false }, onSave = { type, amountMinor, description, attachments ->
-            transactionViewModel.addTransaction(
-                TransactionEntity(
-                    accountId = selectedAccountId,
-                    type = type,
-                    amountMinor = amountMinor,
-                    description = description,
-                    transactionDate = System.currentTimeMillis()
-                ),
-                attachments
-            )
-            showAddTransactionDialog = false
-        })
+        AddTransactionDialog(selectedCurrencyCode, onDismiss = { showAddTransactionDialog = false }, onSave = { type, amountMinor, description, attachments -> transactionViewModel.addTransaction(TransactionEntity(accountId = selectedAccountId, type = type, amountMinor = amountMinor, description = description, transactionDate = System.currentTimeMillis()), attachments); showAddTransactionDialog = false })
     }
 
     transactionToEdit?.let { transaction ->
@@ -213,27 +118,12 @@ fun TransactionScreen(
         var editPersonName by remember(transaction.id) { mutableStateOf("") }
         LaunchedEffect(transaction.id) {
             val account = transactionViewModel.getAccount(transaction.accountId)
-            if (account != null) {
-                editAccounts = transactionViewModel.getPersonCurrencyAccounts(account.personId)
-                editPersonName = transactionViewModel.getPersonNameForAccount(transaction.accountId)
-            }
+            if (account != null) { editAccounts = transactionViewModel.getPersonCurrencyAccounts(account.personId); editPersonName = transactionViewModel.getPersonNameForAccount(transaction.accountId) }
         }
         Dialog(onDismissRequest = { transactionToEdit = null }) {
             Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
-                if (editAccounts.isNotEmpty()) QuickTransactionScreen(
-                    personName = editPersonName,
-                    accounts = editAccounts,
-                    initialTransaction = transaction,
-                    existingAttachments = attachments,
-                    onSave = { _, _ -> },
-                    onCancel = { transactionToEdit = null },
-                    onEditSave = { updatedTransaction, newAttachments, deletedAttachments ->
-                        transactionViewModel.updateTransaction(updatedTransaction, newAttachments, deletedAttachments)
-                        transactionToEdit = null
-                    }
-                ) else Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("جاري تحميل بيانات الحساب...", fontWeight = FontWeight.Bold)
-                }
+                if (editAccounts.isNotEmpty()) QuickTransactionScreen(personName = editPersonName, accounts = editAccounts, initialTransaction = transaction, existingAttachments = attachments, onSave = { _, _ -> }, onCancel = { transactionToEdit = null }, onEditSave = { updatedTransaction, newAttachments, deletedAttachments -> transactionViewModel.updateTransaction(updatedTransaction, newAttachments, deletedAttachments); transactionToEdit = null })
+                else Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("جاري تحميل بيانات الحساب...", fontWeight = FontWeight.Bold) }
             }
         }
     }
@@ -243,19 +133,11 @@ fun TransactionScreen(
         TransactionAttachmentsDialog(transactionId = transaction.id, attachments = attachments, onDismiss = { transactionForAttachments = null }, onDelete = { transactionViewModel.deleteAttachment(it) })
     }
 
-    transactionToDelete?.let { transaction ->
-        AlertDialog(
-            onDismissRequest = { transactionToDelete = null },
-            title = { Text("حذف العملية نهائيًا") },
-            text = { Text("سيتم حذف العملية ومرفقاتها نهائيًا من الحساب. لا يمكن التراجع عن هذا الإجراء.") },
-            confirmButton = { TextButton(onClick = { transactionViewModel.deleteTransactionById(transaction.id); transactionToDelete = null }) { Text("حذف نهائي", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } },
-            dismissButton = { TextButton(onClick = { transactionToDelete = null }) { Text("إلغاء") } }
-        )
-    }
+    transactionToDelete?.let { transaction -> AlertDialog(onDismissRequest = { transactionToDelete = null }, title = { Text("حذف العملية نهائيًا") }, text = { Text("سيتم حذف العملية ومرفقاتها نهائيًا من الحساب. لا يمكن التراجع عن هذا الإجراء.") }, confirmButton = { TextButton(onClick = { transactionViewModel.deleteTransactionById(transaction.id); transactionToDelete = null }) { Text("حذف نهائي", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } }, dismissButton = { TextButton(onClick = { transactionToDelete = null }) { Text("إلغاء") } }) }
 }
 
 @Composable private fun BalanceCard(balance: Long, currencyCode: String) {
-    val balanceColor = if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    val balanceColor = when { balance < 0L -> MaterialTheme.colorScheme.secondary; balance > 0L -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.primary }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(16.dp)) { Text("الرصيد الحالي", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(4.dp)); Text(formatBalanceWithSign(balance), color = balanceColor, fontSize = 21.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(2.dp)); Text(balanceStatus(balance, currencyCode), color = balanceColor, style = MaterialTheme.typography.bodySmall) } }
 }
 
@@ -300,4 +182,4 @@ fun TransactionScreen(
 
 private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun formatBalanceWithSign(balance: Long): String { val amount = formatAmount(kotlin.math.abs(balance)); return if (balance < 0) "-$amount" else "+$amount" }
-private fun balanceStatus(balance: Long, currencyCode: String): String = when { balance > 0L -> "له $currencyCode"; balance < 0L -> "عليه $currencyCode"; else -> "متوازن" }
+private fun balanceStatus(balance: Long, currencyCode: String): String = when { balance > 0L -> "عليه $currencyCode"; balance < 0L -> "له $currencyCode"; else -> "متوازن" }
