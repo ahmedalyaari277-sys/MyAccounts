@@ -75,47 +75,41 @@ fun PersonReportScreen(
         viewModel.setAllTime()
     }
 
-    fun export(pdf: Boolean, afterExport: ((Boolean) -> Unit)? = null) {
+    fun generateNow(pdf: Boolean): Result<String> {
+        val report = state.selectedPersonMultiCurrencyReport
+            ?: return Result.failure(IllegalStateException("جاري تحميل بيانات التقرير..."))
+        return if (currencyCode == "ALL") {
+            if (pdf) MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
+            else MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
+        } else {
+            val currencyReport = report.reports.firstOrNull { it.currencyCode == currencyCode }
+                ?: return Result.failure(IllegalStateException("لا توجد بيانات لهذه العملة."))
+            if (pdf) PersonReportPdfExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
+            else PersonReportExcelExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
+        }
+    }
+
+    fun export(pdf: Boolean) {
         scope.launch {
-            val report = state.selectedPersonMultiCurrencyReport
-            if (report == null) {
-                snackbar.showSnackbar("جاري تحميل بيانات التقرير...")
-                return@launch
-            }
-            val result = withContext(Dispatchers.IO) {
-                if (currencyCode == "ALL") {
-                    if (pdf) MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
-                    else MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
-                } else {
-                    val currencyReport = report.reports.firstOrNull { it.currencyCode == currencyCode }
-                    if (currencyReport == null) {
-                        Result.failure(IllegalStateException("لا توجد بيانات لهذه العملة."))
-                    } else if (pdf) {
-                        PersonReportPdfExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
-                    } else {
-                        PersonReportExcelExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
-                    }
-                }
-            }
+            val result = withContext(Dispatchers.IO) { generateNow(pdf) }
             result.fold(
-                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح."); afterExport?.invoke(true) },
-                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير."); afterExport?.invoke(false) }
+                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") },
+                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") }
             )
         }
     }
 
     fun share(pdf: Boolean) {
-        export(pdf) { success ->
-            if (success) {
-                val personName = state.selectedPersonMultiCurrencyReport?.personName.orEmpty()
-                val prefix = if (currencyCode == "ALL") "MyAccounts_تقرير_حساب_${safeFileName(personName)}" else "MyAccounts_Person_Report_${safeFileName(personName)}"
-                val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                scope.launch(Dispatchers.IO) {
-                    val result = ReportShareUtil.shareLatestReport(context, prefix, mime)
-                    withContext(Dispatchers.Main) {
-                        result.fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") })
-                    }
-                }
+        val personName = state.selectedPersonMultiCurrencyReport?.personName.orEmpty()
+        val prefix = if (currencyCode == "ALL") "MyAccounts_تقرير_حساب_${safeFileName(personName)}" else "MyAccounts_Person_Report_${safeFileName(personName)}"
+        val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        scope.launch(Dispatchers.IO) {
+            val result = ReportShareUtil.shareGeneratedReport(context, prefix, mime) { generateNow(pdf) }
+            withContext(Dispatchers.Main) {
+                result.fold(
+                    { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
+                    { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") }
+                )
             }
         }
     }
