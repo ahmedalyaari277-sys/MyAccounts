@@ -255,7 +255,11 @@ fun TransactionScreen(
 }
 
 @Composable private fun BalanceCard(balance: Long, currencyCode: String) {
-    val balanceColor = if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    val balanceColor = when {
+        balance < 0L -> MaterialTheme.colorScheme.secondary
+        balance > 0L -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.primary
+    }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(16.dp)) { Text("الرصيد الحالي", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(4.dp)); Text(formatBalanceWithSign(balance), color = balanceColor, fontSize = 21.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(2.dp)); Text(balanceStatus(balance, currencyCode), color = balanceColor, style = MaterialTheme.typography.bodySmall) } }
 }
 
@@ -300,4 +304,4 @@ fun TransactionScreen(
 
 private fun formatAmount(amountMinor: Long): String = BigDecimal(amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun formatBalanceWithSign(balance: Long): String { val amount = formatAmount(kotlin.math.abs(balance)); return if (balance < 0) "-$amount" else "+$amount" }
-private fun balanceStatus(balance: Long, currencyCode: String): String = when { balance > 0L -> "له $currencyCode"; balance < 0L -> "عليه $currencyCode"; else -> "متوازن" }
+private fun balanceStatus(balance: Long, currencyCode: String): String = when { balance > 0L -> "عليه $currencyCode"; balance < 0L -> "له $currencyCode"; else -> "متوازن" }
