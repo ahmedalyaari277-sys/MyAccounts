@@ -7,10 +7,12 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 object ReportShareUtil {
-    fun shareGeneratedReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true, generate: () -> Result<String>): Result<Unit> = try {
+    suspend fun shareGeneratedReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true, generate: () -> Result<String>): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
         generate().getOrThrow()
         val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -33,12 +35,14 @@ object ReportShareUtil {
             if (!shareFile.isFile || shareFile.length() == 0L) throw IllegalStateException("تعذر تجهيز التقرير للمشاركة.")
             if (launchChooser) {
                 val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = mimeType
-                    putExtra(Intent.EXTRA_STREAM, shareUri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                withContext(Dispatchers.Main) {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_STREAM, shareUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }
-                context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) context.contentResolver.delete(source as Uri, null, null) else (source as File).delete()
             Result.success(Unit)
@@ -65,8 +69,10 @@ object ReportShareUtil {
             }
             val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
             if (launchChooser) {
-                val intent = Intent(Intent.ACTION_SEND).apply { type = mimeType; putExtra(Intent.EXTRA_STREAM, shareUri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                withContext(Dispatchers.Main) {
+                    val intent = Intent(Intent.ACTION_SEND).apply { type = mimeType; putExtra(Intent.EXTRA_STREAM, shareUri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                    context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
             }
             Result.success(Unit)
         } catch (e: Exception) { shareFile.delete(); throw e }
