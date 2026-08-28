@@ -72,23 +72,52 @@ class ReportExportInstrumentedTest {
     }
 
     @Test
-    fun exportedPdfCanBeSharedThroughTheProductionSharePath() {
-        val export = GeneralReportsPdfExporter.exportPeopleReport(
-            context = context,
-            currency = "YER",
-            summary = summary,
-            people = people,
-            start = null,
-            end = null
-        )
-        assertTrue("PDF export failed before share test: ${export.exceptionOrNull()}", export.isSuccess)
+    fun shareActionGeneratesARealTemporaryPdfWithoutRequiringPriorExport() {
+        val beforeIds = downloadIds("MyAccounts_تقرير_الأشخاص", ".pdf")
 
-        val share = ReportShareUtil.shareLatestReport(
+        val share = ReportShareUtil.shareGeneratedReport(
             context = context,
             fileNamePrefix = "MyAccounts_تقرير_الأشخاص",
-            mimeType = "application/pdf"
-        )
-        assertTrue("Share path failed: ${share.exceptionOrNull()}", share.isSuccess)
+            mimeType = "application/pdf",
+            launchChooser = false
+        ) {
+            GeneralReportsPdfExporter.exportPeopleReport(
+                context = context,
+                currency = "YER",
+                summary = summary,
+                people = people,
+                start = null,
+                end = null
+            )
+        }
+
+        assertTrue("Direct share generation failed: ${share.exceptionOrNull()}", share.isSuccess)
+        assertEquals("Direct share must not leave a new Downloads export behind", beforeIds, downloadIds("MyAccounts_تقرير_الأشخاص", ".pdf"))
+
+        val temp = java.io.File(context.cacheDir, "report_share")
+            .listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".pdf", ignoreCase = true) }
+            ?.maxByOrNull { it.lastModified() }
+        assertTrue("Temporary shared PDF was not created", temp?.isFile == true)
+        assertTrue("Temporary shared PDF is empty", (temp?.length() ?: 0L) > 0L)
+    }
+
+    private fun downloadIds(prefix: String, extension: String): Set<Long> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptySet()
+        val resolver = context.contentResolver
+        val ids = mutableSetOf<Long>()
+        val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME)
+        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
+        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
+        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, null)?.use { cursor ->
+            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+            val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+            while (cursor.moveToNext()) {
+                val name = cursor.getString(nameIndex) ?: continue
+                if (name.startsWith(prefix) && name.endsWith(extension, ignoreCase = true)) ids += cursor.getLong(idIndex)
+            }
+        }
+        return ids
     }
 
     private fun assertLatestDownloadFileExists(prefix: String, extension: String) {
