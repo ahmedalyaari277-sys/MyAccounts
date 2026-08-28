@@ -143,7 +143,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val result = ReportShareUtil.shareGeneratedReport(context, prefix, mimeType) { generateNow(pdf) }
-            withContext(kotlinx.coroutines.Dispatchers.Main) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 result.fold(
                     { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
                     { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") }
