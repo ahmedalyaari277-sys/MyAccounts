@@ -12,6 +12,7 @@ import com.myaccounts.app.data.reports.CurrencyReportSummary
 import com.myaccounts.app.util.GeneralReportsExcelExporter
 import com.myaccounts.app.util.GeneralReportsPdfExporter
 import com.myaccounts.app.util.ReportShareUtil
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,7 +39,7 @@ class ReportExportInstrumentedTest {
     }
 
     @Test
-    fun shareActionGeneratesTemporaryPdfWithoutPriorExport() {
+    fun shareActionGeneratesTemporaryPdfWithoutPriorExport() = runBlocking {
         val beforeIds = downloadIds("MyAccounts_تقرير_الأشخاص", ".pdf")
         val share = ReportShareUtil.shareGeneratedReport(
             context = context,
