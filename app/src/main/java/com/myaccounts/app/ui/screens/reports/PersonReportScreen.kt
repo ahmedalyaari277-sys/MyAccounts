@@ -33,15 +33,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.myaccounts.app.data.reports.MultiCurrencyPersonReport
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.util.MultiCurrencyReportExcelExporter
 import com.myaccounts.app.util.MultiCurrencyReportPdfExporter
+import com.myaccounts.app.util.PersonReportExcelExporter
+import com.myaccounts.app.util.PersonReportPdfExporter
+import com.myaccounts.app.util.ReportShareUtil
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -65,22 +70,51 @@ fun PersonReportScreen(
 
     LaunchedEffect(personId, currencyCode) {
         viewModel.selectPerson(personId)
-        if (currencyCode != "ALL") viewModel.selectCurrency(currencyCode)
-        else viewModel.selectCurrency("ALL")
+        viewModel.selectCurrency(if (currencyCode == "ALL") "ALL" else currencyCode)
+        viewModel.loadPersonReport()
         viewModel.setAllTime()
     }
 
-    fun export(pdf: Boolean) {
-        val report = state.selectedPersonMultiCurrencyReport ?: return
+    fun export(pdf: Boolean, afterExport: ((Boolean) -> Unit)? = null) {
         scope.launch {
-            // The combined exporter remains the canonical export path for now.
-            // Single-currency export formatting is finalized together with the report exporters.
-            val result = if (pdf) {
-                MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
-            } else {
-                MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
+            val report = state.selectedPersonMultiCurrencyReport
+            if (report == null) {
+                snackbar.showSnackbar("جاري تحميل بيانات التقرير...")
+                return@launch
             }
-            result.fold({ snackbar.showSnackbar(it) }, { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") })
+            val result = withContext(Dispatchers.IO) {
+                if (currencyCode == "ALL") {
+                    if (pdf) MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
+                    else MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
+                } else {
+                    val currencyReport = report.reports.firstOrNull { it.currencyCode == currencyCode }
+                    if (currencyReport == null) {
+                        Result.failure(IllegalStateException("لا توجد بيانات لهذه العملة."))
+                    } else if (pdf) {
+                        PersonReportPdfExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
+                    } else {
+                        PersonReportExcelExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
+                    }
+                }
+            }
+            result.fold(
+                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح."); afterExport?.invoke(true) },
+                { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير."); afterExport?.invoke(false) }
+            )
+        }
+    }
+
+    fun share(pdf: Boolean) {
+        export(pdf) { success ->
+            if (!success) return@export
+            val prefix = if (currencyCode == "ALL") "MyAccounts_تقرير_حساب_${safeFileName(state.selectedPersonMultiCurrencyReport?.personName.orEmpty())}" else "MyAccounts_Person_Report_${safeFileName(state.selectedPersonMultiCurrencyReport?.personName.orEmpty())}"
+            val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            scope.launch(Dispatchers.IO) {
+                val result = ReportShareUtil.shareLatestReport(context, prefix, mime)
+                withContext(Dispatchers.Main) {
+                    result.fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") })
+                }
+            }
         }
     }
 
@@ -102,6 +136,10 @@ fun PersonReportScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ export(true) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("PDF") }
                 Button({ export(false) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("Excel") }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton({ share(true) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("مشاركة PDF") }
+                OutlinedButton({ share(false) }, Modifier.weight(1f), enabled = state.selectedPersonMultiCurrencyReport != null && !state.isLoading) { Text("مشاركة Excel") }
             }
             Spacer(Modifier.height(10.dp))
             if (state.isLoading) Text("جاري تحميل التقرير...") else state.selectedPersonMultiCurrencyReport?.let { report ->
@@ -166,3 +204,4 @@ private fun formatDate(value: Long): String = SimpleDateFormat("dd/MM/yyyy", Loc
 private fun range(start: Long?, end: Long?): String = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(it - 1) } ?: "غير محدد"}"
 private fun dayStart(value: Long): Long = Calendar.getInstance().apply { timeInMillis = value; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
 private fun addDays(value: Long, days: Int): Long = Calendar.getInstance().apply { timeInMillis = value; add(Calendar.DAY_OF_MONTH, days) }.timeInMillis
+private fun safeFileName(value: String): String = value.replace(Regex("[\\\\/:*?\"<>|]"), "_").replace(Regex("\\s+"), "_").take(60).ifBlank { "Person" }
