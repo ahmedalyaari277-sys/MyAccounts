@@ -137,7 +137,9 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
             ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
         }
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        export(pdf)
         scope.launch {
+            kotlinx.coroutines.delay(100)
             ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
                 { snackbar.showSnackbar("تعذر مشاركة التقرير.") },
                 { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
