@@ -52,7 +52,7 @@ object ReportShareUtil {
         }
     } catch (e: Exception) { Result.failure(e) }
 
-    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true): Result<Unit> = try {
+    suspend fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
         val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findLatestDownloadUri(context, fileNamePrefix, expectedExtension) ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب.")
