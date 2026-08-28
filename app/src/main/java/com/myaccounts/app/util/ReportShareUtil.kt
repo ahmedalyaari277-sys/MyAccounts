@@ -10,32 +10,29 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object ReportShareUtil {
-    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true): Result<Unit> = try {
+    fun shareGeneratedReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true, generate: () -> Result<String>): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
-        val sourceUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
+        generate().getOrThrow()
+        val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            findLatestDownloadUri(context, fileNamePrefix, expectedExtension) ?: throw IllegalStateException("تعذر العثور على التقرير الذي تم إنشاؤه للمشاركة.")
         } else {
-            findLatestLegacyFile(context, fileNamePrefix, expectedExtension)?.let {
-                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it)
-            }
-        } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
-
-        val shareFile = File(context.cacheDir, "report_share").apply { if (!exists()) mkdirs() }
-            .resolve("share_${System.currentTimeMillis()}$expectedExtension")
+            findLatestLegacyFile(context, fileNamePrefix, expectedExtension) ?: throw IllegalStateException("تعذر العثور على التقرير الذي تم إنشاؤه للمشاركة.")
+        }
+        val shareDir = File(context.cacheDir, "report_share").apply { if (!exists() && !mkdirs()) throw IllegalStateException("تعذر إنشاء ملف المشاركة المؤقت.") }
+        shareDir.listFiles()?.forEach { if (it.isFile) it.delete() }
+        val shareFile = File(shareDir, "share_${System.currentTimeMillis()}$expectedExtension")
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                context.contentResolver.openInputStream(sourceUri).use { input ->
-                    if (input == null) throw IllegalStateException("تعذر فتح ملف التقرير للمشاركة.")
+                context.contentResolver.openInputStream(source as Uri).use { input ->
+                    if (input == null) throw IllegalStateException("تعذر فتح التقرير للمشاركة.")
                     shareFile.outputStream().use { output -> input.copyTo(output) }
                 }
             } else {
-                val sourceFile = findLatestLegacyFile(context, fileNamePrefix, expectedExtension)
-                    ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
-                sourceFile.inputStream().use { input -> shareFile.outputStream().use { output -> input.copyTo(output) } }
+                (source as File).inputStream().use { input -> shareFile.outputStream().use { output -> input.copyTo(output) } }
             }
-
-            val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
+            if (!shareFile.isFile || shareFile.length() == 0L) throw IllegalStateException("تعذر تجهيز التقرير للمشاركة.")
             if (launchChooser) {
+                val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = mimeType
                     putExtra(Intent.EXTRA_STREAM, shareUri)
@@ -43,14 +40,37 @@ object ReportShareUtil {
                 }
                 context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) context.contentResolver.delete(source as Uri, null, null) else (source as File).delete()
             Result.success(Unit)
-        } catch (exception: Exception) {
+        } catch (e: Exception) {
             shareFile.delete()
-            throw exception
+            throw e
         }
-    } catch (exception: Exception) {
-        Result.failure(exception)
-    }
+    } catch (e: Exception) { Result.failure(e) }
+
+    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true): Result<Unit> = try {
+        val expectedExtension = extensionForMime(mimeType)
+        val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            findLatestDownloadUri(context, fileNamePrefix, expectedExtension) ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب.")
+        } else {
+            findLatestLegacyFile(context, fileNamePrefix, expectedExtension)?.let { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب.")
+        }
+        val shareFile = File(context.cacheDir, "report_share").apply { if (!exists()) mkdirs() }.resolve("share_${System.currentTimeMillis()}$expectedExtension")
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.contentResolver.openInputStream(source as Uri).use { input -> if (input == null) throw IllegalStateException("تعذر فتح ملف التقرير للمشاركة."); shareFile.outputStream().use { output -> input.copyTo(output) } }
+            } else {
+                val sourceFile = findLatestLegacyFile(context, fileNamePrefix, expectedExtension) ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب.")
+                sourceFile.inputStream().use { input -> shareFile.outputStream().use { output -> input.copyTo(output) } }
+            }
+            val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
+            if (launchChooser) {
+                val intent = Intent(Intent.ACTION_SEND).apply { type = mimeType; putExtra(Intent.EXTRA_STREAM, shareUri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            Result.success(Unit)
+        } catch (e: Exception) { shareFile.delete(); throw e }
+    } catch (e: Exception) { Result.failure(e) }
 
     private fun extensionForMime(mimeType: String): String = when (mimeType.lowercase()) {
         "application/pdf" -> ".pdf"
@@ -70,21 +90,16 @@ object ReportShareUtil {
         val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.DATE_ADDED)
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
         val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
-        var latestId: Long? = null
-        var latestDate = Long.MIN_VALUE
         val candidates = candidatePrefixes(prefix)
         resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
-            val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
             while (cursor.moveToNext()) {
                 val name = cursor.getString(nameIndex) ?: continue
-                if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
-                val dateAdded = cursor.getLong(dateIndex)
-                if (dateAdded >= latestDate) { latestDate = dateAdded; latestId = cursor.getLong(idIndex) }
+                if (name.endsWith(extension, ignoreCase = true) && candidates.any { name.startsWith(it) }) return Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getLong(idIndex).toString())
             }
         }
-        return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
+        return null
     }
 
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
