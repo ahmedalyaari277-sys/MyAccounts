@@ -33,10 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
 import com.myaccounts.app.data.reports.MultiCurrencyPersonReport
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.util.MultiCurrencyReportExcelExporter
@@ -106,13 +106,15 @@ fun PersonReportScreen(
 
     fun share(pdf: Boolean) {
         export(pdf) { success ->
-            if (!success) return@export
-            val prefix = if (currencyCode == "ALL") "MyAccounts_تقرير_حساب_${safeFileName(state.selectedPersonMultiCurrencyReport?.personName.orEmpty())}" else "MyAccounts_Person_Report_${safeFileName(state.selectedPersonMultiCurrencyReport?.personName.orEmpty())}"
-            val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            scope.launch(Dispatchers.IO) {
-                val result = ReportShareUtil.shareLatestReport(context, prefix, mime)
-                withContext(Dispatchers.Main) {
-                    result.fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") })
+            if (success) {
+                val personName = state.selectedPersonMultiCurrencyReport?.personName.orEmpty()
+                val prefix = if (currencyCode == "ALL") "MyAccounts_تقرير_حساب_${safeFileName(personName)}" else "MyAccounts_Person_Report_${safeFileName(personName)}"
+                val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                scope.launch(Dispatchers.IO) {
+                    val result = ReportShareUtil.shareLatestReport(context, prefix, mime)
+                    withContext(Dispatchers.Main) {
+                        result.fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") })
+                    }
                 }
             }
         }
