@@ -103,26 +103,30 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         }
     }
 
+    fun generateNow(pdf: Boolean): Result<String> {
+        val allCurrencies = state.selectedCurrencyCode == "ALL"
+        return if (allCurrencies) {
+            when (reportType) {
+                ReportType.PEOPLE -> if (pdf) MultiCurrencyReportPdfExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
+                ReportType.DETAILED -> if (pdf) MultiCurrencyReportPdfExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
+                ReportType.SUMMARY -> if (pdf) MultiCurrencyReportPdfExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
+            }
+        } else {
+            val currency = state.selectedCurrencyCode
+            when (reportType) {
+                ReportType.PEOPLE -> {
+                    val summary = state.currencySummary
+                    if (summary == null) Result.failure(IllegalStateException("لم تكتمل بيانات التقرير بعد.")) else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive)
+                }
+                ReportType.DETAILED -> if (pdf) GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
+                ReportType.SUMMARY -> if (pdf) GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
+            }
+        }
+    }
+
     fun export(pdf: Boolean) {
         scope.launch {
-            val allCurrencies = state.selectedCurrencyCode == "ALL"
-            val result = if (allCurrencies) {
-                when (reportType) {
-                    ReportType.PEOPLE -> if (pdf) MultiCurrencyReportPdfExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
-                    ReportType.DETAILED -> if (pdf) MultiCurrencyReportPdfExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    ReportType.SUMMARY -> if (pdf) MultiCurrencyReportPdfExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
-                }
-            } else {
-                val currency = state.selectedCurrencyCode
-                when (reportType) {
-                    ReportType.PEOPLE -> {
-                        val summary = state.currencySummary
-                        if (summary == null) Result.failure(IllegalStateException("لم تكتمل بيانات التقرير بعد.")) else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive)
-                    }
-                    ReportType.DETAILED -> if (pdf) GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    ReportType.SUMMARY -> if (pdf) GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
-                }
-            }
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { generateNow(pdf) }
             result.fold(
                 { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") },
                 { snackbar.showSnackbar("تعذر إنشاء التقرير.") }
@@ -137,11 +141,14 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
             ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
         }
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        scope.launch {
-            ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
-                { snackbar.showSnackbar("تعذر مشاركة التقرير.") },
-                { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
-            )
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = ReportShareUtil.shareGeneratedReport(context, prefix, mimeType) { generateNow(pdf) }
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                result.fold(
+                    { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
+                    { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") }
+                )
+            }
         }
     }
 
