@@ -10,7 +10,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object ReportShareUtil {
-    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> = try {
+    fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String, launchChooser: Boolean = true): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
         val sourceUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
@@ -35,12 +35,14 @@ object ReportShareUtil {
             }
 
             val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = mimeType
-                putExtra(Intent.EXTRA_STREAM, shareUri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (launchChooser) {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, shareUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             Result.success(Unit)
         } catch (exception: Exception) {
             shareFile.delete()
