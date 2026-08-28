@@ -7,7 +7,9 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.io.File
 
 object ReportShareUtil {
@@ -32,12 +34,14 @@ object ReportShareUtil {
                 }
             }
             val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = mimeType
-                putExtra(Intent.EXTRA_STREAM, shareUri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            withContext(Dispatchers.Main) {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, shareUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             Result.success(Unit)
         } catch (exception: Exception) {
             shareFile.delete()
