@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -52,7 +51,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.local.TransactionEntity
@@ -99,7 +97,7 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("دفتر الحسابات", fontWeight = FontWeight.Bold) },
+                title = { Text("دفتر الحسابات", style = MaterialTheme.typography.titleLarge) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.primary
@@ -139,7 +137,9 @@ fun HomeScreen(
                     ) {
                         Icon(Icons.Default.Backup, contentDescription = null)
                     }
-                    IconButton(onClick = onArchiveClick) { Icon(Icons.Default.Archive, contentDescription = "الأرشيف") }
+                    IconButton(onClick = onArchiveClick) {
+                        Icon(Icons.Default.Archive, contentDescription = "الأرشيف")
+                    }
                 }
             )
         }
@@ -162,24 +162,44 @@ fun HomeScreen(
                     placeholder = { Text("بحث بالاسم أو الهاتف أو العنوان أو الملاحظات") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
                 Spacer(Modifier.height(16.dp))
 
                 if (displayedList.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.height(48.dp).width(48.dp))
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.height(48.dp).width(48.dp)
+                            )
                             Spacer(Modifier.height(10.dp))
-                            Text(if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(
+                                if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             if (searchQuery.isBlank()) {
                                 Spacer(Modifier.height(4.dp))
-                                Text("اضغط (+) لإضافة أول شخص", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text(
+                                    "اضغط (+) لإضافة أول شخص",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         items(displayedList, key = { it.person.id }) { item ->
                             PersonCard(
                                 item,
@@ -199,8 +219,10 @@ fun HomeScreen(
                     onClick = { showAddDialog = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
-                ) { Icon(Icons.Default.Add, contentDescription = "إضافة شخص") }
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
+                }
             }
         }
     }
@@ -227,7 +249,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.72f)
                     .imePadding(),
-                shape = RoundedCornerShape(18.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
@@ -246,29 +268,52 @@ fun HomeScreen(
 }
 
 @Composable
-private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Unit, onQuickTransaction: () -> Unit) {
+private fun PersonCard(
+    personWithAccounts: PersonWithAccounts,
+    onClick: () -> Unit,
+    onQuickTransaction: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.medium
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onQuickTransaction) {
-                    Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة", tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "إضافة عملية سريعة",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(personWithAccounts.person.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface)
-                    if (personWithAccounts.person.phone.isNotBlank()) Text(personWithAccounts.person.phone, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        personWithAccounts.person.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (personWithAccounts.person.phone.isNotBlank()) {
+                        Text(
+                            personWithAccounts.person.phone,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
             if (personWithAccounts.person.address.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
-                Text("العنوان: ${personWithAccounts.person.address}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "العنوان: ${personWithAccounts.person.address}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -280,7 +325,8 @@ private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Un
     }
 }
 
-private fun PersonWithAccounts.balance(currencyCode: String): Long = accounts.firstOrNull { it.currencyCode == currencyCode }?.balanceMinor ?: 0L
+private fun PersonWithAccounts.balance(currencyCode: String): Long =
+    accounts.firstOrNull { it.currencyCode == currencyCode }?.balanceMinor ?: 0L
 
 @Composable
 private fun CurrencyLabel(currency: String, balance: Long) {
@@ -290,8 +336,18 @@ private fun CurrencyLabel(currency: String, balance: Long) {
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(currency, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(formatBalance(balance), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = balanceColor)
+        Text(
+            currency,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            formatBalance(balance),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Bold,
+            color = balanceColor
+        )
     }
 }
 
@@ -301,10 +357,14 @@ private fun formatBalance(balance: Long): String = when {
     else -> "متوازن 0"
 }
 
-private fun formatAmount(amount: Long): String = BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
+private fun formatAmount(amount: Long): String =
+    BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
 
 @Composable
-private fun AddPersonDialog(onDismiss: () -> Unit, onSave: (String, String, String, String) -> Unit) {
+private fun AddPersonDialog(
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String) -> Unit
+) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
@@ -315,17 +375,30 @@ private fun AddPersonDialog(onDismiss: () -> Unit, onSave: (String, String, Stri
         title = { Text("إضافة شخص جديد", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                OutlinedTextField(name, { name = it; nameError = false }, Modifier.fillMaxWidth(), label = { Text("اسم الشخص") }, singleLine = true, isError = nameError, shape = RoundedCornerShape(12.dp))
-                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                OutlinedTextField(
+                    name,
+                    { name = it; nameError = false },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("اسم الشخص") },
+                    singleLine = true,
+                    isError = nameError,
+                    shape = MaterialTheme.shapes.small
+                )
+                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true, shape = MaterialTheme.shapes.small)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, minLines = 2, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, minLines = 2, shape = MaterialTheme.shapes.small)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, shape = MaterialTheme.shapes.small)
             }
         },
-        confirmButton = { Button(onClick = { if (name.isBlank()) nameError = true else onSave(name.trim(), phone.trim(), address.trim(), notes.trim()) }) { Text("حفظ") } },
+        confirmButton = {
+            Button(onClick = {
+                if (name.isBlank()) nameError = true
+                else onSave(name.trim(), phone.trim(), address.trim(), notes.trim())
+            }) { Text("حفظ") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )
 }
