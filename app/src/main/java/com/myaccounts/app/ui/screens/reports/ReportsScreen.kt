@@ -63,85 +63,37 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
     var showStart by remember { mutableStateOf(false) }
     var showEnd by remember { mutableStateOf(false) }
     var showCurrencyMenu by remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) { viewModel.selectCurrency("ALL") }
+    fun dayStart(v: Long) = Calendar.getInstance().apply { timeInMillis = v; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+    fun dayEnd(v: Long) = Calendar.getInstance().apply { timeInMillis = dayStart(v); add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+    fun choose(p: Period) { period = p; val now = System.currentTimeMillis(); when (p) { Period.ALL -> viewModel.setAllTime(); Period.TODAY -> viewModel.setDateRange(dayStart(now), dayEnd(now)); Period.WEEK -> { val start = Calendar.getInstance().apply { timeInMillis = dayStart(now); set(Calendar.DAY_OF_WEEK, firstDayOfWeek) }.timeInMillis; viewModel.setDateRange(start, addDays(start, 7)) }; Period.MONTH -> { val start = Calendar.getInstance().apply { timeInMillis = dayStart(now); set(Calendar.DAY_OF_MONTH, 1) }.timeInMillis; viewModel.setDateRange(start, addMonths(start, 1)) }; Period.CUSTOM -> showStart = true } }
 
-    fun dayStart(v: Long) = Calendar.getInstance().apply {
-        timeInMillis = v
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-    fun dayEnd(v: Long) = Calendar.getInstance().apply {
-        timeInMillis = dayStart(v)
-        add(Calendar.DAY_OF_MONTH, 1)
-    }.timeInMillis
-
-    fun choose(p: Period) {
-        period = p
-        val now = System.currentTimeMillis()
-        when (p) {
-            Period.ALL -> viewModel.setAllTime()
-            Period.TODAY -> viewModel.setDateRange(dayStart(now), dayEnd(now))
-            Period.WEEK -> {
-                val start = Calendar.getInstance().apply {
-                    timeInMillis = dayStart(now)
-                    set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
-                }.timeInMillis
-                viewModel.setDateRange(start, addDays(start, 7))
+    fun generateNow(pdf: Boolean): Result<String> {
+        val allCurrencies = state.selectedCurrencyCode == "ALL"
+        return if (allCurrencies) {
+            when (reportType) {
+                ReportType.PEOPLE -> if (pdf) MultiCurrencyReportPdfExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
+                ReportType.DETAILED -> if (pdf) MultiCurrencyReportPdfExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
+                ReportType.SUMMARY -> if (pdf) MultiCurrencyReportPdfExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
             }
-            Period.MONTH -> {
-                val start = Calendar.getInstance().apply {
-                    timeInMillis = dayStart(now)
-                    set(Calendar.DAY_OF_MONTH, 1)
-                }.timeInMillis
-                viewModel.setDateRange(start, addMonths(start, 1))
+        } else {
+            val currency = state.selectedCurrencyCode
+            when (reportType) {
+                ReportType.PEOPLE -> { val summary = state.currencySummary; if (summary == null) Result.failure(IllegalStateException("لم تكتمل بيانات التقرير بعد.")) else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive) }
+                ReportType.DETAILED -> if (pdf) GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
+                ReportType.SUMMARY -> if (pdf) GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
             }
-            Period.CUSTOM -> showStart = true
         }
     }
 
-    fun export(pdf: Boolean) {
-        scope.launch {
-            val allCurrencies = state.selectedCurrencyCode == "ALL"
-            val result = if (allCurrencies) {
-                when (reportType) {
-                    ReportType.PEOPLE -> if (pdf) MultiCurrencyReportPdfExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportPeopleReport(context, state.allCurrencySummaries, state.allCurrencyPeople, state.startDateMillis, state.endDateMillisExclusive)
-                    ReportType.DETAILED -> if (pdf) MultiCurrencyReportPdfExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportDetailedReport(context, state.allCurrencySummaries, state.allCurrencyGeneralTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    ReportType.SUMMARY -> if (pdf) MultiCurrencyReportPdfExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive) else MultiCurrencyReportExcelExporter.exportSummaryReport(context, state.allCurrencyPersonSummaries, state.startDateMillis, state.endDateMillisExclusive)
-                }
-            } else {
-                val currency = state.selectedCurrencyCode
-                when (reportType) {
-                    ReportType.PEOPLE -> {
-                        val summary = state.currencySummary
-                        if (summary == null) Result.failure(IllegalStateException("لم تكتمل بيانات التقرير بعد.")) else if (pdf) GeneralReportsPdfExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportPeopleReport(context, currency, summary, state.people, state.startDateMillis, state.endDateMillisExclusive)
-                    }
-                    ReportType.DETAILED -> if (pdf) GeneralReportsPdfExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportDetailedReport(context, currency, state.generalTransactions, state.startDateMillis, state.endDateMillisExclusive)
-                    ReportType.SUMMARY -> if (pdf) GeneralReportsPdfExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive) else GeneralReportsExcelExporter.exportSummaryReport(context, currency, state.personCurrencySummaries, state.startDateMillis, state.endDateMillisExclusive)
-                }
-            }
-            result.fold(
-                { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") },
-                { snackbar.showSnackbar("تعذر إنشاء التقرير.") }
-            )
-        }
-    }
+    fun export(pdf: Boolean) { scope.launch { val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { generateNow(pdf) }; result.fold({ snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") }, { snackbar.showSnackbar("تعذر إنشاء التقرير.") }) } }
 
     fun share(pdf: Boolean) {
-        val prefix = when (reportType) {
-            ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"
-            ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"
-            ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
-        }
+        val prefix = when (reportType) { ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"; ReportType.DETAILED -> "MyAccounts_التقرير_العام"; ReportType.SUMMARY -> "MyAccounts_أرصدة_الحسابات" }
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        scope.launch {
-            ReportShareUtil.shareLatestReport(context, prefix, mimeType).fold(
-                { snackbar.showSnackbar("تعذر مشاركة التقرير.") },
-                { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }
-            )
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = ReportShareUtil.shareGeneratedReport(context, prefix, mimeType) { generateNow(pdf) }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { result.fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") }) }
         }
     }
 
@@ -152,10 +104,8 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
                 Text(if (state.selectedCurrencyCode == "ALL") "التقرير الكامل يعرض العملات الثلاث مستقلة." else "تقرير منفصل: ${currencyName(state.selectedCurrencyCode)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp)); PeriodSelector(period, ::choose)
                 if (period == Period.CUSTOM) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { showStart = true }, Modifier.weight(1f)) { Text("من: ${formatDate(customStart)}") }; OutlinedButton(onClick = { showEnd = true }, Modifier.weight(1f)) { Text("إلى: ${formatDate(customEnd)}") } }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") }); FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التقرير العام") }); FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("أرصدة الحسابات") }) }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }; Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") } }
+                Spacer(Modifier.height(6.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") }); FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("التقرير العام") }); FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("أرصدة الحسابات") }) }
+                Spacer(Modifier.height(6.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { export(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("Excel") }; Button(onClick = { export(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("PDF") } }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { share(false) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة Excel") }; OutlinedButton(onClick = { share(true) }, Modifier.weight(1f), enabled = !state.isLoading) { Text("مشاركة PDF") } }
             }
             if (state.selectedCurrencyCode == "ALL") {
