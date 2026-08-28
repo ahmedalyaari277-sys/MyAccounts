@@ -138,25 +138,30 @@ object ReportShareUtil {
         val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
         val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyAccounts%")
         val candidates = candidatePrefixes(prefix)
-        var latestId: Long? = null
-        var latestDate = Long.MIN_VALUE
-        resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            "${MediaStore.Downloads.DATE_ADDED} DESC"
+        )?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
-            val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_ADDED)
             while (cursor.moveToNext()) {
                 val name = cursor.getString(nameIndex) ?: continue
-                if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
-                val dateAdded = cursor.getLong(dateIndex)
-                if (dateAdded >= latestDate) { latestDate = dateAdded; latestId = cursor.getLong(idIndex) }
+                if (name.endsWith(extension, ignoreCase = true) && candidates.any { name.startsWith(it) }) {
+                    return Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getLong(idIndex).toString())
+                }
             }
         }
-        return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
+        return null
     }
 
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
         val candidates = candidatePrefixes(prefix)
-        return directory.listFiles()?.filter { file -> file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } }?.maxByOrNull { it.lastModified() }
+        return directory.listFiles()
+            ?.filter { file -> file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } }
+            ?.maxByOrNull { it.lastModified() }
     }
 }
