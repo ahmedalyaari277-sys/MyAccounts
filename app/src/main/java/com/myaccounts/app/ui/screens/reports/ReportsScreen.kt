@@ -137,8 +137,8 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
     fun share(pdf: Boolean) {
         val prefix = when (reportType) {
             ReportType.PEOPLE -> "MyAccounts_تقرير_الأشخاص"
-            ReportType.DETAILED -> "MyAccounts_التقرير_التفصيلي"
-            ReportType.SUMMARY -> "MyAccounts_ملخص_الأشخاص"
+            ReportType.DETAILED -> "MyAccounts_التقرير_العام"
+            ReportType.SUMMARY -> "MyAccounts_أرصدة_الحسابات"
         }
         val mimeType = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
