@@ -9,4 +9,7 @@
     <cache-path
         name="transaction_camera"
         path="transaction_camera/" />
+    <cache-path
+        name="report_share"
+        path="report_share/" />
 </paths>
