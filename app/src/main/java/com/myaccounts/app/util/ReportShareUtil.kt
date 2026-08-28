@@ -12,7 +12,7 @@ import java.io.File
 object ReportShareUtil {
     fun shareLatestReport(context: Context, fileNamePrefix: String, mimeType: String): Result<Unit> = try {
         val expectedExtension = extensionForMime(mimeType)
-        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val sourceUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findLatestDownloadUri(context, fileNamePrefix, expectedExtension)
         } else {
             findLatestLegacyFile(context, fileNamePrefix, expectedExtension)?.let {
@@ -20,13 +20,32 @@ object ReportShareUtil {
             }
         } ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
 
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = mimeType
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val shareFile = File(context.cacheDir, "report_share").apply { if (!exists()) mkdirs() }
+            .resolve("share_${System.currentTimeMillis()}$expectedExtension")
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.contentResolver.openInputStream(sourceUri).use { input ->
+                    if (input == null) throw IllegalStateException("تعذر فتح ملف التقرير للمشاركة.")
+                    shareFile.outputStream().use { output -> input.copyTo(output) }
+                }
+            } else {
+                val sourceFile = findLatestLegacyFile(context, fileNamePrefix, expectedExtension)
+                    ?: throw IllegalStateException("لم يتم العثور على ملف التقرير المطلوب. قم بتصدير التقرير أولاً.")
+                sourceFile.inputStream().use { input -> shareFile.outputStream().use { output -> input.copyTo(output) } }
+            }
+
+            val shareUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", shareFile)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, shareUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            Result.success(Unit)
+        } catch (exception: Exception) {
+            shareFile.delete()
+            throw exception
         }
-        context.startActivity(Intent.createChooser(intent, "مشاركة التقرير").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        Result.success(Unit)
     } catch (exception: Exception) {
         Result.failure(exception)
     }
@@ -52,7 +71,6 @@ object ReportShareUtil {
         var latestId: Long? = null
         var latestDate = Long.MIN_VALUE
         val candidates = candidatePrefixes(prefix)
-
         resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, projection, selection, selectionArgs, "${MediaStore.Downloads.DATE_ADDED} DESC")?.use { cursor ->
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
@@ -61,10 +79,7 @@ object ReportShareUtil {
                 val name = cursor.getString(nameIndex) ?: continue
                 if (!name.endsWith(extension, ignoreCase = true) || candidates.none { name.startsWith(it) }) continue
                 val dateAdded = cursor.getLong(dateIndex)
-                if (dateAdded >= latestDate) {
-                    latestDate = dateAdded
-                    latestId = cursor.getLong(idIndex)
-                }
+                if (dateAdded >= latestDate) { latestDate = dateAdded; latestId = cursor.getLong(idIndex) }
             }
         }
         return latestId?.let { Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, it.toString()) }
@@ -73,8 +88,6 @@ object ReportShareUtil {
     private fun findLatestLegacyFile(context: Context, prefix: String, extension: String): File? {
         val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts")
         val candidates = candidatePrefixes(prefix)
-        return directory.listFiles()
-            ?.filter { file -> file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } }
-            ?.maxByOrNull { it.lastModified() }
+        return directory.listFiles()?.filter { file -> file.isFile && file.name.endsWith(extension, ignoreCase = true) && candidates.any { file.name.startsWith(it) } }?.maxByOrNull { it.lastModified() }
     }
 }
