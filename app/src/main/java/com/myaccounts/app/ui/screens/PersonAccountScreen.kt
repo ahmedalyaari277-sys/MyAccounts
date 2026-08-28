@@ -35,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 
@@ -59,7 +58,13 @@ fun PersonAccountScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(text = person.name, fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = person.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.primary
@@ -74,7 +79,11 @@ fun PersonAccountScreen(
                         Icon(Icons.Default.Edit, contentDescription = "تعديل")
                     }
                     IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "أرشفة", tint = MaterialTheme.colorScheme.error)
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "أرشفة",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             )
@@ -89,30 +98,63 @@ fun PersonAccountScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.large
             ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(person.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Column(Modifier.padding(18.dp)) {
+                    Text(
+                        person.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                     if (person.phone.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
-                        Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "الهاتف: ${person.phone}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (person.address.isNotBlank()) {
                         Spacer(Modifier.height(5.dp))
-                        Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "العنوان: ${person.address}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (person.notes.isNotBlank()) {
                         Spacer(Modifier.height(5.dp))
-                        Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "الملاحظات: ${person.notes}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("الحسابات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row {
-                    TextButton(onClick = { onReportClick("ALL") }) { Text("إصدار التقرير الكامل", fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "الحسابات",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    TextButton(onClick = { onReportClick("ALL") }) {
+                        Text(
+                            "إصدار التقرير الكامل",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     IconButton(onClick = { showReportTypeDialog = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "المزيد")
                     }
@@ -120,7 +162,7 @@ fun PersonAccountScreen(
             }
 
             if (initialAccount != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 TransactionScreen(
                     accountId = initialAccount.id,
                     currencyCode = initialAccount.currencyCode,
@@ -138,23 +180,53 @@ fun PersonAccountScreen(
     if (showReportTypeDialog) {
         AlertDialog(
             onDismissRequest = { showReportTypeDialog = false },
-            title = { Text("نوع التقرير") },
+            title = {
+                Text(
+                    "نوع التقرير",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 Column {
-                    Text("اختر نوع التقرير الذي تريد إصداره:", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "اختر نوع التقرير الذي تريد إصداره:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(Modifier.height(10.dp))
-                    TextButton(onClick = { showReportTypeDialog = false; onReportClick("ALL") }, Modifier.fillMaxWidth()) { Text("جميع العملات") }
-                    TextButton(onClick = { showReportTypeDialog = false; onReportClick("YER") }, Modifier.fillMaxWidth()) { Text("الريال اليمني") }
-                    TextButton(onClick = { showReportTypeDialog = false; onReportClick("SAR") }, Modifier.fillMaxWidth()) { Text("الريال السعودي") }
-                    TextButton(onClick = { showReportTypeDialog = false; onReportClick("USD") }, Modifier.fillMaxWidth()) { Text("الدولار الأمريكي") }
+                    TextButton(
+                        onClick = { showReportTypeDialog = false; onReportClick("ALL") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("جميع العملات") }
+                    TextButton(
+                        onClick = { showReportTypeDialog = false; onReportClick("YER") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("الريال اليمني") }
+                    TextButton(
+                        onClick = { showReportTypeDialog = false; onReportClick("SAR") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("الريال السعودي") }
+                    TextButton(
+                        onClick = { showReportTypeDialog = false; onReportClick("USD") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("الدولار الأمريكي") }
                 }
             },
-            confirmButton = { TextButton(onClick = { showReportTypeDialog = false }) { Text("إغلاق") } }
+            confirmButton = {
+                TextButton(onClick = { showReportTypeDialog = false }) { Text("إغلاق") }
+            }
         )
     }
 
     if (showEditDialog) {
-        EditPersonDialog(person.name, person.phone, person.address, person.notes, { showEditDialog = false }) { name, phone, address, notes ->
+        EditPersonDialog(
+            person.name,
+            person.phone,
+            person.address,
+            person.notes,
+            { showEditDialog = false }
+        ) { name, phone, address, notes ->
             onUpdatePerson(name, phone, address, notes)
             showEditDialog = false
         }
@@ -163,16 +235,36 @@ fun PersonAccountScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("أرشفة الشخص") },
-            text = { Text("هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي.") },
-            confirmButton = { Button(onClick = { showDeleteDialog = false; onDeletePerson() }) { Text("أرشفة") } },
+            title = {
+                Text(
+                    "أرشفة الشخص",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    "هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(onClick = { showDeleteDialog = false; onDeletePerson() }) { Text("أرشفة") }
+            },
             dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("إلغاء") } }
         )
     }
 }
 
 @Composable
-private fun EditPersonDialog(name: String, phone: String, address: String, notes: String, onDismiss: () -> Unit, onSave: (String, String, String, String) -> Unit) {
+private fun EditPersonDialog(
+    name: String,
+    phone: String,
+    address: String,
+    notes: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String) -> Unit
+) {
     var editedName by remember { mutableStateOf(name) }
     var editedPhone by remember { mutableStateOf(phone) }
     var editedAddress by remember { mutableStateOf(address) }
@@ -180,20 +272,65 @@ private fun EditPersonDialog(name: String, phone: String, address: String, notes
     var nameError by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تعديل بيانات الشخص") },
+        title = {
+            Text(
+                "تعديل بيانات الشخص",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column {
-                OutlinedTextField(editedName, { editedName = it; nameError = false }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, isError = nameError)
-                if (nameError) Text("الاسم مطلوب", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                OutlinedTextField(
+                    editedName,
+                    { editedName = it; nameError = false },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("الاسم") },
+                    singleLine = true,
+                    isError = nameError,
+                    shape = MaterialTheme.shapes.small
+                )
+                if (nameError) {
+                    Text(
+                        "الاسم مطلوب",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editedPhone, { editedPhone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true)
+                OutlinedTextField(
+                    editedPhone,
+                    { editedPhone = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("الهاتف") },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small
+                )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editedAddress, { editedAddress = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") })
+                OutlinedTextField(
+                    editedAddress,
+                    { editedAddress = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("العنوان") },
+                    shape = MaterialTheme.shapes.small
+                )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(editedNotes, { editedNotes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2)
+                OutlinedTextField(
+                    editedNotes,
+                    { editedNotes = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("الملاحظات") },
+                    minLines = 2,
+                    shape = MaterialTheme.shapes.small
+                )
             }
         },
-        confirmButton = { Button(onClick = { if (editedName.isBlank()) nameError = true else onSave(editedName.trim(), editedPhone.trim(), editedAddress.trim(), editedNotes.trim()) }) { Text("حفظ") } },
+        confirmButton = {
+            Button(onClick = {
+                if (editedName.isBlank()) nameError = true
+                else onSave(editedName.trim(), editedPhone.trim(), editedAddress.trim(), editedNotes.trim())
+            }) { Text("حفظ") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )
 }
