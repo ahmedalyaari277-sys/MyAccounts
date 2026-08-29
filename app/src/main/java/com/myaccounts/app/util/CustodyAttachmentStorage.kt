@@ -35,7 +35,7 @@ object CustodyAttachmentStorage {
                     sizeBytes = destination.length()
                 )
             }
-            saved
+            return saved
         } catch (t: Throwable) {
             saved.forEach { deleteFile(context, it) }
             throw t
