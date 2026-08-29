@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.*
@@ -123,7 +125,13 @@ private fun CustodyFormDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> 
 
 @Composable
 private fun TextFieldFull(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+        singleLine = true
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
