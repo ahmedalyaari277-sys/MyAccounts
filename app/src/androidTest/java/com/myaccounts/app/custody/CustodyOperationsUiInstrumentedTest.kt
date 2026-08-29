@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.custody.CustodyEntity
@@ -154,7 +155,7 @@ class CustodyOperationsUiInstrumentedTest {
         hideKeyboardIfEditing()
         click(By.text("حفظ"), "Save person")
         device.waitForIdle()
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.text("إضافة شخص")), 10_000))
+        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
     }
 
     private fun waitForOperationDialog() {
@@ -174,7 +175,8 @@ class CustodyOperationsUiInstrumentedTest {
         } else {
             device.wait(Until.findObject(By.clazz("android.widget.EditText")), 2_000)
         }
-        actualField?.text = value ?: error("Editable control for '$description' not found")
+        if (actualField == null) error("Editable control for '$description' not found")
+        actualField.text = value
         device.waitForIdle()
     }
 
@@ -184,8 +186,7 @@ class CustodyOperationsUiInstrumentedTest {
         device.waitForIdle()
         assertTrue(
             "Operation dialog did not close",
-            device.wait(Until.gone(By.text("إضافة عملية")), 10_000) ||
-                device.wait(Until.gone(By.text("تعديل العملية")), 2_000)
+            device.wait(Until.gone(By.desc("حوار العملية")), 10_000)
         )
     }
 
@@ -200,15 +201,13 @@ class CustodyOperationsUiInstrumentedTest {
     private fun clickAction(text: String, label: String) {
         val byText = device.wait(Until.findObject(By.text(text)), 5_000)
         if (byText != null) {
-            byText.click()
-            device.waitForIdle()
+            clickNodeOrClickableAncestor(byText, label)
             return
         }
 
         val byDesc = device.wait(Until.findObject(By.desc(text)), 5_000)
         if (byDesc != null) {
-            byDesc.click()
-            device.waitForIdle()
+            clickNodeOrClickableAncestor(byDesc, label)
             return
         }
         error("$label not found")
@@ -216,8 +215,21 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun click(selector: androidx.test.uiautomator.BySelector, label: String) {
         val target = device.wait(Until.findObject(selector), 10_000) ?: error("$label not found")
-        target.click()
-        device.waitForIdle()
+        clickNodeOrClickableAncestor(target, label)
+    }
+
+    private fun clickNodeOrClickableAncestor(start: UiObject2, label: String) {
+        var current: UiObject2? = start
+        repeat(8) {
+            val node = current ?: return@repeat
+            if (node.isClickable) {
+                node.click()
+                device.waitForIdle()
+                return
+            }
+            current = runCatching { node.parent }.getOrNull()
+        }
+        error("$label clickable ancestor not found")
     }
 
     private fun waitForText(text: String) {
