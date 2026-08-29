@@ -9,24 +9,16 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CustodyDao {
-    @Query("SELECT * FROM custodies WHERE isArchived = 0 ORDER BY createdAt DESC, id DESC")
-    fun observeCustodies(): Flow<List<CustodyEntity>>
-    @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1")
-    fun observeCustody(id: Long): Flow<CustodyEntity?>
-    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY name COLLATE NOCASE ASC")
-    fun observePersons(custodyId: Long): Flow<List<CustodyPersonEntity>>
-    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId ORDER BY holderType ASC, personId ASC, currencyCode ASC")
-    fun observeAccounts(custodyId: Long): Flow<List<CustodyAccountEntity>>
-    @Query("SELECT * FROM custody_transactions WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC")
-    fun observeTransactions(custodyId: Long): Flow<List<CustodyTransactionEntity>>
-    @Query("SELECT * FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC")
-    fun observeAccountTransactions(accountId: Long): Flow<List<CustodyTransactionEntity>>
-    @Query("SELECT COALESCE(SUM(CASE WHEN type IN ('RECEIVED_FROM_ORG','RETURNED_FROM_PERSON') THEN amountMinor ELSE -amountMinor END),0) FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0")
-    fun observeBalance(accountId: Long): Flow<Long>
-    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId AND holderType = 'OWNER' AND personId IS NULL AND currencyCode = :currency LIMIT 1")
-    suspend fun getOwnerAccount(custodyId: Long, currency: String): CustodyAccountEntity?
-    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId AND holderType = 'PERSON' AND personId = :personId AND currencyCode = :currency LIMIT 1")
-    suspend fun getPersonAccount(custodyId: Long, personId: Long, currency: String): CustodyAccountEntity?
+    @Query("SELECT * FROM custodies WHERE isArchived = 0 ORDER BY createdAt DESC, id DESC") fun observeCustodies(): Flow<List<CustodyEntity>>
+    @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1") fun observeCustody(id: Long): Flow<CustodyEntity?>
+    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY name COLLATE NOCASE ASC") fun observePersons(custodyId: Long): Flow<List<CustodyPersonEntity>>
+    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId ORDER BY holderType ASC, personId ASC, currencyCode ASC") fun observeAccounts(custodyId: Long): Flow<List<CustodyAccountEntity>>
+    @Query("SELECT * FROM custody_transactions WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observeTransactions(custodyId: Long): Flow<List<CustodyTransactionEntity>>
+    @Query("SELECT * FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observeAccountTransactions(accountId: Long): Flow<List<CustodyTransactionEntity>>
+    @Query("SELECT * FROM custody_transactions WHERE custodyId = :custodyId AND personId = :personId AND currencyCode = :currency AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observePersonTransactions(custodyId: Long, personId: Long, currency: String): Flow<List<CustodyTransactionEntity>>
+    @Query("SELECT COALESCE(SUM(CASE WHEN type IN ('RECEIVED_FROM_ORG','RETURNED_FROM_PERSON') THEN amountMinor ELSE -amountMinor END),0) FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0") fun observeBalance(accountId: Long): Flow<Long>
+    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId AND holderType = 'OWNER' AND personId IS NULL AND currencyCode = :currency LIMIT 1") suspend fun getOwnerAccount(custodyId: Long, currency: String): CustodyAccountEntity?
+    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId AND holderType = 'PERSON' AND personId = :personId AND currencyCode = :currency LIMIT 1") suspend fun getPersonAccount(custodyId: Long, personId: Long, currency: String): CustodyAccountEntity?
     @Query("SELECT * FROM custody_accounts WHERE id = :id LIMIT 1") suspend fun getAccount(id: Long): CustodyAccountEntity?
     @Query("SELECT * FROM custody_transactions WHERE id = :id LIMIT 1") suspend fun getTransaction(id: Long): CustodyTransactionEntity?
     @Query("SELECT * FROM custody_persons WHERE id = :id LIMIT 1") suspend fun getPerson(id: Long): CustodyPersonEntity?
