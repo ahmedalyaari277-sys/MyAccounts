@@ -31,12 +31,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun CustodyArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     var archived by remember { mutableStateOf<List<CustodyEntity>>(emptyList()) }
     var pendingDelete by remember { mutableStateOf<CustodyEntity?>(null) }
-    LaunchedEffect(Unit) { archived = vm.archivedCustodies().let { flow -> kotlinx.coroutines.flow.first(flow) } }
+    LaunchedEffect(Unit) { archived = vm.archivedCustodies().first() }
     Scaffold(topBar = {
         TopAppBar(title = { Text("أرشيف العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } })
     }) { padding ->
