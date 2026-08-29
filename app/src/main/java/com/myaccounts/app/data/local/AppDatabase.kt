@@ -22,7 +22,7 @@ import java.util.concurrent.Callable
         TransactionEntity::class,
         TransactionAttachmentEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(TransactionConverters::class)
@@ -48,7 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                     MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                    MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
+                    MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13
                 )
                 .build()
                 .also { INSTANCE = it }
@@ -154,6 +154,26 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE transactions ADD COLUMN externalId TEXT NOT NULL DEFAULT ''")
                 db.execSQL("UPDATE transactions SET externalId = 'T-' || id WHERE externalId = ''")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_externalId ON transactions(externalId)")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT p.id,'YER',0,p.createdAt,p.createdAt FROM people p")
+                db.execSQL("INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT p.id,'SAR',0,p.createdAt,p.createdAt FROM people p")
+                db.execSQL("INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) SELECT p.id,'USD',0,p.createdAt,p.createdAt FROM people p")
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS trg_people_create_currency_accounts
+                    AFTER INSERT ON people
+                    BEGIN
+                        INSERT OR IGNORE INTO currency_accounts(personId,currencyCode,balanceMinor,createdAt,updatedAt)
+                        VALUES (NEW.id,'YER',0,NEW.createdAt,NEW.createdAt);
+                        INSERT OR IGNORE INTO currency_accounts(personId,currencyCode,balanceMinor,createdAt,updatedAt)
+                        VALUES (NEW.id,'SAR',0,NEW.createdAt,NEW.createdAt);
+                        INSERT OR IGNORE INTO currency_accounts(personId,currencyCode,balanceMinor,createdAt,updatedAt)
+                        VALUES (NEW.id,'USD',0,NEW.createdAt,NEW.createdAt);
+                    END
+                """.trimIndent())
             }
         }
     }
