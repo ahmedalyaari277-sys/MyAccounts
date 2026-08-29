@@ -40,24 +40,17 @@ class CustodyOperationsUiInstrumentedTest {
         custodyName = "اختبار واجهة العهدة $id"
         clearData()
         CustodyRepository(db, context).createCustody(
-            CustodyEntity(
-                name = custodyName,
-                organizationName = "اختبار الجهة $id",
-                externalId = externalId
-            )
+            CustodyEntity(name = custodyName, organizationName = "اختبار الجهة $id", externalId = externalId)
         )
         instrumentation.startActivitySync(
-            Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         )
         device.waitForIdle()
         assertTrue("Gateway not visible", device.wait(Until.hasObject(By.text("العُهَد")), 15_000))
     }
 
     @After
-    fun tearDown() = runBlocking {
-        clearData()
-    }
+    fun tearDown() = runBlocking { clearData() }
 
     @Test
     fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() {
@@ -65,7 +58,7 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text(custodyName), "Custody card")
         click(By.text("استلام من الجهة"), "Receive from organization")
         waitForSaveOperation()
-        enterFirstAmountField("1000")
+        setField("المبلغ للعملية", "1000")
         clickSaveOperation()
 
         val custody = waitForCustody()
@@ -82,26 +75,23 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text("إضافة شخص"), "Add custody person")
         waitForText("إضافة شخص")
 
-        val fields = waitForEditTexts(4)
-        fields[0].text = "اختبار شخص واجهة"
-        fields[1].text = "777000000"
-        fields[2].text = "صنعاء"
-        fields[3].text = "اختبار"
+        setField("الاسم", "اختبار شخص واجهة")
+        setField("الهاتف", "777000000")
+        setField("العنوان", "صنعاء")
+        setField("الملاحظات", "اختبار")
         clickSavePerson()
 
         val custody = waitForCustody()
-        waitForPerson(custody.id, "اختبار شخص واجهة")
+        val person = waitForPerson(custody.id, "اختبار شخص واجهة")
         click(By.text("اختبار شخص واجهة"), "Custody person")
         assertTrue("Person screen did not open", device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
 
         click(By.text("+"), "Add person operation")
         waitForSaveOperation()
-        val opFields = waitForEditTexts(3)
-        opFields[0].text = "250"
-        opFields[2].text = "صرف واجهة"
+        setField("المبلغ للعملية", "250")
+        setField("بيان العملية", "صرف واجهة")
         clickSaveOperation()
 
-        val person = waitForPerson(custody.id, "اختبار شخص واجهة")
         val transactions = waitForTransactions(custody.id, 1)
         assertEquals(1, transactions.size)
         assertEquals(person.id, transactions.single().personId)
@@ -117,41 +107,25 @@ class CustodyOperationsUiInstrumentedTest {
             return
         }
         device.swipe(540, 1500, 540, 650, 20)
-        val afterScroll = device.wait(Until.findObject(By.text("حفظ")), 5_000)
-            ?: error("Save person not found")
+        val afterScroll = device.wait(Until.findObject(By.text("حفظ")), 5_000) ?: error("Save person not found")
         afterScroll.click()
         device.waitForIdle()
     }
 
     private fun waitForSaveOperation() {
-        assertTrue(
-            "Operation save control not found",
-            device.wait(Until.hasObject(By.desc("حفظ العملية")), 10_000)
-        )
+        assertTrue("Operation save control not found", device.wait(Until.hasObject(By.desc("حفظ العملية")), 10_000))
     }
 
-    private fun enterFirstAmountField(amount: String) {
-        val fields = waitForEditTexts(1)
-        fields.first().text = amount
+    private fun setField(description: String, value: String) {
+        val field = device.wait(Until.findObject(By.desc(description)), 10_000) ?: error("Field '$description' not found")
+        field.text = value
         device.waitForIdle()
     }
 
     private fun clickSaveOperation() {
-        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 10_000)
-            ?: error("Save operation not found")
+        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 10_000) ?: error("Save operation not found")
         save.click()
         device.waitForIdle()
-    }
-
-    private fun waitForEditTexts(minimum: Int): List<UiObject2> {
-        val deadline = System.currentTimeMillis() + 10_000L
-        while (System.currentTimeMillis() < deadline) {
-            val objects = device.findObjects(By.clazz("android.widget.EditText"))
-            if (objects.size >= minimum) return objects
-            device.waitForIdle()
-            Thread.sleep(100)
-        }
-        error("Expected at least $minimum EditTexts, found ${device.findObjects(By.clazz("android.widget.EditText")).size}")
     }
 
     private fun click(selector: androidx.test.uiautomator.BySelector, label: String) {
@@ -164,11 +138,10 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Text '$text' not found", device.wait(Until.hasObject(By.text(text)), 10_000))
     }
 
-    private fun waitForCustody(): com.myaccounts.app.data.custody.CustodyEntity {
+    private fun waitForCustody(): CustodyEntity {
         val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
-            val custody = runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }
-            if (custody != null) return custody
+            runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }?.let { return it }
             Thread.sleep(100)
         }
         return runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }.also {
@@ -179,8 +152,7 @@ class CustodyOperationsUiInstrumentedTest {
     private fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity {
         val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
-            val person = runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }
-            if (person != null) return person
+            runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }?.let { return it }
             Thread.sleep(100)
         }
         return runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }.also {
@@ -199,7 +171,8 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private suspend fun clearData() {
-        db.custodyDao().getCustodyByExternalId(externalId).takeIf { ::externalId.isInitialized }?.let {
+        if (!::externalId.isInitialized) return
+        db.custodyDao().getCustodyByExternalId(externalId)?.let {
             db.custodyDao().deleteTransactions(it.id)
             db.custodyDao().deleteAccounts(it.id)
             db.custodyDao().deletePersons(it.id)
