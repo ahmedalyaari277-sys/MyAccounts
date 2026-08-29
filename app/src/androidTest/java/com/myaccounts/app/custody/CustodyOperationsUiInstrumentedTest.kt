@@ -10,17 +10,18 @@ import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.custody.CustodyEntity
-import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyRepository
 import com.myaccounts.app.data.custody.CustodyTransactionType
 import com.myaccounts.app.data.local.AppDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class CustodyOperationsUiInstrumentedTest {
@@ -28,35 +29,47 @@ class CustodyOperationsUiInstrumentedTest {
     private val context: Context get() = instrumentation.targetContext
     private val device: UiDevice get() = UiDevice.getInstance(instrumentation)
     private val db get() = AppDatabase.getInstance(context)
-    private val externalId = "UI-CUSTODY-001"
+
+    private lateinit var externalId: String
+    private lateinit var custodyName: String
 
     @Before
     fun setUp() = runBlocking {
+        val id = UUID.randomUUID().toString()
+        externalId = "UI-CUSTODY-$id"
+        custodyName = "اختبار واجهة العهدة $id"
         clearData()
         CustodyRepository(db, context).createCustody(
-            CustodyEntity(name = "اختبار واجهة العهدة", organizationName = "اختبار الجهة", externalId = externalId)
+            CustodyEntity(
+                name = custodyName,
+                organizationName = "اختبار الجهة $id",
+                externalId = externalId
+            )
         )
         instrumentation.startActivitySync(
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         )
         device.waitForIdle()
         assertTrue("Gateway not visible", device.wait(Until.hasObject(By.text("العُهَد")), 15_000))
     }
 
     @After
-    fun tearDown() = runBlocking { clearData() }
+    fun tearDown() = runBlocking {
+        clearData()
+    }
 
     @Test
     fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() {
         click(By.text("العُهَد"), "Custody gateway")
-        click(By.text("اختبار واجهة العهدة"), "Custody card")
+        click(By.text(custodyName), "Custody card")
         click(By.text("استلام من الجهة"), "Receive from organization")
         waitForSaveOperation()
         enterFirstAmountField("1000")
         clickSaveOperation()
 
-        val custody = runBlocking { db.custodyDao().getCustodyByExternalId(externalId)!! }
-        val transactions = runBlocking { db.custodyDao().getAllTransactions(custody.id, false) }
+        val custody = waitForCustody()
+        val transactions = waitForTransactions(custody.id, 1)
         assertEquals(1, transactions.size)
         assertEquals(CustodyTransactionType.RECEIVED_FROM_ORG, transactions.single().type)
         assertEquals(100000L, transactions.single().amountMinor)
@@ -65,9 +78,10 @@ class CustodyOperationsUiInstrumentedTest {
     @Test
     fun custodyPersonAndPersonOperationWorkEndToEnd() {
         click(By.text("العُهَد"), "Custody gateway")
-        click(By.text("اختبار واجهة العهدة"), "Custody card")
+        click(By.text(custodyName), "Custody card")
         click(By.text("إضافة شخص"), "Add custody person")
         waitForText("إضافة شخص")
+
         val fields = waitForEditTexts(4)
         fields[0].text = "اختبار شخص واجهة"
         fields[1].text = "777000000"
@@ -75,7 +89,8 @@ class CustodyOperationsUiInstrumentedTest {
         fields[3].text = "اختبار"
         clickSavePerson()
 
-        assertTrue("Person was not created", device.wait(Until.hasObject(By.text("اختبار شخص واجهة")), 10_000))
+        val custody = waitForCustody()
+        waitForPerson(custody.id, "اختبار شخص واجهة")
         click(By.text("اختبار شخص واجهة"), "Custody person")
         assertTrue("Person screen did not open", device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
 
@@ -86,9 +101,8 @@ class CustodyOperationsUiInstrumentedTest {
         opFields[2].text = "صرف واجهة"
         clickSaveOperation()
 
-        val custody = runBlocking { db.custodyDao().getCustodyByExternalId(externalId)!! }
-        val person = runBlocking { db.custodyDao().getAllPersons(custody.id).single() }
-        val transactions = runBlocking { db.custodyDao().getAllTransactions(custody.id, false) }
+        val person = waitForPerson(custody.id, "اختبار شخص واجهة")
+        val transactions = waitForTransactions(custody.id, 1)
         assertEquals(1, transactions.size)
         assertEquals(person.id, transactions.single().personId)
         assertEquals(CustodyTransactionType.PAID_TO_PERSON, transactions.single().type)
@@ -103,7 +117,8 @@ class CustodyOperationsUiInstrumentedTest {
             return
         }
         device.swipe(540, 1500, 540, 650, 20)
-        val afterScroll = device.wait(Until.findObject(By.text("حفظ")), 5_000) ?: error("Save person not found")
+        val afterScroll = device.wait(Until.findObject(By.text("حفظ")), 5_000)
+            ?: error("Save person not found")
         afterScroll.click()
         device.waitForIdle()
     }
@@ -122,7 +137,8 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun clickSaveOperation() {
-        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 10_000) ?: error("Save operation not found")
+        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 10_000)
+            ?: error("Save operation not found")
         save.click()
         device.waitForIdle()
     }
@@ -148,8 +164,42 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Text '$text' not found", device.wait(Until.hasObject(By.text(text)), 10_000))
     }
 
+    private fun waitForCustody(): com.myaccounts.app.data.custody.CustodyEntity {
+        val deadline = System.currentTimeMillis() + 10_000L
+        while (System.currentTimeMillis() < deadline) {
+            val custody = runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }
+            if (custody != null) return custody
+            Thread.sleep(100)
+        }
+        return runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }.also {
+            assertNotNull("Test custody was not persisted", it)
+        }!!
+    }
+
+    private fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity {
+        val deadline = System.currentTimeMillis() + 10_000L
+        while (System.currentTimeMillis() < deadline) {
+            val person = runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }
+            if (person != null) return person
+            Thread.sleep(100)
+        }
+        return runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }.also {
+            assertNotNull("Test person was not persisted", it)
+        }!!
+    }
+
+    private fun waitForTransactions(custodyId: Long, minimum: Int): List<com.myaccounts.app.data.custody.CustodyTransactionEntity> {
+        val deadline = System.currentTimeMillis() + 10_000L
+        while (System.currentTimeMillis() < deadline) {
+            val transactions = runBlocking { db.custodyDao().getAllTransactions(custodyId, false) }
+            if (transactions.size >= minimum) return transactions
+            Thread.sleep(100)
+        }
+        return runBlocking { db.custodyDao().getAllTransactions(custodyId, false) }
+    }
+
     private suspend fun clearData() {
-        db.custodyDao().getCustodyByExternalId(externalId)?.let {
+        db.custodyDao().getCustodyByExternalId(externalId).takeIf { ::externalId.isInitialized }?.let {
             db.custodyDao().deleteTransactions(it.id)
             db.custodyDao().deleteAccounts(it.id)
             db.custodyDao().deletePersons(it.id)
