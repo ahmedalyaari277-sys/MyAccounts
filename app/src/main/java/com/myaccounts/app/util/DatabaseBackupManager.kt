@@ -275,6 +275,19 @@ object DatabaseBackupManager {
             db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)", arrayOf(a.getLong("id"), a.getLong("personId"), a.getString("currencyCode"), a.getLong("balanceMinor"), a.getLong("createdAt"), a.getLong("updatedAt")))
         }
 
+        val supportedCurrencies = listOf("YER", "SAR", "USD")
+        db.query("SELECT id FROM people").use { peopleCursor ->
+            while (peopleCursor.moveToNext()) {
+                val personId = peopleCursor.getLong(0)
+                for (currencyCode in supportedCurrencies) {
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO currency_accounts (personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?)",
+                        arrayOf(personId, currencyCode, 0L, System.currentTimeMillis(), System.currentTimeMillis())
+                    )
+                }
+            }
+        }
+
         val transactions = backup.getJSONArray("transactions")
         for (i in 0 until transactions.length()) {
             val t = transactions.getJSONObject(i)
