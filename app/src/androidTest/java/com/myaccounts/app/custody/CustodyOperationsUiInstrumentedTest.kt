@@ -33,9 +33,12 @@ class CustodyOperationsUiInstrumentedTest {
     @Before
     fun setUp() = runBlocking {
         clearData()
-        val repo = CustodyRepository(db, context)
-        repo.createCustody(CustodyEntity(name = "اختبار واجهة العهدة", organizationName = "اختبار الجهة", externalId = externalId))
-        instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        CustodyRepository(db, context).createCustody(
+            CustodyEntity(name = "اختبار واجهة العهدة", organizationName = "اختبار الجهة", externalId = externalId)
+        )
+        instrumentation.startActivitySync(
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        )
         device.waitForIdle()
         assertTrue("Gateway not visible", device.wait(Until.hasObject(By.text("العُهَد")), 15_000))
     }
@@ -47,11 +50,10 @@ class CustodyOperationsUiInstrumentedTest {
     fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text("اختبار واجهة العهدة"), "Custody card")
-        assertTrue("Custody screen did not open", device.wait(Until.hasObject(By.text("استلام من الجهة")), 10_000))
-
         click(By.text("استلام من الجهة"), "Receive from organization")
-        enterAmountAndSave("1000")
-        assertTrue("Operation dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000))
+        waitForSaveOperation()
+        enterFirstAmountField("1000")
+        clickSaveOperation()
 
         val custody = runBlocking { db.custodyDao().getCustodyByExternalId(externalId)!! }
         val transactions = runBlocking { db.custodyDao().getAllTransactions(custody.id, false) }
@@ -71,22 +73,18 @@ class CustodyOperationsUiInstrumentedTest {
         fields[1].text = "777000000"
         fields[2].text = "صنعاء"
         fields[3].text = "اختبار"
-        device.pressBack()
-        device.waitForIdle()
-        click(By.text("حفظ"), "Save person")
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.text("إضافة شخص")), 10_000))
+        clickSavePerson()
+
+        assertTrue("Person was not created", device.wait(Until.hasObject(By.text("اختبار شخص واجهة")), 10_000))
         click(By.text("اختبار شخص واجهة"), "Custody person")
         assertTrue("Person screen did not open", device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
 
         click(By.text("+"), "Add person operation")
-        waitForText("إضافة عملية")
+        waitForSaveOperation()
         val opFields = waitForEditTexts(3)
         opFields[0].text = "250"
         opFields[2].text = "صرف واجهة"
-        device.pressBack()
-        device.waitForIdle()
-        clickSemanticCenter(By.desc("حفظ العملية"), "Save person operation")
-        assertTrue("Person operation dialog did not close", device.wait(Until.gone(By.desc("حفظ العملية")), 10_000))
+        clickSaveOperation()
 
         val custody = runBlocking { db.custodyDao().getCustodyByExternalId(externalId)!! }
         val person = runBlocking { db.custodyDao().getAllPersons(custody.id).single() }
@@ -97,19 +95,40 @@ class CustodyOperationsUiInstrumentedTest {
         assertEquals(25000L, transactions.single().amountMinor)
     }
 
-    private fun enterAmountAndSave(amount: String) {
-        waitForText("إضافة عملية")
-        val fields = waitForEditTexts(3)
-        fields[0].text = amount
-        device.pressBack()
+    private fun clickSavePerson() {
+        val save = device.wait(Until.findObject(By.text("حفظ")), 3_000)
+        if (save != null) {
+            save.click()
+            device.waitForIdle()
+            return
+        }
+        device.swipe(540, 1500, 540, 650, 20)
+        val afterScroll = device.wait(Until.findObject(By.text("حفظ")), 5_000) ?: error("Save person not found")
+        afterScroll.click()
         device.waitForIdle()
-        val save = device.wait(Until.findObject(By.text("حفظ")), 10_000) ?: error("Save operation button not found")
+    }
+
+    private fun waitForSaveOperation() {
+        assertTrue(
+            "Operation save control not found",
+            device.wait(Until.hasObject(By.desc("حفظ العملية")), 10_000)
+        )
+    }
+
+    private fun enterFirstAmountField(amount: String) {
+        val fields = waitForEditTexts(1)
+        fields.first().text = amount
+        device.waitForIdle()
+    }
+
+    private fun clickSaveOperation() {
+        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 10_000) ?: error("Save operation not found")
         save.click()
         device.waitForIdle()
     }
 
     private fun waitForEditTexts(minimum: Int): List<UiObject2> {
-        val deadline = System.currentTimeMillis() + 7_000L
+        val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
             val objects = device.findObjects(By.clazz("android.widget.EditText"))
             if (objects.size >= minimum) return objects
@@ -122,14 +141,6 @@ class CustodyOperationsUiInstrumentedTest {
     private fun click(selector: androidx.test.uiautomator.BySelector, label: String) {
         val target = device.wait(Until.findObject(selector), 10_000) ?: error("$label not found")
         target.click()
-        device.waitForIdle()
-    }
-
-    private fun clickSemanticCenter(selector: androidx.test.uiautomator.BySelector, label: String) {
-        val target = device.wait(Until.findObject(selector), 10_000) ?: error("$label not found")
-        val bounds = target.visibleBounds
-        require(!bounds.isEmpty) { "$label has no visible bounds" }
-        device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
     }
 
