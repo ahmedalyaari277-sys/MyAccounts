@@ -229,7 +229,7 @@ fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<C
                 }
                 if (error) Text("تعذر حفظ العملية. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
                 OutlinedTextField(details, { details = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بيان العملية" }, label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyCurrencies.forEach { code -> FilterChip(currency == code, { if (!saving) currency = it }, label = { Text(code) }) } }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
                 listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG).forEach { k ->
                     val selectType = { if (!saving) { type = k; if (k == CustodyTransactionType.RECEIVED_FROM_ORG || k == CustodyTransactionType.RETURNED_TO_ORG) personId = null } }
                     Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { selectType() }) { RadioButton(selected = type == k, onClick = { selectType() }); Text(typeName(k), modifier = Modifier.padding(top = 12.dp)) }
