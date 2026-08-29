@@ -7,6 +7,15 @@ on:
         description: "Full commit SHA to test"
         required: true
         type: string
+  push:
+    branches: [feat/custody-module]
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/Custody**'
+      - 'app/src/main/java/com/myaccounts/app/data/custody/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/viewmodel/CustodyViewModel.kt'
+      - 'app/src/androidTest/java/com/myaccounts/app/custody/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/navigation/**'
+      - '.github/workflows/compose-ui-tests.yml'
 
 jobs:
   compose-ui-tests:
@@ -16,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ inputs.commit_sha || github.sha }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -54,3 +63,13 @@ jobs:
           disable-linux-hw-accel: false
           pre-emulator-launch-script: adb start-server
           script: gradle connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Upload instrumented test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custody-compose-ui-test-results
+          path: |
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+          if-no-files-found: warn
