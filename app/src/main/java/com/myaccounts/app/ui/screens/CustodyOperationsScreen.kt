@@ -194,7 +194,10 @@ fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<C
             if (error) Text("تعذر حفظ العملية. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
             OutlinedTextField(details, { details = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بيان العملية" }, label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyCurrencies.forEach { FilterChip(currency == it, { if (!saving) currency = it }, label = { Text(it) }) } }
-            listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG).forEach { k -> Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { type = k; if (k == CustodyTransactionType.RECEIVED_FROM_ORG || k == CustodyTransactionType.RETURNED_TO_ORG) personId = null }) { RadioButton(selected = type == k, onClick = { if (!saving) type = k }); Text(typeName(k), modifier = Modifier.padding(top = 12.dp)) } }
+            listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG).forEach { k ->
+                val selectType = { if (!saving) { type = k; if (k == CustodyTransactionType.RECEIVED_FROM_ORG || k == CustodyTransactionType.RETURNED_TO_ORG) personId = null } }
+                Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { selectType() }) { RadioButton(selected = type == k, onClick = { selectType() }); Text(typeName(k), modifier = Modifier.padding(top = 12.dp)) }
+            }
             if (needsPerson) people.forEach { p -> Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { personId = p.id }) { RadioButton(selected = personId == p.id, onClick = { if (!saving) personId = p.id }); Text(p.name, modifier = Modifier.padding(top = 12.dp)) } }
             if (transaction != null && existing.isNotEmpty()) Text("المرفقات الحالية: ${existing.size}", style = MaterialTheme.typography.labelLarge)
             TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
