@@ -68,7 +68,7 @@ fun CustodyPersonOperationsScreen(vm: CustodyViewModel, custodyId: Long, personI
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(person.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) },
-        floatingActionButton = { FloatingActionButton(onClick = { initialType = CustodyTransactionType.PAID_TO_PERSON; add = true }) { Text("+") } }
+        floatingActionButton = { FloatingActionButton(onClick = { initialType = CustodyTransactionType.PAID_TO_PERSON; add = true }, modifier = Modifier.semantics { contentDescription = "إضافة عملية" }) { Text("+") } }
     ) { pad ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(pad).padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             item { Card(modifier = Modifier.fillMaxWidth()) { Column(modifier = Modifier.padding(13.dp)) { Text("الرصيد — $currency", fontWeight = FontWeight.Bold); Text(signed(balance), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = balanceColor) } } }
