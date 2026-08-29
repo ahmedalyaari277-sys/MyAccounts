@@ -131,7 +131,12 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
         }
     }
 
-    if (addPerson) CustodyPersonDialog(people, onDismiss = { addPerson = false }) { vm.addPerson(custodyId, it); addPerson = false }
+    if (addPerson) CustodyPersonDialog(
+        existing = people,
+        onDismiss = { addPerson = false },
+        onSave = { person -> vm.addPersonAndWait(custodyId, person) }
+    ) { addPerson = false }
+
     dialogType?.let { type -> CustodyOperationDialog(vm, custodyId, people, currency, type, null, onDismiss = { dialogType = null }, onFinished = { dialogType = null }) }
     editing?.let { t -> CustodyOperationDialog(vm, custodyId, people, t.currencyCode, t.type, t, onDismiss = { editing = null }, onFinished = { editing = null }) }
     deleting?.let { t -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }) }
@@ -139,50 +144,107 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
 }
 
 @Composable
-private fun CustodyPersonDialog(existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: (CustodyPersonEntity) -> Unit) {
-    var name by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var address by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }
+private fun CustodyPersonDialog(existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit, onSaved: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val matches = existing.filter { name.isNotBlank() && it.name.contains(name.trim(), true) }.take(5)
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("إضافة شخص") }, text = { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(name, { name = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true)
-        matches.forEach { s -> TextButton(onClick = { name = s.name; phone = s.phone; address = s.address; notes = s.notes }, modifier = Modifier.fillMaxWidth()) { Text(s.name) } }
-        OutlinedTextField(phone, { phone = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, singleLine = true)
-        OutlinedTextField(address, { address = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "العنوان" }, label = { Text("العنوان") }, singleLine = true)
-        OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 2)
-    } }, confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onSave(CustodyPersonEntity(custodyId = 0, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())) }) { Text("حفظ") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } })
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("إضافة شخص") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedTextField(name, { name = it; error = false }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true, enabled = !saving)
+                matches.forEach { s -> TextButton(onClick = { if (!saving) { name = s.name; phone = s.phone; address = s.address; notes = s.notes } }, modifier = Modifier.fillMaxWidth()) { Text(s.name) } }
+                OutlinedTextField(phone, { phone = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
+                OutlinedTextField(address, { address = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "العنوان" }, label = { Text("العنوان") }, singleLine = true, enabled = !saving)
+                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
+                if (error) Text("تعذر حفظ الشخص. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !saving && name.isNotBlank(),
+                onClick = {
+                    val person = CustodyPersonEntity(custodyId = 0, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())
+                    saving = true
+                    error = false
+                    scope.launch {
+                        runCatching { onSave(person) }
+                            .onSuccess { saving = false; onSaved() }
+                            .onFailure { saving = false; error = true }
+                    }
+                },
+                modifier = Modifier.semantics { contentDescription = "حفظ الشخص" }
+            ) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
+        },
+        dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } }
+    )
 }
 
 @Composable
 fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<CustodyPersonEntity>, defaultCurrency: String, initialType: String, transaction: CustodyTransactionEntity?, onDismiss: () -> Unit, onFinished: () -> Unit) {
-    val context = LocalContext.current; val keyboard = LocalSoftwareKeyboardController.current; val calc = LocalCalculatorController.current; val scope = rememberCoroutineScope()
-    var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }; var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }; var personId by remember(transaction?.id) { mutableStateOf(transaction?.personId) }; var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }; var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }; var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }; var saving by remember(transaction?.id) { mutableStateOf(false) }; var error by remember(transaction?.id) { mutableStateOf(false) }; var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
+    val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val calc = LocalCalculatorController.current
+    val scope = rememberCoroutineScope()
+    var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }
+    var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }
+    var personId by remember(transaction?.id) { mutableStateOf(transaction?.personId) }
+    var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }
+    var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }
+    var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }
+    var saving by remember(transaction?.id) { mutableStateOf(false) }
+    var error by remember(transaction?.id) { mutableStateOf(false) }
+    var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
     val needsPerson = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
     val existing = remember(transaction?.id) { transaction?.let { vm.attachments(it.id) } ?: emptyList() }
     DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = false }; onDispose { calc.setResultConsumer(null) } }
+
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(modifier = Modifier.fillMaxWidth(.95f), shape = MaterialTheme.shapes.large) { Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                OutlinedTextField(amount, { amount = it; error = false }, modifier = Modifier.weight(1.2f).semantics { contentDescription = "المبلغ للعملية" }, label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, isError = error, enabled = !saving, trailingIcon = { CalculatorButton(onClick = calc::open) })
-                OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, modifier = Modifier.weight(1f).semantics { contentDescription = "تاريخ العملية" }, label = { Text("التاريخ") }, readOnly = true, enabled = !saving, singleLine = true, trailingIcon = { IconButton(onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "التاريخ") } })
+        Surface(modifier = Modifier.fillMaxWidth(.95f), shape = MaterialTheme.shapes.large) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    OutlinedTextField(amount, { amount = it; error = false }, modifier = Modifier.weight(1.2f).semantics { contentDescription = "المبلغ للعملية" }, label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, isError = error, enabled = !saving, trailingIcon = { CalculatorButton(onClick = calc::open) })
+                    OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, modifier = Modifier.weight(1f).semantics { contentDescription = "تاريخ العملية" }, label = { Text("التاريخ") }, readOnly = true, enabled = !saving, singleLine = true, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "التاريخ") } })
+                }
+                if (error) Text("تعذر حفظ العملية. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
+                OutlinedTextField(details, { details = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بيان العملية" }, label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyCurrencies.forEach { FilterChip(currency == it, { if (!saving) currency = it }, label = { Text(it) }) } }
+                listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG).forEach { k ->
+                    Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { type = k; if (k == CustodyTransactionType.RECEIVED_FROM_ORG || k == CustodyTransactionType.RETURNED_TO_ORG) personId = null }) { RadioButton(selected = type == k, onClick = { if (!saving) type = k }); Text(typeName(k), modifier = Modifier.padding(top = 12.dp)) }
+                }
+                if (needsPerson) people.forEach { p -> Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { personId = p.id }) { RadioButton(selected = personId == p.id, onClick = { if (!saving) personId = p.id }); Text(p.name, modifier = Modifier.padding(top = 12.dp)) } }
+                if (transaction != null && existing.isNotEmpty()) Text("المرفقات الحالية: ${existing.size}", style = MaterialTheme.typography.labelLarge)
+                TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        enabled = !saving,
+                        onClick = {
+                            val m = parseAmount(amount)
+                            if (m == null || m <= 0 || (needsPerson && personId == null)) { error = true; return@Button }
+                            val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }
+                            saving = true
+                            error = false
+                            scope.launch {
+                                runCatching {
+                                    if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, m, details, date, selected)
+                                    else vm.updateTransactionAndWait(transaction.id, currency, type, personId, m, details, date, selected)
+                                }.onSuccess { keyboard?.hide(); saving = false; onFinished() }.onFailure { saving = false; error = true }
+                            }
+                        },
+                        modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }
+                    ) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
+                    OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, modifier = Modifier.weight(1f).semantics { contentDescription = "إلغاء العملية" }) { Text("إلغاء") }
+                }
             }
-            if (error) Text("تعذر حفظ العملية. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
-            OutlinedTextField(details, { details = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بيان العملية" }, label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyCurrencies.forEach { FilterChip(currency == it, { if (!saving) currency = it }, label = { Text(it) }) } }
-            listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG).forEach { k ->
-                Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { type = k; if (k == CustodyTransactionType.RECEIVED_FROM_ORG || k == CustodyTransactionType.RETURNED_TO_ORG) personId = null }) { RadioButton(selected = type == k, onClick = { if (!saving) type = k }); Text(typeName(k), modifier = Modifier.padding(top = 12.dp)) }
-            }
-            if (needsPerson) people.forEach { p -> Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { personId = p.id }) { RadioButton(selected = personId == p.id, onClick = { if (!saving) personId = p.id }); Text(p.name, modifier = Modifier.padding(top = 12.dp)) } }
-            if (transaction != null && existing.isNotEmpty()) Text("المرفقات الحالية: ${existing.size}", style = MaterialTheme.typography.labelLarge)
-            TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = !saving, onClick = {
-                    val m = parseAmount(amount); if (m == null || m <= 0 || (needsPerson && personId == null)) { error = true; return@Button }
-                    val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }; saving = true
-                    scope.launch { runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, m, details, date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, m, details, date, selected) }.onSuccess { keyboard?.hide(); saving = false; onFinished() }.onFailure { saving = false; error = true } }
-                }, modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
-                OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
-            }
-        } }
+        }
     }
     if (calc.isOpen) Dialog(onDismissRequest = calc::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { Card(modifier = Modifier.fillMaxWidth(.92f).imePadding()) { CalculatorOverlay(expression = calc.expression, result = calc.result.orEmpty(), onKey = calc::press, onClear = calc::clear, onBackspace = calc::backspace, onDismiss = calc::close, onUseResult = calc::useResult) } }
 }
