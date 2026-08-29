@@ -4,12 +4,14 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.myaccounts.app.data.custody.CustodyEntity
+import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyRepository
 import com.myaccounts.app.data.custody.CustodyTransactionType
 import com.myaccounts.app.data.local.AppDatabase
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,7 +29,7 @@ class CustodyOperationsDatabaseTest {
         dao.getCustodyByExternalId(externalId)?.let { dao.deleteTransactions(it.id); dao.deleteAccounts(it.id); dao.deletePersons(it.id); dao.deleteCustody(it.id) }
         val repo = CustodyRepository(db, context)
         custodyId = repo.createCustody(CustodyEntity(name = "اختبار العهدة", organizationName = "اختبار الجهة", externalId = externalId))
-        personId = repo.addPerson(custodyId, com.myaccounts.app.data.custody.CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
+        personId = repo.addPerson(custodyId, CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
     }
 
     @After fun tearDown() = runBlocking {
@@ -41,9 +43,7 @@ class CustodyOperationsDatabaseTest {
         repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 50000L, "مرتجع", 12000L)
         repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_TO_ORG, null, 650000L, "تصفية", 13000L)
         val owner = db.custodyDao().getOwnerAccount(custodyId, "YER")!!
-        val ownerBalance = owner.id.let { db.custodyDao().observeBalance(it) }
-        var last = Long.MIN_VALUE
-        ownerBalance.collect { value -> last = value; if (value == 0L) throw StopCollection }
+        assertEquals(0L, db.custodyDao().observeBalance(owner.id).first())
     }
 
     @Test fun custodyAndPersonEachHaveThreeCurrencyAccounts() = runBlocking {
@@ -52,6 +52,4 @@ class CustodyOperationsDatabaseTest {
         assertEquals(3, accounts.count { it.holderType == "OWNER" })
         assertEquals(3, accounts.count { it.holderType == "PERSON" && it.personId == personId })
     }
-
-    private object StopCollection : Throwable()
 }
