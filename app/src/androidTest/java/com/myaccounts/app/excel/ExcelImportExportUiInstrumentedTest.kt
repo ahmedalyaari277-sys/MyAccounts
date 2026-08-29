@@ -89,7 +89,14 @@ class ExcelImportExportUiInstrumentedTest {
             device.pressEnter()
         }
         device.waitForIdle()
-        assertTrue("System picker did not close after saving Excel", waitForTextOptional("النسخ الاحتياطي والمزامنة", 10_000))
+        assertTrue(
+            "System picker did not finish saving Excel",
+            device.wait(Until.gone(By.pkg("com.google.android.documentsui")), 10_000)
+        )
+        assertTrue(
+            "MyAccounts activity did not resume after saving Excel",
+            device.wait(Until.hasObject(By.pkg("com.myaccounts.app")), 10_000)
+        )
     }
 
     private fun openExportedDocumentThroughSystemPicker(fileName: String) {
