@@ -1,0 +1,77 @@
+name: Custody UI Emulator Tests
+
+on:
+  push:
+    branches: [feat/custody-module]
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/Custody**'
+      - 'app/src/main/java/com/myaccounts/app/ui/navigation/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/viewmodel/CustodyViewModel.kt'
+      - 'app/src/main/java/com/myaccounts/app/data/custody/**'
+      - 'app/src/androidTest/java/com/myaccounts/app/custody/**'
+      - 'app/src/main/java/com/myaccounts/app/data/local/AppDatabase.kt'
+      - 'app/src/main/java/com/myaccounts/app/MainActivity.kt'
+      - 'app/build.gradle.kts'
+      - '.github/workflows/custody-ui-tests.yml'
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Full commit SHA to test'
+        required: false
+        type: string
+
+jobs:
+  custody-ui-tests:
+    name: Custody UI tests on Android emulator
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Set up Gradle 8.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Run custody UI tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          avd-name: custody-test
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          disable-linux-hw-accel: false
+          pre-emulator-launch-script: adb start-server
+          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsUiInstrumentedTest --no-daemon --stacktrace
+
+      - name: Upload custody UI results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custody-ui-emulator-results
+          path: |
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+          if-no-files-found: warn
