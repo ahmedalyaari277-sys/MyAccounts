@@ -3,8 +3,8 @@ package com.myaccounts.app.data.custody
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
-import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -17,6 +17,13 @@ interface CustodyDao {
     @Query("SELECT * FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observeAccountTransactions(accountId: Long): Flow<List<CustodyTransactionEntity>>
     @Query("SELECT * FROM custody_transactions WHERE custodyId = :custodyId AND personId = :personId AND currencyCode = :currency AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observePersonTransactions(custodyId: Long, personId: Long, currency: String): Flow<List<CustodyTransactionEntity>>
     @Query("SELECT COALESCE(SUM(CASE WHEN type IN ('RECEIVED_FROM_ORG','RETURNED_FROM_PERSON') THEN amountMinor ELSE -amountMinor END),0) FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0") fun observeBalance(accountId: Long): Flow<Long>
+    @Query("SELECT * FROM custodies WHERE externalId = :externalId LIMIT 1") suspend fun getCustodyByExternalId(externalId: String): CustodyEntity?
+    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND externalId = :externalId LIMIT 1") suspend fun getPersonByExternalId(custodyId: Long, externalId: String): CustodyPersonEntity?
+    @Query("SELECT * FROM custody_transactions WHERE externalId = :externalId LIMIT 1") suspend fun getTransactionByExternalId(externalId: String): CustodyTransactionEntity?
+    @Query("SELECT * FROM custodies WHERE isArchived = :archived ORDER BY createdAt DESC, id DESC") suspend fun getAllCustodies(archived: Boolean): List<CustodyEntity>
+    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY id ASC") suspend fun getAllPersons(custodyId: Long): List<CustodyPersonEntity>
+    @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId ORDER BY id ASC") suspend fun getAllAccounts(custodyId: Long): List<CustodyAccountEntity>
+    @Query("SELECT * FROM custody_transactions WHERE custodyId = :custodyId AND isArchived = :archived ORDER BY id ASC") suspend fun getAllTransactions(custodyId: Long, archived: Boolean): List<CustodyTransactionEntity>
     @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId AND holderType = 'OWNER' AND personId IS NULL AND currencyCode = :currency LIMIT 1") suspend fun getOwnerAccount(custodyId: Long, currency: String): CustodyAccountEntity?
     @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId AND holderType = 'PERSON' AND personId = :personId AND currencyCode = :currency LIMIT 1") suspend fun getPersonAccount(custodyId: Long, personId: Long, currency: String): CustodyAccountEntity?
     @Query("SELECT * FROM custody_accounts WHERE id = :id LIMIT 1") suspend fun getAccount(id: Long): CustodyAccountEntity?
