@@ -43,7 +43,34 @@ class CustodyOperationsDatabaseTest {
         repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 50000L, "مرتجع", 12000L)
         repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_TO_ORG, null, 650000L, "تصفية", 13000L)
         val owner = db.custodyDao().getOwnerAccount(custodyId, "YER")!!
+        val person = db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!
         assertEquals(0L, db.custodyDao().observeBalance(owner.id).first())
+        assertEquals(350000L, person.balanceMinor)
+        assertEquals(0L, owner.balanceMinor)
+    }
+
+    @Test fun updateReversesOldMovementAndAppliesNewMovement() = runBlocking {
+        val repo = CustodyRepository(db, context)
+        val transactionId = repo.addTransaction(custodyId, "YER", CustodyTransactionType.PAID_TO_PERSON, personId, 400000L, "قديم", 10000L)
+        repo.updateTransaction(transactionId, "SAR", CustodyTransactionType.PAID_TO_PERSON, personId, 250000L, "جديد", 11000L)
+        val oldYeerOwner = db.custodyDao().getOwnerAccount(custodyId, "YER")!!
+        val newSarOwner = db.custodyDao().getOwnerAccount(custodyId, "SAR")!!
+        val yeerPerson = db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!
+        val sarPerson = db.custodyDao().getPersonAccount(custodyId, personId, "SAR")!!
+        assertEquals(0L, oldYeerOwner.balanceMinor)
+        assertEquals(0L, yeerPerson.balanceMinor)
+        assertEquals(-250000L, newSarOwner.balanceMinor)
+        assertEquals(250000L, sarPerson.balanceMinor)
+    }
+
+    @Test fun deleteReversesBothOwnerAndPersonBalances() = runBlocking {
+        val repo = CustodyRepository(db, context)
+        val transactionId = repo.addTransaction(custodyId, "USD", CustodyTransactionType.PAID_TO_PERSON, personId, 125000L, "حذف", 10000L)
+        repo.deleteTransaction(transactionId)
+        val owner = db.custodyDao().getOwnerAccount(custodyId, "USD")!!
+        val person = db.custodyDao().getPersonAccount(custodyId, personId, "USD")!!
+        assertEquals(0L, owner.balanceMinor)
+        assertEquals(0L, person.balanceMinor)
     }
 
     @Test fun custodyAndPersonEachHaveThreeCurrencyAccounts() = runBlocking {
