@@ -22,7 +22,10 @@ object CalculatorEngine {
     }
 
     private fun format(value: BigDecimal): String =
-        value.stripTrailingZeros().toPlainString().let { if (it == "-0") "0" else it }
+        value.setScale(2, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
+            .let { if (it == "-0") "0" else it }
 
     private class Parser(private val input: String) {
         private var index = 0
