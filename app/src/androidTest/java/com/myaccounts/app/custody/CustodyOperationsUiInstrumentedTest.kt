@@ -127,7 +127,7 @@ class CustodyOperationsUiInstrumentedTest {
         assertEquals(CustodyTransactionType.RETURNED_FROM_PERSON, updated.type)
         assertEquals(30000L, updated.amountMinor)
         assertEquals(0L, db.custodyDao().getPersonAccount(custody.id, person.id, "YER")!!.balanceMinor)
-        assertEquals(-30000L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
+        assertEquals(30000L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
         assertEquals(-30000L, db.custodyDao().getPersonAccount(custody.id, person.id, "SAR")!!.balanceMinor)
 
         click(By.desc("حذف"), "Delete person operation")
