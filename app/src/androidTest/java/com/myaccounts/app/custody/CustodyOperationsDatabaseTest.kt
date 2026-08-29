@@ -20,20 +20,24 @@ import org.junit.runner.RunWith
 class CustodyOperationsDatabaseTest {
     private val context: Context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val db get() = AppDatabase.getInstance(context)
-    private val externalId = "TEST-CUSTODY-OPS-001"
+    private lateinit var externalId: String
     private var custodyId = 0L
     private var personId = 0L
 
     @Before fun setUp() = runBlocking {
-        val dao = db.custodyDao()
-        dao.getCustodyByExternalId(externalId)?.let { dao.deleteTransactions(it.id); dao.deleteAccounts(it.id); dao.deletePersons(it.id); dao.deleteCustody(it.id) }
+        externalId = "TEST-CUSTODY-OPS-${System.nanoTime()}"
         val repo = CustodyRepository(db, context)
         custodyId = repo.createCustody(CustodyEntity(name = "اختبار العهدة", organizationName = "اختبار الجهة", externalId = externalId))
         personId = repo.addPerson(custodyId, CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
     }
 
     @After fun tearDown() = runBlocking {
-        db.custodyDao().getCustodyByExternalId(externalId)?.let { db.custodyDao().deleteTransactions(it.id); db.custodyDao().deleteAccounts(it.id); db.custodyDao().deletePersons(it.id); db.custodyDao().deleteCustody(it.id) }
+        db.custodyDao().getCustodyByExternalId(externalId)?.let {
+            db.custodyDao().deleteTransactions(it.id)
+            db.custodyDao().deleteAccounts(it.id)
+            db.custodyDao().deletePersons(it.id)
+            db.custodyDao().deleteCustody(it.id)
+        }
     }
 
     @Test fun fullOperationCycleKeepsDirectionsAndReachesZero() = runBlocking {
@@ -47,6 +51,19 @@ class CustodyOperationsDatabaseTest {
         assertEquals(0L, db.custodyDao().observeBalance(owner.id).first())
         assertEquals(350000L, person.balanceMinor)
         assertEquals(0L, owner.balanceMinor)
+    }
+
+    @Test fun allFourOperationsHaveExpectedOwnerAndPersonDirections() = runBlocking {
+        val repo = CustodyRepository(db, context)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RECEIVED_FROM_ORG, null, 100000L, "1", 10000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.PAID_TO_PERSON, personId, 30000L, "2", 11000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 5000L, "3", 12000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RETURNED_TO_ORG, null, 10000L, "4", 13000L)
+        val owner = db.custodyDao().getOwnerAccount(custodyId, "SAR")!!
+        val person = db.custodyDao().getPersonAccount(custodyId, personId, "SAR")!!
+        assertEquals(65000L, owner.balanceMinor)
+        assertEquals(25000L, person.balanceMinor)
+        assertEquals(65000L, db.custodyDao().observeBalance(owner.id).first())
     }
 
     @Test fun updateReversesOldMovementAndAppliesNewMovement() = runBlocking {
