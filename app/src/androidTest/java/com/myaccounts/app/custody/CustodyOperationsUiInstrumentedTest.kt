@@ -6,7 +6,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.custody.CustodyEntity
@@ -74,7 +73,6 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text(custodyName), "Custody card")
         click(By.text("إضافة شخص"), "Add custody person")
         waitForText("إضافة شخص")
-
         setField("الاسم", "اختبار شخص واجهة")
         setField("الهاتف", "777000000")
         setField("العنوان", "صنعاء")
