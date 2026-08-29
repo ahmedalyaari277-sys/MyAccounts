@@ -59,6 +59,7 @@ fun CustodyPersonOperationsScreen(vm: CustodyViewModel, custodyId: Long, personI
     val person = people.firstOrNull { it.id == personId } ?: return
     var currency by remember { mutableStateOf("YER") }
     var add by remember { mutableStateOf(false) }
+    var initialType by remember { mutableStateOf(CustodyTransactionType.PAID_TO_PERSON) }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     val rows = tx.filter { it.personId == personId && it.currencyCode == currency }.sortedByDescending { it.transactionDate }
@@ -67,11 +68,17 @@ fun CustodyPersonOperationsScreen(vm: CustodyViewModel, custodyId: Long, personI
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(person.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) },
-        floatingActionButton = { FloatingActionButton(onClick = { add = true }) { Text("+") } }
+        floatingActionButton = { FloatingActionButton(onClick = { initialType = CustodyTransactionType.PAID_TO_PERSON; add = true }) { Text("+") } }
     ) { pad ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(pad).padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             item { Card(modifier = Modifier.fillMaxWidth()) { Column(modifier = Modifier.padding(13.dp)) { Text("الرصيد — $currency", fontWeight = FontWeight.Bold); Text(signed(balance), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = balanceColor) } } }
             item { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { currencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) }) } } }
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Button(onClick = { initialType = CustodyTransactionType.PAID_TO_PERSON; add = true }, modifier = Modifier.weight(1f).semantics { contentDescription = "صرف للشخص" }) { Text("صرف للشخص") }
+                    OutlinedButton(onClick = { initialType = CustodyTransactionType.RETURNED_FROM_PERSON; add = true }, modifier = Modifier.weight(1f).semantics { contentDescription = "مرتجع من الشخص" }) { Text("مرتجع من الشخص") }
+                }
+            }
             items(rows, key = { it.id }) { t -> Card(modifier = Modifier.fillMaxWidth()) { Column(modifier = Modifier.padding(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(if (t.type == CustodyTransactionType.PAID_TO_PERSON) "صرف للشخص" else "مرتجع من الشخص", fontWeight = FontWeight.Bold); Text(SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(t.transactionDate)), style = MaterialTheme.typography.bodySmall) }
                 Text("${money(t.amountMinor)} $currency", style = MaterialTheme.typography.titleMedium)
@@ -80,15 +87,15 @@ fun CustodyPersonOperationsScreen(vm: CustodyViewModel, custodyId: Long, personI
             } } }
         }
     }
-    if (add) PersonOperationDialog(vm, custodyId, person, currency, null, onDismiss = { add = false }, onFinished = { add = false })
-    editing?.let { t -> PersonOperationDialog(vm, custodyId, person, t.currencyCode, t, onDismiss = { editing = null }, onFinished = { editing = null }) }
+    if (add) PersonOperationDialog(vm, custodyId, person, currency, null, onDismiss = { add = false }, onFinished = { add = false }, initialType = initialType)
+    editing?.let { t -> PersonOperationDialog(vm, custodyId, person, t.currencyCode, t, onDismiss = { editing = null }, onFinished = { editing = null }, initialType = t.type) }
     deleting?.let { t -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }) }
 }
 
 @Composable
-private fun PersonOperationDialog(vm: CustodyViewModel, custodyId: Long, person: CustodyPersonEntity, defaultCurrency: String, transaction: CustodyTransactionEntity?, onDismiss: () -> Unit, onFinished: () -> Unit) {
+private fun PersonOperationDialog(vm: CustodyViewModel, custodyId: Long, person: CustodyPersonEntity, defaultCurrency: String, transaction: CustodyTransactionEntity?, onDismiss: () -> Unit, onFinished: () -> Unit, initialType: String) {
     val context = LocalContext.current; val keyboard = LocalSoftwareKeyboardController.current; val calc = LocalCalculatorController.current; val scope = rememberCoroutineScope()
-    var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }; var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: CustodyTransactionType.PAID_TO_PERSON) }; var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }; var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }; var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }; var error by remember(transaction?.id) { mutableStateOf(false) }; var saving by remember(transaction?.id) { mutableStateOf(false) }; var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
+    var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }; var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }; var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }; var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }; var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }; var error by remember(transaction?.id) { mutableStateOf(false) }; var saving by remember(transaction?.id) { mutableStateOf(false) }; var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
     val existing = remember(transaction?.id) { transaction?.let { vm.attachments(it.id) } ?: emptyList() }
     DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = false }; onDispose { calc.setResultConsumer(null) } }
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
