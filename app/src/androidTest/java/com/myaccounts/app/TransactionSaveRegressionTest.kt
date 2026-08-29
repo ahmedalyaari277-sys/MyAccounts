@@ -41,7 +41,9 @@ class TransactionSaveRegressionTest {
         )
         instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         device.waitForIdle()
-        assertTrue("MyAccounts did not become visible", device.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
+        assertTrue("MyAccounts gateway did not become visible", device.wait(Until.hasObject(By.text("دفتر الحسابات")), 15_000))
+        click(By.text("دفتر الحسابات"), "Ledger entry")
+        assertTrue("Ledger home did not become visible", device.wait(Until.hasObject(By.text("اختبار حفظ العملية")), 15_000))
     }
 
     @After
@@ -78,9 +80,6 @@ class TransactionSaveRegressionTest {
         dismissKeyboard()
         clickSemanticCenter(By.desc("حفظ العملية"), "Embedded transaction save")
 
-        // The embedded screen itself also contains an underlying "إضافة عملية" button.
-        // Therefore waiting for that text to disappear cannot prove that the dialog closed.
-        // The dialog-owned semantic save control disappears only when the dialog is dismissed.
         assertTrue("Embedded transaction dialog did not close", device.wait(Until.gone(By.desc("حفظ العملية")), 10_000))
         assertTransactionPersisted("عملية حفظ عادية", 5000L)
     }
