@@ -41,9 +41,7 @@ class CustodyOperationsUiInstrumentedTest {
         CustodyRepository(db, context).createCustody(
             CustodyEntity(name = custodyName, organizationName = "اختبار الجهة $id", externalId = externalId)
         )
-        instrumentation.startActivitySync(
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        )
+        instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         device.waitForIdle()
         assertTrue("Gateway not visible", device.wait(Until.hasObject(By.text("العُهَد")), 15_000))
     }
@@ -61,6 +59,7 @@ class CustodyOperationsUiInstrumentedTest {
         clickSaveOperation()
 
         val custody = waitForCustody()
+        assertTrue("Owner balance was not shown", device.wait(Until.hasObject(By.text("عليه 1000")), 10_000))
         val transactions = waitForTransactions(custody.id, 1)
         assertEquals(1, transactions.size)
         assertEquals(CustodyTransactionType.RECEIVED_FROM_ORG, transactions.single().type)
@@ -68,7 +67,7 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     @Test
-    fun custodyPersonAndPersonOperationWorkEndToEnd() {
+    fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditAndDelete() {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         click(By.text("إضافة شخص"), "Add custody person")
@@ -89,12 +88,24 @@ class CustodyOperationsUiInstrumentedTest {
         setField("المبلغ للعملية", "250")
         setField("بيان العملية", "صرف واجهة")
         clickSaveOperation()
+        assertTrue("Person balance was not shown", device.wait(Until.hasObject(By.text("عليه 250")), 10_000))
 
-        val transactions = waitForTransactions(custody.id, 1)
-        assertEquals(1, transactions.size)
-        assertEquals(person.id, transactions.single().personId)
-        assertEquals(CustodyTransactionType.PAID_TO_PERSON, transactions.single().type)
-        assertEquals(25000L, transactions.single().amountMinor)
+        val first = waitForTransactions(custody.id, 1).single()
+        assertEquals(person.id, first.personId)
+        assertEquals(CustodyTransactionType.PAID_TO_PERSON, first.type)
+        assertEquals(25000L, first.amountMinor)
+
+        click(By.desc("تعديل"), "Edit person operation")
+        waitForSaveOperation()
+        setField("المبلغ للعملية", "300")
+        clickSaveOperation()
+        val updated = waitForTransactions(custody.id, 1).single()
+        assertEquals(30000L, updated.amountMinor)
+
+        click(By.desc("حذف"), "Delete person operation")
+        waitForText("حذف العملية")
+        click(By.text("حذف"), "Confirm delete")
+        assertTrue("Transaction was not deleted", waitForTransactions(custody.id, 0).isEmpty())
     }
 
     private fun clickSavePerson() {
@@ -162,7 +173,7 @@ class CustodyOperationsUiInstrumentedTest {
         val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
             val transactions = runBlocking { db.custodyDao().getAllTransactions(custodyId, false) }
-            if (transactions.size >= minimum) return transactions
+            if (transactions.size >= minimum || minimum == 0 && transactions.isEmpty()) return transactions
             Thread.sleep(100)
         }
         return runBlocking { db.custodyDao().getAllTransactions(custodyId, false) }
