@@ -25,74 +25,89 @@ class CustodyOperationsDatabaseTest {
     private var personId = 0L
 
     @Before
-    fun setUp() {
-        runBlocking {
-            externalId = "TEST-CUSTODY-OPS-${System.nanoTime()}"
-            val repo = CustodyRepository(db, context)
-            custodyId = repo.createCustody(CustodyEntity(name = "اختبار العهدة", organizationName = "اختبار الجهة", externalId = externalId))
-            personId = repo.addPerson(custodyId, CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
-        }
+    fun setUp() = runBlocking {
+        externalId = "TEST-CUSTODY-OPS-${System.nanoTime()}"
+        val repo = CustodyRepository(db, context)
+        custodyId = repo.createCustody(CustodyEntity(name = "اختبار العهدة", organizationName = "اختبار الجهة", externalId = externalId))
+        personId = repo.addPerson(custodyId, CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
     }
 
     @After
-    fun tearDown() {
-        runBlocking {
-            db.custodyDao().getCustodyByExternalId(externalId)?.let {
-                db.custodyDao().deleteTransactions(it.id)
-                db.custodyDao().deleteAccounts(it.id)
-                db.custodyDao().deletePersons(it.id)
-                db.custodyDao().deleteCustody(it.id)
-            }
+    fun tearDown() = runBlocking {
+        db.custodyDao().getCustodyByExternalId(externalId)?.let {
+            db.custodyDao().deleteTransactions(it.id)
+            db.custodyDao().deleteAccounts(it.id)
+            db.custodyDao().deletePersons(it.id)
+            db.custodyDao().deleteCustody(it.id)
         }
     }
 
     @Test
-    fun fullOperationCycleKeepsDirectionsAndReachesZero() = runBlocking {
+    fun requiredFullFinancialCycleReachesZero() = runBlocking {
         val repo = CustodyRepository(db, context)
-        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RECEIVED_FROM_ORG, null, 1000000L, "عهدة", 10000L)
-        repo.addTransaction(custodyId, "YER", CustodyTransactionType.PAID_TO_PERSON, personId, 400000L, "صرف", 11000L)
-        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 50000L, "مرتجع", 12000L)
-        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_TO_ORG, null, 650000L, "تصفية", 13000L)
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RECEIVED_FROM_ORG, null, 1_000_000L, "استلام 10000", 10_000L)
+        assertEquals(1_000_000L, db.custodyDao().getOwnerAccount(custodyId, "YER")!!.balanceMinor)
+
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.PAID_TO_PERSON, personId, 300_000L, "صرف 3000", 11_000L)
+        assertEquals(700_000L, db.custodyDao().getOwnerAccount(custodyId, "YER")!!.balanceMinor)
+        assertEquals(300_000L, db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!.balanceMinor)
+
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 50_000L, "مرتجع 500", 12_000L)
+        assertEquals(750_000L, db.custodyDao().getOwnerAccount(custodyId, "YER")!!.balanceMinor)
+        assertEquals(250_000L, db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!.balanceMinor)
+
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_TO_ORG, null, 750_000L, "تصفية 7500", 13_000L)
         val owner = db.custodyDao().getOwnerAccount(custodyId, "YER")!!
         val person = db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!
-        assertEquals(0L, db.custodyDao().observeBalance(owner.id).first())
-        assertEquals(350000L, person.balanceMinor)
         assertEquals(0L, owner.balanceMinor)
+        assertEquals(250_000L, person.balanceMinor)
+        assertEquals(0L, db.custodyDao().observeBalance(owner.id).first())
     }
 
     @Test
     fun allFourOperationsHaveExpectedOwnerAndPersonDirections() = runBlocking {
         val repo = CustodyRepository(db, context)
-        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RECEIVED_FROM_ORG, null, 100000L, "1", 10000L)
-        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.PAID_TO_PERSON, personId, 30000L, "2", 11000L)
-        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 5000L, "3", 12000L)
-        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RETURNED_TO_ORG, null, 10000L, "4", 13000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RECEIVED_FROM_ORG, null, 100_000L, "1", 10_000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.PAID_TO_PERSON, personId, 30_000L, "2", 11_000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 5_000L, "3", 12_000L)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RETURNED_TO_ORG, null, 10_000L, "4", 13_000L)
         val owner = db.custodyDao().getOwnerAccount(custodyId, "SAR")!!
         val person = db.custodyDao().getPersonAccount(custodyId, personId, "SAR")!!
-        assertEquals(65000L, owner.balanceMinor)
-        assertEquals(25000L, person.balanceMinor)
-        assertEquals(65000L, db.custodyDao().observeBalance(owner.id).first())
+        assertEquals(65_000L, owner.balanceMinor)
+        assertEquals(25_000L, person.balanceMinor)
+        assertEquals(65_000L, db.custodyDao().observeBalance(owner.id).first())
     }
 
     @Test
     fun updateReversesOldMovementAndAppliesNewMovement() = runBlocking {
         val repo = CustodyRepository(db, context)
-        val transactionId = repo.addTransaction(custodyId, "YER", CustodyTransactionType.PAID_TO_PERSON, personId, 400000L, "قديم", 10000L)
-        repo.updateTransaction(transactionId, "SAR", CustodyTransactionType.PAID_TO_PERSON, personId, 250000L, "جديد", 11000L)
-        val oldYeerOwner = db.custodyDao().getOwnerAccount(custodyId, "YER")!!
+        val transactionId = repo.addTransaction(custodyId, "YER", CustodyTransactionType.PAID_TO_PERSON, personId, 400_000L, "قديم", 10_000L)
+        repo.updateTransaction(transactionId, "SAR", CustodyTransactionType.PAID_TO_PERSON, personId, 250_000L, "جديد", 11_000L)
+        val oldYerOwner = db.custodyDao().getOwnerAccount(custodyId, "YER")!!
         val newSarOwner = db.custodyDao().getOwnerAccount(custodyId, "SAR")!!
-        val yeerPerson = db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!
+        val yerPerson = db.custodyDao().getPersonAccount(custodyId, personId, "YER")!!
         val sarPerson = db.custodyDao().getPersonAccount(custodyId, personId, "SAR")!!
-        assertEquals(0L, oldYeerOwner.balanceMinor)
-        assertEquals(0L, yeerPerson.balanceMinor)
-        assertEquals(-250000L, newSarOwner.balanceMinor)
-        assertEquals(250000L, sarPerson.balanceMinor)
+        assertEquals(0L, oldYerOwner.balanceMinor)
+        assertEquals(0L, yerPerson.balanceMinor)
+        assertEquals(-250_000L, newSarOwner.balanceMinor)
+        assertEquals(250_000L, sarPerson.balanceMinor)
+    }
+
+    @Test
+    fun updateCanChangeOperationTypeWithoutDoubleCounting() = runBlocking {
+        val repo = CustodyRepository(db, context)
+        val transactionId = repo.addTransaction(custodyId, "USD", CustodyTransactionType.PAID_TO_PERSON, personId, 100_000L, "صرف", 10_000L)
+        repo.updateTransaction(transactionId, "USD", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 100_000L, "مرتجع", 11_000L)
+        val owner = db.custodyDao().getOwnerAccount(custodyId, "USD")!!
+        val person = db.custodyDao().getPersonAccount(custodyId, personId, "USD")!!
+        assertEquals(100_000L, owner.balanceMinor)
+        assertEquals(-100_000L, person.balanceMinor)
     }
 
     @Test
     fun deleteReversesBothOwnerAndPersonBalances() = runBlocking {
         val repo = CustodyRepository(db, context)
-        val transactionId = repo.addTransaction(custodyId, "USD", CustodyTransactionType.PAID_TO_PERSON, personId, 125000L, "حذف", 10000L)
+        val transactionId = repo.addTransaction(custodyId, "USD", CustodyTransactionType.PAID_TO_PERSON, personId, 125_000L, "حذف", 10_000L)
         repo.deleteTransaction(transactionId)
         val owner = db.custodyDao().getOwnerAccount(custodyId, "USD")!!
         val person = db.custodyDao().getPersonAccount(custodyId, personId, "USD")!!
