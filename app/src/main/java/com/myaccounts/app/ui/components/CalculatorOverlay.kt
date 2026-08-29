@@ -41,9 +41,9 @@ fun CalculatorOverlay(
                 fontWeight = FontWeight.Bold
             )
 
-            calculatorRow(listOf("7", "8", "9", "÷"), onKey)
+            calculatorRow(listOf("1", "2", "3", "÷"), onKey)
             calculatorRow(listOf("4", "5", "6", "×"), onKey)
-            calculatorRow(listOf("1", "2", "3", "−"), onKey)
+            calculatorRow(listOf("7", "8", "9", "−"), onKey)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 calculatorKey("0", onKey, Modifier.weight(2f))
                 calculatorKey(".", onKey, Modifier.weight(1f))
