@@ -81,7 +81,16 @@ class ExcelImportExportUiInstrumentedTest {
         val filename = findFilenameField()
         filename.clear()
         filename.text = fileName
-        clickPickerAction("Save")
+        val action = findPickerSaveAction()
+        if (action != null) {
+            action.click()
+        } else {
+            // DocumentsUI varies its visible button text across locales/API images.
+            // The focused filename field accepts Enter as the canonical save/confirm action.
+            filename.click()
+            device.pressEnter()
+        }
+        device.waitForIdle()
         assertTrue("System picker did not close after saving Excel", waitForTextOptional("النسخ الاحتياطي والمزامنة", 10_000))
     }
 
@@ -106,9 +115,15 @@ class ExcelImportExportUiInstrumentedTest {
         error("System picker filename field was not found; EditText count=${editTexts.size}")
     }
 
-    private fun clickPickerAction(label: String) {
-        val exact = device.wait(Until.findObject(By.text(label)), 5_000) ?: device.wait(Until.findObject(By.textContains(label)), 5_000) ?: error("System picker action '$label' was not found")
-        exact.click(); device.waitForIdle()
+    private fun findPickerSaveAction(): UiObject2? {
+        val labels = listOf("Save", "حفظ", "حفظ الملف", "Guardar", "Enregistrer")
+        labels.forEach { label ->
+            device.findObject(By.text(label))?.let { if (it.isEnabled) return it }
+            device.findObject(By.textContains(label))?.let { if (it.isEnabled) return it }
+            device.findObject(By.desc(label))?.let { if (it.isEnabled) return it }
+            device.findObject(By.descContains(label))?.let { if (it.isEnabled) return it }
+        }
+        return null
     }
 
     private fun findDocumentByDescription(fileName: String): UiObject2? = device.findObject(By.descContains(fileName))
