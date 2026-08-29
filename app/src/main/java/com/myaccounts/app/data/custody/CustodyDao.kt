@@ -3,8 +3,8 @@ package com.myaccounts.app.data.custody
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
-import androidx.room.Update
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -37,6 +37,7 @@ interface CustodyDao {
     @Update suspend fun updateCustody(custody: CustodyEntity)
     @Update suspend fun updatePerson(person: CustodyPersonEntity)
     @Update suspend fun updateTransaction(transaction: CustodyTransactionEntity)
+    @Query("UPDATE custody_accounts SET balanceMinor = balanceMinor + :delta, updatedAt = :updatedAt WHERE id = :accountId") suspend fun adjustAccountBalance(accountId: Long, delta: Long, updatedAt: Long)
     @Query("DELETE FROM custody_transactions WHERE id = :id") suspend fun deleteTransaction(id: Long)
     @Query("UPDATE custodies SET isArchived = 1, archivedAt = :at WHERE id = :id") suspend fun archiveCustody(id: Long, at: Long)
     @Query("DELETE FROM custody_transactions WHERE custodyId = :id") suspend fun deleteTransactions(id: Long)
