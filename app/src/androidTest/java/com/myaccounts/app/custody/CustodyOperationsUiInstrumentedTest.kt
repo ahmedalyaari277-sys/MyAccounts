@@ -41,7 +41,11 @@ class CustodyOperationsUiInstrumentedTest {
         CustodyRepository(db, context).createCustody(
             CustodyEntity(name = custodyName, organizationName = "اختبار الجهة $id", externalId = externalId)
         )
-        instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        instrumentation.startActivitySync(
+            Intent(context, MainActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            )
+        )
         device.waitForIdle()
         assertTrue("Gateway not visible", device.wait(Until.hasObject(By.text("العُهَد")), 15_000))
     }
@@ -54,7 +58,7 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         click(By.text("استلام من الجهة"), "Receive from organization")
-        waitForSaveOperation()
+        waitForOperationDialog()
         setField("المبلغ للعملية", "1000")
         clickSaveOperation()
 
@@ -84,7 +88,7 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Person screen did not open", device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
 
         click(By.text("+"), "Add person operation")
-        waitForSaveOperation()
+        waitForOperationDialog()
         setField("المبلغ للعملية", "250")
         setField("بيان العملية", "صرف واجهة")
         clickSaveOperation()
@@ -96,7 +100,7 @@ class CustodyOperationsUiInstrumentedTest {
         assertEquals(25000L, first.amountMinor)
 
         click(By.desc("تعديل"), "Edit person operation")
-        waitForSaveOperation()
+        waitForOperationDialog()
         setField("المبلغ للعملية", "300")
         clickSaveOperation()
         val updated = waitForTransactions(custody.id, 1).single()
@@ -109,30 +113,32 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun clickSavePerson() {
-        val save = device.wait(Until.findObject(By.text("حفظ")), 3_000)
-        if (save != null) {
-            save.click()
-            device.waitForIdle()
-            return
-        }
-        device.swipe(540, 1500, 540, 650, 20)
-        val afterScroll = device.wait(Until.findObject(By.text("حفظ")), 5_000) ?: error("Save person not found")
-        afterScroll.click()
+        val save = device.wait(Until.findObject(By.desc("حفظ الشخص")), 3_000)
+            ?: device.wait(Until.findObject(By.text("حفظ")), 5_000)
+            ?: error("Save person not found")
+        save.click()
         device.waitForIdle()
     }
 
-    private fun waitForSaveOperation() {
-        assertTrue("Operation save control not found", device.wait(Until.hasObject(By.desc("حفظ العملية")), 10_000))
+    private fun waitForOperationDialog() {
+        assertTrue(
+            "Operation dialog not visible",
+            device.wait(Until.hasObject(By.text("إضافة عملية")), 10_000) ||
+                device.wait(Until.hasObject(By.text("تعديل العملية")), 10_000)
+        )
     }
 
     private fun setField(description: String, value: String) {
-        val field = device.wait(Until.findObject(By.desc(description)), 10_000) ?: error("Field '$description' not found")
+        val field = device.wait(Until.findObject(By.desc(description)), 10_000)
+            ?: error("Field '$description' not found")
         field.text = value
         device.waitForIdle()
     }
 
     private fun clickSaveOperation() {
-        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 10_000) ?: error("Save operation not found")
+        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 3_000)
+            ?: device.wait(Until.findObject(By.text("حفظ")), 7_000)
+            ?: error("Save operation not found")
         save.click()
         device.waitForIdle()
     }
