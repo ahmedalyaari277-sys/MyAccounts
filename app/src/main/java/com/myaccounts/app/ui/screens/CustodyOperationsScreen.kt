@@ -180,9 +180,10 @@ private fun CustodyPersonDialog(existing: List<CustodyPersonEntity>, onDismiss: 
 @Composable
 fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<CustodyPersonEntity>, defaultCurrency: String, initialType: String, transaction: CustodyTransactionEntity?, onDismiss: () -> Unit, onFinished: () -> Unit) {
     val context = LocalContext.current; val keyboard = LocalSoftwareKeyboardController.current; val calc = LocalCalculatorController.current; val scope = rememberCoroutineScope()
-    var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }; var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }; var personId by remember(transaction?.id) { mutableStateOf(transaction?.personId) }; var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }; var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }; var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }; var saving by remember(transaction?.id) { mutableStateOf(false) }; var error by remember(transaction?.id) { mutableStateOf(false) }; var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
+    var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }; var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }; var personId by remember(transaction?.id) { mutableStateOf(transaction?.personId) }; var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }; var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }; var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }; var saving by remember(transaction?.id) { mutableStateOf(false) }; var error by remember(transaction?.id) { mutableStateOf(false) }; var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }; var deletedAttachments by remember(transaction?.id) { mutableStateOf<List<CustodyTransactionAttachmentEntity>>(emptyList()) }
     val needsPerson = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
     val existing = remember(transaction?.id) { transaction?.let { vm.attachments(it.id) } ?: emptyList() }
+    val visibleExisting = existing.filter { saved -> deletedAttachments.none { it.id == saved.id } }
     DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = false }; onDispose { calc.setResultConsumer(null) } }
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(modifier = Modifier.fillMaxWidth(.95f).semantics { contentDescription = "حوار العملية" }, shape = MaterialTheme.shapes.large) { Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -199,13 +200,21 @@ fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<C
                 Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { selectType() }) { RadioButton(selected = type == k, onClick = { selectType() }); Text(typeName(k), modifier = Modifier.padding(top = 12.dp)) }
             }
             if (needsPerson) people.forEach { p -> Row(modifier = Modifier.fillMaxWidth().clickable(enabled = !saving) { personId = p.id }) { RadioButton(selected = personId == p.id, onClick = { if (!saving) personId = p.id }); Text(p.name, modifier = Modifier.padding(top = 12.dp)) } }
-            if (transaction != null && existing.isNotEmpty()) Text("المرفقات الحالية: ${existing.size}", style = MaterialTheme.typography.labelLarge)
+            if (transaction != null && visibleExisting.isNotEmpty()) {
+                Text("المرفقات الحالية: ${visibleExisting.size}", style = MaterialTheme.typography.labelLarge)
+                visibleExisting.forEach { a ->
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(a.fileName, modifier = Modifier.weight(1f))
+                        TextButton(enabled = !saving, onClick = { deletedAttachments = deletedAttachments + a }) { Text("حذف") }
+                    }
+                }
+            }
             TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = !saving, onClick = {
                     val m = parseAmount(amount); if (m == null || m <= 0 || (needsPerson && personId == null)) { error = true; return@Button }
                     val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }; saving = true
-                    scope.launch { runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, m, details, date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, m, details, date, selected) }.onSuccess { keyboard?.hide(); saving = false; onFinished() }.onFailure { saving = false; error = true } }
+                    scope.launch { runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, m, details, date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, m, details, date, selected, deletedAttachments) }.onSuccess { keyboard?.hide(); saving = false; onFinished() }.onFailure { saving = false; error = true } }
                 }, modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
                 OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
             }
