@@ -42,6 +42,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
         composable(Routes.SETTINGS) { SettingsScreen(security, appearanceMode, onAppearanceModeChange, { navController.popBackStack() }, { navController.navigate(Routes.DETAILS) }) }
         composable(Routes.DETAILS) { DetailsScreen { navController.popBackStack() } }
         composable(Routes.CUSTODIES) { CustodyHomeScreen(custody, { navController.popBackStack() }, { navController.navigate(Routes.custody(it)) }) }
+        composable(Routes.CUSTODY_REPORTS) { CustodyReportsScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyDetailScreen(custody, id, { navController.popBackStack() }) } }
     }
 }
