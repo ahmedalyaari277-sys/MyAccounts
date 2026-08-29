@@ -40,6 +40,7 @@ class CustodyOperationsDatabaseTest {
             db.custodyDao().deletePersons(it.id)
             db.custodyDao().deleteCustody(it.id)
         }
+        Unit
     }
 
     @Test
