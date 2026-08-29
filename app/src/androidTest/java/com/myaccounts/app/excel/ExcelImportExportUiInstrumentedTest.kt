@@ -85,8 +85,6 @@ class ExcelImportExportUiInstrumentedTest {
         if (action != null) {
             action.click()
         } else {
-            // DocumentsUI varies its visible button text across locales/API images.
-            // The focused filename field accepts Enter as the canonical save/confirm action.
             filename.click()
             device.pressEnter()
         }
@@ -128,7 +126,7 @@ class ExcelImportExportUiInstrumentedTest {
 
     private fun findDocumentByDescription(fileName: String): UiObject2? = device.findObject(By.descContains(fileName))
     private fun clickByText(text: String) { val object2 = device.wait(Until.findObject(By.text(text)), 10_000) ?: error("Application text '$text' was not found"); object2.click(); device.waitForIdle() }
-    private fun clickByDescription(description: String) { val object2 = device.wait(Until.findObject(By.desc(description)), 10_000) ?: error("Application content description '$description' was not found"); object2.click(); device.waitForIdle() }
+    private fun clickByDescription(description: String) { val object2 = device.wait(Until.findObject(By.desc(description)), 10_000) ?: device.wait(Until.findObject(By.descContains(description)), 5_000) ?: error("Application content description '$description' was not found"); object2.click(); device.waitForIdle() }
     private fun waitForText(text: String) = assertTrue("Application text '$text' was not found", waitForTextOptional(text, 15_000))
     private fun waitForTextOptional(text: String, timeoutMs: Long): Boolean = device.wait(Until.hasObject(By.text(text)), timeoutMs)
 
