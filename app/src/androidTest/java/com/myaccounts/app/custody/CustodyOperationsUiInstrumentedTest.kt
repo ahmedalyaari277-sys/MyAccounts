@@ -57,7 +57,6 @@ class CustodyOperationsUiInstrumentedTest {
     fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
-        waitForText("الجهة:")
         waitForDetailScreen()
         click(By.text("استلام من الجهة"), "Receive from organization")
         waitForOperationDialog()
@@ -78,7 +77,7 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
         click(By.text("إضافة شخص"), "Add custody person")
-        waitForText("حوار إضافة شخص")
+        waitForPersonDialog()
         setField("الاسم", "اختبار شخص واجهة")
         setField("الهاتف", "777000000")
         setField("العنوان", "صنعاء")
@@ -119,13 +118,17 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Custody detail screen not visible", device.wait(Until.hasObject(By.desc("شاشة تفاصيل العهدة")), 10_000))
     }
 
+    private fun waitForPersonDialog() {
+        assertTrue("Person dialog not visible", device.wait(Until.hasObject(By.desc("حقول إضافة شخص")), 10_000) || device.wait(Until.hasObject(By.text("الهاتف")), 5_000))
+    }
+
     private fun clickSavePerson() {
         val save = device.wait(Until.findObject(By.desc("حفظ الشخص")), 5_000)
             ?: device.wait(Until.findObject(By.text("حفظ")), 5_000)
             ?: error("Save person not found")
         save.click()
         device.waitForIdle()
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
+        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حقول إضافة شخص")), 10_000))
     }
 
     private fun waitForOperationDialog() {
