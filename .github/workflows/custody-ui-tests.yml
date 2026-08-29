@@ -49,7 +49,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo chmod 666 /dev/kvm
 
-      - name: Run custody database bootstrap tests
+      - name: Run custody instrumentation coverage
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -64,41 +64,11 @@ jobs:
           disable-animations: true
           disable-linux-hw-accel: false
           pre-emulator-launch-script: adb start-server
-          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyDatabaseBootstrapTest --no-daemon --stacktrace
-
-      - name: Run custody operation database tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          cores: 2
-          avd-name: custody-db-test
-          force-avd-creation: true
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          disable-animations: true
-          disable-linux-hw-accel: false
-          pre-emulator-launch-script: adb start-server
-          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsDatabaseTest --no-daemon --stacktrace
-
-      - name: Run custody end-to-end UI tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          cores: 2
-          avd-name: custody-ui-test
-          force-avd-creation: true
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -boot-complete-timeout 120
-          disable-animations: true
-          disable-linux-hw-accel: false
-          pre-emulator-launch-script: adb start-server
-          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsUiInstrumentedTest --no-daemon --stacktrace
+          script: |
+            set -e
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyDatabaseBootstrapTest --no-daemon --stacktrace
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsDatabaseTest --no-daemon --stacktrace
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsUiInstrumentedTest --no-daemon --stacktrace
 
       - name: Upload custody UI results
         if: always()
