@@ -41,7 +41,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen { navController.popBackStack() } }
         composable(Routes.SETTINGS) { SettingsScreen(security, appearanceMode, onAppearanceModeChange, { navController.popBackStack() }, { navController.navigate(Routes.DETAILS) }) }
         composable(Routes.DETAILS) { DetailsScreen { navController.popBackStack() } }
-        composable(Routes.CUSTODIES) { CustodyHomeScreen(custody, { navController.popBackStack() }, { navController.navigate(Routes.custody(it)) }) }
+        composable(Routes.CUSTODIES) { CustodyHomeWithArchiveScreen(custody, { navController.popBackStack() }, { navController.navigate(Routes.custody(it)) }, { navController.navigate(Routes.CUSTODY_ARCHIVE) }) }
         composable(Routes.CUSTODY_ARCHIVE) { CustodyArchiveScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY_REPORTS) { CustodyReportsScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyOperationsScreen(custody, id, { navController.popBackStack() }, { personId -> navController.navigate(Routes.custodyPerson(id, personId)) }) } }
