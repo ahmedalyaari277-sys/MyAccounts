@@ -84,7 +84,7 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
 
-        click(By.text("إضافة شخص"), "Add custody person")
+        clickAction("إضافة شخص", "Add custody person")
         waitForPersonDialog()
         setField("الاسم", "اختبار شخص واجهة")
         setField("الهاتف", "777000000")
@@ -151,6 +151,7 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun clickSavePerson() {
+        hideKeyboardIfEditing()
         click(By.text("حفظ"), "Save person")
         device.waitForIdle()
         assertTrue("Person dialog did not close", device.wait(Until.gone(By.text("إضافة شخص")), 10_000))
@@ -168,26 +169,49 @@ class CustodyOperationsUiInstrumentedTest {
         device.waitForIdle()
 
         val focused = device.wait(Until.findObject(By.focused(true)), 2_000)
-        val actualField = focused ?: device.wait(Until.findObject(By.clazz("android.widget.EditText")), 2_000)
-        actualField?.text = value
-            ?: error("Editable control for '$description' not found")
+        val actualField = if (focused?.className == "android.widget.EditText") {
+            focused
+        } else {
+            device.wait(Until.findObject(By.clazz("android.widget.EditText")), 2_000)
+        }
+        actualField?.text = value ?: error("Editable control for '$description' not found")
         device.waitForIdle()
     }
 
     private fun clickSaveOperation() {
+        hideKeyboardIfEditing()
         click(By.text("حفظ"), "Save operation")
         device.waitForIdle()
-        assertTrue("Operation dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 10_000) || device.wait(Until.gone(By.text("تعديل العملية")), 2_000))
+        assertTrue(
+            "Operation dialog did not close",
+            device.wait(Until.gone(By.text("إضافة عملية")), 10_000) ||
+                device.wait(Until.gone(By.text("تعديل العملية")), 2_000)
+        )
     }
 
-    private fun clickAction(descriptionOrText: String, label: String) {
-        val byDesc = device.wait(Until.findObject(By.desc(descriptionOrText)), 2_000)
+    private fun hideKeyboardIfEditing() {
+        val focused = device.findObject(By.focused(true))
+        if (focused?.className == "android.widget.EditText") {
+            device.pressBack()
+            device.waitForIdle()
+        }
+    }
+
+    private fun clickAction(text: String, label: String) {
+        val byText = device.wait(Until.findObject(By.text(text)), 5_000)
+        if (byText != null) {
+            byText.click()
+            device.waitForIdle()
+            return
+        }
+
+        val byDesc = device.wait(Until.findObject(By.desc(text)), 5_000)
         if (byDesc != null) {
             byDesc.click()
             device.waitForIdle()
             return
         }
-        click(By.text(descriptionOrText), label)
+        error("$label not found")
     }
 
     private fun click(selector: androidx.test.uiautomator.BySelector, label: String) {
