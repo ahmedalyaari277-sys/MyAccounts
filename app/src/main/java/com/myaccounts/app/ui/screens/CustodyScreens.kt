@@ -245,6 +245,7 @@ private fun PersonFormDialog(onDismiss: () -> Unit, onSave: (CustodyPersonEntity
     var notes by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.semantics { contentDescription = "حوار إضافة شخص" },
         title = { Text("إضافة شخص") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -276,6 +277,7 @@ private fun CustodyTransactionDialog(
     val parsed = amount.toBigDecimalOrNull()
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.semantics { contentDescription = "حوار العملية" },
         title = { Text("عملية مالية") },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
