@@ -3,7 +3,7 @@ package com.myaccounts.app.custody
 import android.content.Context
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.platform.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -58,21 +58,28 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
+
         click(By.text("استلام من الجهة"), "Receive from organization")
         waitForOperationDialog()
         setField("المبلغ للعملية", "1000")
         clickSaveOperation()
-
         val custody = waitForCustody()
-        assertTrue("Owner balance was not shown", device.wait(Until.hasObject(By.text("عليه 1000")), 10_000))
-        val transactions = waitForTransactions(custody.id, 1)
-        assertEquals(1, transactions.size)
-        assertEquals(CustodyTransactionType.RECEIVED_FROM_ORG, transactions.single().type)
-        assertEquals(100000L, transactions.single().amountMinor)
+        assertTrue("Owner balance was not shown after receipt", device.wait(Until.hasObject(By.text("عليه 1000")), 10_000))
+        assertEquals(CustodyTransactionType.RECEIVED_FROM_ORG, waitForTransactions(custody.id, 1).single().type)
+
+        click(By.text("مرتجع للجهة / تصفية"), "Return to organization")
+        waitForOperationDialog()
+        setField("المبلغ للعملية", "1000")
+        clickSaveOperation()
+        assertTrue("Owner balance did not return to zero", device.wait(Until.hasObject(By.text("متوازن 0")), 10_000))
+        val transactions = waitForTransactions(custody.id, 2)
+        assertEquals(2, transactions.size)
+        assertTrue(transactions.any { it.type == CustodyTransactionType.RETURNED_TO_ORG })
+        assertEquals(0L, db.custodyDao().getOwnerAccount(custody.id, "YER")!!.balanceMinor)
     }
 
     @Test
-    fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditAndDelete() {
+    fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditDeleteAndCurrencyChange() {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
@@ -99,19 +106,36 @@ class CustodyOperationsUiInstrumentedTest {
         val first = waitForTransactions(custody.id, 1).single()
         assertEquals(person.id, first.personId)
         assertEquals(CustodyTransactionType.PAID_TO_PERSON, first.type)
+        assertEquals("YER", first.currencyCode)
         assertEquals(25000L, first.amountMinor)
 
         click(By.desc("تعديل"), "Edit person operation")
         waitForOperationDialog()
         setField("المبلغ للعملية", "300")
         clickSaveOperation()
-        val updated = waitForTransactions(custody.id, 1).single()
+        var updated = waitForTransactions(custody.id, 1).single()
         assertEquals(30000L, updated.amountMinor)
+        assertEquals(CustodyTransactionType.PAID_TO_PERSON, updated.type)
+
+        click(By.desc("تعديل"), "Edit operation for currency and type")
+        waitForOperationDialog()
+        click(By.text("SAR"), "Change operation currency to SAR")
+        click(By.text("مرتجع من الشخص"), "Change operation type to returned from person")
+        clickSaveOperation()
+        updated = waitForTransactions(custody.id, 1).single()
+        assertEquals("SAR", updated.currencyCode)
+        assertEquals(CustodyTransactionType.RETURNED_FROM_PERSON, updated.type)
+        assertEquals(30000L, updated.amountMinor)
+        assertEquals(0L, db.custodyDao().getPersonAccount(custody.id, person.id, "YER")!!.balanceMinor)
+        assertEquals(-30000L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
+        assertEquals(-30000L, db.custodyDao().getPersonAccount(custody.id, person.id, "SAR")!!.balanceMinor)
 
         click(By.desc("حذف"), "Delete person operation")
         waitForText("حذف العملية")
         click(By.text("حذف"), "Confirm delete")
         assertTrue("Transaction was not deleted", waitForTransactions(custody.id, 0).isEmpty())
+        assertEquals(0L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
+        assertEquals(0L, db.custodyDao().getPersonAccount(custody.id, person.id, "SAR")!!.balanceMinor)
     }
 
     private fun waitForDetailScreen() {
