@@ -138,6 +138,7 @@ fun QuickTransactionScreen(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -148,12 +149,7 @@ fun QuickTransactionScreen(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
-        Text(
-            personName,
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(personName, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -178,85 +174,40 @@ fun QuickTransactionScreen(
                 trailingIcon = {
                     IconButton(onClick = {
                         val selected = Calendar.getInstance().apply { timeInMillis = transactionDate }
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, day ->
-                                selected.set(year, month, day, 12, 0, 0)
-                                selected.set(Calendar.MILLISECOND, 0)
-                                transactionDate = selected.timeInMillis
-                            },
-                            selected.get(Calendar.YEAR), selected.get(Calendar.MONTH), selected.get(Calendar.DAY_OF_MONTH)
-                        ).show()
+                        DatePickerDialog(context, { _, year, month, day ->
+                            selected.set(year, month, day, 12, 0, 0)
+                            selected.set(Calendar.MILLISECOND, 0)
+                            transactionDate = selected.timeInMillis
+                        }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH), selected.get(Calendar.DAY_OF_MONTH)).show()
                     }) { Icon(Icons.Default.CalendarToday, contentDescription = "اختيار التاريخ") }
                 }
             )
         }
-        if (amountError) {
-            Text(
-                "أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
+        if (amountError) Text("أدخل مبلغًا صحيحًا أكبر من صفر وبحد أقصى منزلتين عشريتين.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
 
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("التفاصيل") },
-            singleLine = true,
-            shape = MaterialTheme.shapes.small
-        )
+        OutlinedTextField(value = description, onValueChange = { description = it }, modifier = Modifier.fillMaxWidth(), label = { Text("التفاصيل") }, singleLine = true, shape = MaterialTheme.shapes.small)
 
-        Text(
-            "العملة",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Text("العملة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             accounts.sortedBy { currencyOrder[it.currencyCode] ?: Int.MAX_VALUE }.forEach { account ->
-                FilterChip(
-                    selected = selectedCurrency == account.currencyCode,
-                    onClick = { selectedCurrency = account.currencyCode },
-                    label = { Text(currencyLabels[account.currencyCode] ?: account.currencyCode, style = MaterialTheme.typography.labelMedium) }
-                )
+                FilterChip(selected = selectedCurrency == account.currencyCode, onClick = { selectedCurrency = account.currencyCode }, label = { Text(currencyLabels[account.currencyCode] ?: account.currencyCode, style = MaterialTheme.typography.labelMedium) })
             }
         }
 
-        Text(
-            "نوع العملية",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Text("نوع العملية", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val receivableColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
             val payableColors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)
-            if (selectedType == TransactionType.RECEIVABLE) Button(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f), colors = receivableColors, shape = MaterialTheme.shapes.small) { Text("✓ عليه", fontWeight = FontWeight.Bold) }
-            else OutlinedButton(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.small) { Text("عليه") }
-            if (selectedType == TransactionType.PAYABLE) Button(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), colors = payableColors, shape = MaterialTheme.shapes.small) { Text("✓ له", fontWeight = FontWeight.Bold) }
-            else OutlinedButton(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.small) { Text("له") }
+            if (selectedType == TransactionType.RECEIVABLE) Button(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f), colors = receivableColors, shape = MaterialTheme.shapes.small) { Text("✓ عليه", fontWeight = FontWeight.Bold) } else OutlinedButton(onClick = { selectedType = TransactionType.RECEIVABLE }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.small) { Text("عليه") }
+            if (selectedType == TransactionType.PAYABLE) Button(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), colors = payableColors, shape = MaterialTheme.shapes.small) { Text("✓ له", fontWeight = FontWeight.Bold) } else OutlinedButton(onClick = { selectedType = TransactionType.PAYABLE }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.small) { Text("له") }
         }
 
         if (editMode && visibleExistingAttachments.isNotEmpty()) {
             ExistingAttachmentsSection(attachments = visibleExistingAttachments, onDelete = { attachment -> deletedExistingAttachments = deletedExistingAttachments + attachment })
         }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = MaterialTheme.shapes.medium,
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = MaterialTheme.shapes.medium, elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("المرفقات", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { attachments = it })
             }
@@ -271,11 +222,7 @@ fun QuickTransactionScreen(
                     val account = accounts.firstOrNull { it.currencyCode == selectedCurrency }
                     if (account == null) { amountError = true; return@Button }
                     keyboardController?.hide()
-                    val transaction = if (editMode) {
-                        initialTransaction!!.copy(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate)
-                    } else {
-                        TransactionEntity(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate)
-                    }
+                    val transaction = if (editMode) initialTransaction!!.copy(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate) else TransactionEntity(accountId = account.id, type = selectedType, amountMinor = parsedAmount, description = description.trim(), transactionDate = transactionDate)
                     if (editMode) onEditSave!!(transaction, attachments, deletedExistingAttachments) else onSave(transaction, attachments)
                 },
                 modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" },
@@ -301,16 +248,8 @@ private fun ExistingAttachmentsSection(attachments: List<TransactionAttachmentEn
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("المرفقات الحالية", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         attachments.forEach { attachment ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Row(modifier = Modifier.weight(1f)) {
                         Icon(imageVector = if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description, contentDescription = null)
                         Text(attachment.fileName, modifier = Modifier.padding(start = 8.dp), maxLines = 2, style = MaterialTheme.typography.bodyMedium)
