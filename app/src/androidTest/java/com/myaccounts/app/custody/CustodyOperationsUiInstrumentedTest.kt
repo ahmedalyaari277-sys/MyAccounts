@@ -57,6 +57,8 @@ class CustodyOperationsUiInstrumentedTest {
     fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
+        waitForText("الجهة:")
+        waitForDetailScreen()
         click(By.text("استلام من الجهة"), "Receive from organization")
         waitForOperationDialog()
         setField("المبلغ للعملية", "1000")
@@ -74,8 +76,9 @@ class CustodyOperationsUiInstrumentedTest {
     fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditAndDelete() {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
+        waitForDetailScreen()
         click(By.text("إضافة شخص"), "Add custody person")
-        waitForText("إضافة شخص")
+        waitForText("حوار إضافة شخص")
         setField("الاسم", "اختبار شخص واجهة")
         setField("الهاتف", "777000000")
         setField("العنوان", "صنعاء")
@@ -112,19 +115,25 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Transaction was not deleted", waitForTransactions(custody.id, 0).isEmpty())
     }
 
+    private fun waitForDetailScreen() {
+        assertTrue("Custody detail screen not visible", device.wait(Until.hasObject(By.desc("شاشة تفاصيل العهدة")), 10_000))
+    }
+
     private fun clickSavePerson() {
-        val save = device.wait(Until.findObject(By.desc("حفظ الشخص")), 3_000)
+        val save = device.wait(Until.findObject(By.desc("حفظ الشخص")), 5_000)
             ?: device.wait(Until.findObject(By.text("حفظ")), 5_000)
             ?: error("Save person not found")
         save.click()
         device.waitForIdle()
+        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
     }
 
     private fun waitForOperationDialog() {
         assertTrue(
             "Operation dialog not visible",
-            device.wait(Until.hasObject(By.text("إضافة عملية")), 10_000) ||
-                device.wait(Until.hasObject(By.text("تعديل العملية")), 10_000)
+            device.wait(Until.hasObject(By.desc("حوار العملية")), 10_000) ||
+                device.wait(Until.hasObject(By.text("إضافة عملية")), 2_000) ||
+                device.wait(Until.hasObject(By.text("تعديل العملية")), 2_000)
         )
     }
 
@@ -136,11 +145,12 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun clickSaveOperation() {
-        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 3_000)
-            ?: device.wait(Until.findObject(By.text("حفظ")), 7_000)
+        val save = device.wait(Until.findObject(By.desc("حفظ العملية")), 5_000)
+            ?: device.wait(Until.findObject(By.text("حفظ")), 5_000)
             ?: error("Save operation not found")
         save.click()
         device.waitForIdle()
+        assertTrue("Operation dialog did not close", device.wait(Until.gone(By.desc("حوار العملية")), 10_000))
     }
 
     private fun click(selector: androidx.test.uiautomator.BySelector, label: String) {
