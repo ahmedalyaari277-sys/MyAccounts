@@ -161,6 +161,8 @@ private fun AutomationMarker(label: String, focusRequester: FocusRequester? = nu
         factory = { context ->
             View(context).apply {
                 contentDescription = label
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                isFocusable = true
                 if (focusRequester != null) setOnClickListener { focusRequester.requestFocus() }
             }
         },
@@ -217,6 +219,8 @@ fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<C
     val needsPerson = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
     val existing = remember(transaction?.id) { transaction?.let { vm.attachments(it.id) } ?: emptyList() }
     val visibleExisting = existing.filter { saved -> deletedAttachments.none { it.id == saved.id } }
+    val amountFocus = remember(transaction?.id) { FocusRequester() }
+    val detailsFocus = remember(transaction?.id) { FocusRequester() }
     DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = false }; onDispose { calc.setResultConsumer(null) } }
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(modifier = Modifier.fillMaxWidth(.95f).semantics { contentDescription = "حوار العملية" }, shape = MaterialTheme.shapes.large) {
@@ -224,11 +228,17 @@ fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<C
                 AutomationMarker("حوار العملية")
                 Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { contentDescription = "حوار العملية" })
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    OutlinedTextField(amount, { amount = it; error = false }, modifier = Modifier.weight(1.2f).semantics { contentDescription = "المبلغ للعملية" }, label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, isError = error, enabled = !saving, trailingIcon = { CalculatorButton(onClick = calc::open) })
+                    Row(Modifier.weight(1.2f)) {
+                        AutomationMarker("المبلغ للعملية", amountFocus)
+                        OutlinedTextField(amount, { amount = it; error = false }, modifier = Modifier.fillMaxWidth().focusRequester(amountFocus).semantics { contentDescription = "المبلغ للعملية" }, label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, isError = error, enabled = !saving, trailingIcon = { CalculatorButton(onClick = calc::open) })
+                    }
                     OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, modifier = Modifier.weight(1f).semantics { contentDescription = "تاريخ العملية" }, label = { Text("التاريخ") }, readOnly = true, enabled = !saving, singleLine = true, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "التاريخ") } })
                 }
                 if (error) Text("تعذر حفظ العملية. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
-                OutlinedTextField(details, { details = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بيان العملية" }, label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
+                Row(Modifier.fillMaxWidth()) {
+                    AutomationMarker("بيان العملية", detailsFocus)
+                    OutlinedTextField(details, { details = it }, modifier = Modifier.weight(1f).focusRequester(detailsFocus).semantics { contentDescription = "بيان العملية" }, label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
+                }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
                 listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG).forEach { k ->
                     val selectType = { if (!saving) { type = k; if (k == CustodyTransactionType.RECEIVED_FROM_ORG || k == CustodyTransactionType.RETURNED_TO_ORG) personId = null } }
