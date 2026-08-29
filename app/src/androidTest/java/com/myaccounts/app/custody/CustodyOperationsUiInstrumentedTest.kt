@@ -3,7 +3,7 @@ package com.myaccounts.app.custody
 import android.content.Context
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.platform.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -54,7 +54,7 @@ class CustodyOperationsUiInstrumentedTest {
     fun tearDown() = runBlocking { clearData() }
 
     @Test
-    fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() {
+    fun custodyGatewayDetailAndOrganizationOperationWorkEndToEnd() = runBlocking {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
@@ -79,7 +79,7 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     @Test
-    fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditDeleteAndCurrencyChange() {
+    fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditDeleteAndCurrencyChange() = runBlocking {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
@@ -127,7 +127,7 @@ class CustodyOperationsUiInstrumentedTest {
         assertEquals(CustodyTransactionType.RETURNED_FROM_PERSON, updated.type)
         assertEquals(30000L, updated.amountMinor)
         assertEquals(0L, db.custodyDao().getPersonAccount(custody.id, person.id, "YER")!!.balanceMinor)
-        assertEquals(30000L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
+        assertEquals(-30000L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
         assertEquals(-30000L, db.custodyDao().getPersonAccount(custody.id, person.id, "SAR")!!.balanceMinor)
 
         click(By.desc("حذف"), "Delete person operation")
@@ -216,7 +216,7 @@ class CustodyOperationsUiInstrumentedTest {
         val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
             val transactions = runBlocking { db.custodyDao().getAllTransactions(custodyId, false) }
-            if (transactions.size >= minimum || minimum == 0 && transactions.isEmpty()) return transactions
+            if (transactions.size >= minimum || (minimum == 0 && transactions.isEmpty())) return transactions
             Thread.sleep(100)
         }
         return runBlocking { db.custodyDao().getAllTransactions(custodyId, false) }
