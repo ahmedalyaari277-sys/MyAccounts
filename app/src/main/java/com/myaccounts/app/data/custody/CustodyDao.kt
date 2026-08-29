@@ -20,6 +20,7 @@ interface CustodyDao {
     @Query("SELECT * FROM custodies WHERE externalId = :externalId LIMIT 1") suspend fun getCustodyByExternalId(externalId: String): CustodyEntity?
     @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND externalId = :externalId LIMIT 1") suspend fun getPersonByExternalId(custodyId: Long, externalId: String): CustodyPersonEntity?
     @Query("SELECT * FROM custody_transactions WHERE externalId = :externalId LIMIT 1") suspend fun getTransactionByExternalId(externalId: String): CustodyTransactionEntity?
+    @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1") suspend fun getCustody(id: Long): CustodyEntity?
     @Query("SELECT * FROM custodies WHERE isArchived = :archived ORDER BY createdAt DESC, id DESC") suspend fun getAllCustodies(archived: Boolean): List<CustodyEntity>
     @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY id ASC") suspend fun getAllPersons(custodyId: Long): List<CustodyPersonEntity>
     @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId ORDER BY id ASC") suspend fun getAllAccounts(custodyId: Long): List<CustodyAccountEntity>
@@ -29,7 +30,6 @@ interface CustodyDao {
     @Query("SELECT * FROM custody_accounts WHERE id = :id LIMIT 1") suspend fun getAccount(id: Long): CustodyAccountEntity?
     @Query("SELECT * FROM custody_transactions WHERE id = :id LIMIT 1") suspend fun getTransaction(id: Long): CustodyTransactionEntity?
     @Query("SELECT * FROM custody_persons WHERE id = :id LIMIT 1") suspend fun getPerson(id: Long): CustodyPersonEntity?
-    @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1") suspend fun getCustody(id: Long): CustodyEntity?
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertCustody(custody: CustodyEntity): Long
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertPerson(person: CustodyPersonEntity): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertAccounts(accounts: List<CustodyAccountEntity>)
@@ -37,6 +37,7 @@ interface CustodyDao {
     @Update suspend fun updateCustody(custody: CustodyEntity)
     @Update suspend fun updatePerson(person: CustodyPersonEntity)
     @Update suspend fun updateTransaction(transaction: CustodyTransactionEntity)
+    @Query("DELETE FROM custody_transactions WHERE id = :id") suspend fun deleteTransaction(id: Long)
     @Query("UPDATE custodies SET isArchived = 1, archivedAt = :at WHERE id = :id") suspend fun archiveCustody(id: Long, at: Long)
     @Query("DELETE FROM custody_transactions WHERE custodyId = :id") suspend fun deleteTransactions(id: Long)
     @Query("DELETE FROM custody_accounts WHERE custodyId = :id") suspend fun deleteAccounts(id: Long)
