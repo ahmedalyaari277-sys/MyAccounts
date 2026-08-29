@@ -3,8 +3,8 @@ package com.myaccounts.app.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,20 +32,27 @@ fun CalculatorOverlay(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Column(Modifier.padding(10.dp)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(expression.ifBlank { "0" }, modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.Medium)
-            Text(result.ifBlank { "0" }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            val rows = listOf(
-                listOf("7", "8", "9", "÷"),
-                listOf("4", "5", "6", "×"),
-                listOf("1", "2", "3", "−"),
-                listOf("0", ".", "+", "=")
+            Text(
+                result.ifBlank { "0" },
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
             )
-            rows.forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    row.forEach { key -> Button(onClick = { onKey(key) }, modifier = Modifier.weight(1f)) { Text(key) } }
-                }
+
+            calculatorRow(listOf("1", "2", "3", "÷"), onKey)
+            calculatorRow(listOf("4", "5", "6", "×"), onKey)
+            calculatorRow(listOf("7", "8", "9", "−"), onKey)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                calculatorKey("0", onKey, Modifier.weight(2f))
+                calculatorKey(".", onKey, Modifier.weight(1f))
+                calculatorKey("+", onKey, Modifier.weight(1f))
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                calculatorKey("=", onKey, Modifier.weight(1f))
+            }
+
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = onClear) { Text("مسح") }
                 TextButton(onClick = onBackspace) { Text("حذف") }
@@ -54,4 +61,16 @@ fun CalculatorOverlay(
             }
         }
     }
+}
+
+@Composable
+private fun calculatorRow(keys: List<String>, onKey: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        keys.forEach { key -> calculatorKey(key, onKey, Modifier.weight(1f)) }
+    }
+}
+
+@Composable
+private fun calculatorKey(key: String, onKey: (String) -> Unit, modifier: Modifier) {
+    Button(onClick = { onKey(key) }, modifier = modifier) { Text(key) }
 }

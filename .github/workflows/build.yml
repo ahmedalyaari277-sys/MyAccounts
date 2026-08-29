@@ -5,6 +5,7 @@ on:
     branches:
       - "main"
       - "master"
+      - "fix/reports-import-attachment-ui"
 
   workflow_dispatch:
 

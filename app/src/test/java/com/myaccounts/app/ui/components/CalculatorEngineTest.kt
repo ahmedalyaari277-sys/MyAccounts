@@ -11,5 +11,7 @@ class CalculatorEngineTest {
     @Test fun division() = assertEquals("2", CalculatorEngine.evaluate("10÷5"))
     @Test fun precedence() = assertEquals("160", CalculatorEngine.evaluate("100+20×3"))
     @Test fun decimalDivision() = assertEquals("2.5", CalculatorEngine.evaluate("10÷4"))
+    @Test fun roundsDivisionToTwoDecimalPlaces() = assertEquals("33.33", CalculatorEngine.evaluate("100÷3"))
+    @Test fun roundsHalfUpToTwoDecimalPlaces() = assertEquals("1.24", CalculatorEngine.evaluate("1.235"))
     @Test fun divideByZeroIsInvalid() = assertNull(CalculatorEngine.evaluate("10÷0"))
 }

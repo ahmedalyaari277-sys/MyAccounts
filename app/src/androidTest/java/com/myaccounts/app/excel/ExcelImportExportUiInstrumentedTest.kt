@@ -69,7 +69,10 @@ class ExcelImportExportUiInstrumentedTest {
         assertEquals(1, countPeopleByExternalId(testPersonExternalId))
         assertEquals(1, countPeopleByExternalId(archivedPersonExternalId))
         assertEquals(1, countTransactionsByExternalId(testTransactionExternalId))
-        assertEquals(1, countAccountsForPerson(testPersonExternalId))
+        assertEquals(3, countAccountsForPerson(testPersonExternalId))
+        assertEquals(1, countAccountsForPersonAndCurrency(testPersonExternalId, "YER"))
+        assertEquals(1, countAccountsForPersonAndCurrency(testPersonExternalId, "SAR"))
+        assertEquals(1, countAccountsForPersonAndCurrency(testPersonExternalId, "USD"))
         assertEquals(123450L, balanceForPerson(testPersonExternalId, "YER"))
     }
 
@@ -78,8 +81,22 @@ class ExcelImportExportUiInstrumentedTest {
         val filename = findFilenameField()
         filename.clear()
         filename.text = fileName
-        clickPickerAction("Save")
-        assertTrue("System picker did not close after saving Excel", waitForTextOptional("النسخ الاحتياطي والمزامنة", 10_000))
+        val action = findPickerSaveAction()
+        if (action != null) {
+            action.click()
+        } else {
+            filename.click()
+            device.pressEnter()
+        }
+        device.waitForIdle()
+        assertTrue(
+            "System picker did not finish saving Excel",
+            device.wait(Until.gone(By.pkg("com.google.android.documentsui")), 10_000)
+        )
+        assertTrue(
+            "MyAccounts activity did not resume after saving Excel",
+            device.wait(Until.hasObject(By.pkg("com.myaccounts.app")), 10_000)
+        )
     }
 
     private fun openExportedDocumentThroughSystemPicker(fileName: String) {
@@ -95,48 +112,29 @@ class ExcelImportExportUiInstrumentedTest {
     }
 
     private fun findFilenameField(): UiObject2 {
-        val resourceCandidates = listOf(
-            By.res("com.google.android.documentsui:id/filename"),
-            By.res("com.android.documentsui:id/filename")
-        )
-        resourceCandidates.forEach { selector ->
-            device.wait(Until.hasObject(selector), 2_000)
-            device.findObject(selector)?.let { return it }
-        }
-
-        // DocumentsUI implementations vary across Android images. The save dialog
-        // exposes the filename as an EditText even when the resource id changes.
+        val resourceCandidates = listOf(By.res("com.google.android.documentsui:id/filename"), By.res("com.android.documentsui:id/filename"))
+        resourceCandidates.forEach { selector -> device.wait(Until.hasObject(selector), 2_000); device.findObject(selector)?.let { return it } }
         val editTexts = device.findObjects(By.clazz("android.widget.EditText"))
         if (editTexts.size == 1) return editTexts.first()
         editTexts.firstOrNull { it.isEnabled && it.isFocusable && it.isClickable }?.let { return it }
         error("System picker filename field was not found; EditText count=${editTexts.size}")
     }
 
-    private fun clickPickerAction(label: String) {
-        val exact = device.wait(Until.findObject(By.text(label)), 5_000)
-            ?: device.wait(Until.findObject(By.textContains(label)), 5_000)
-            ?: error("System picker action '$label' was not found")
-        exact.click()
-        device.waitForIdle()
+    private fun findPickerSaveAction(): UiObject2? {
+        val labels = listOf("Save", "حفظ", "حفظ الملف", "Guardar", "Enregistrer")
+        labels.forEach { label ->
+            device.findObject(By.text(label))?.let { if (it.isEnabled) return it }
+            device.findObject(By.textContains(label))?.let { if (it.isEnabled) return it }
+            device.findObject(By.desc(label))?.let { if (it.isEnabled) return it }
+            device.findObject(By.descContains(label))?.let { if (it.isEnabled) return it }
+        }
+        return null
     }
 
     private fun findDocumentByDescription(fileName: String): UiObject2? = device.findObject(By.descContains(fileName))
-
-    private fun clickByText(text: String) {
-        val object2 = device.wait(Until.findObject(By.text(text)), 10_000) ?: error("Application text '$text' was not found")
-        object2.click()
-        device.waitForIdle()
-    }
-
-    private fun clickByDescription(description: String) {
-        val object2 = device.wait(Until.findObject(By.desc(description)), 10_000)
-            ?: error("Application content description '$description' was not found")
-        object2.click()
-        device.waitForIdle()
-    }
-
+    private fun clickByText(text: String) { val object2 = device.wait(Until.findObject(By.text(text)), 10_000) ?: error("Application text '$text' was not found"); object2.click(); device.waitForIdle() }
+    private fun clickByDescription(description: String) { val object2 = device.wait(Until.findObject(By.desc(description)), 10_000) ?: device.wait(Until.findObject(By.descContains(description)), 5_000) ?: error("Application content description '$description' was not found"); object2.click(); device.waitForIdle() }
     private fun waitForText(text: String) = assertTrue("Application text '$text' was not found", waitForTextOptional(text, 15_000))
-
     private fun waitForTextOptional(text: String, timeoutMs: Long): Boolean = device.wait(Until.hasObject(By.text(text)), timeoutMs)
 
     private fun clearTestData() {
@@ -149,22 +147,10 @@ class ExcelImportExportUiInstrumentedTest {
 
     private fun seedTestData() {
         val db = database.openHelper.writableDatabase
-        db.execSQL(
-            "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)",
-            arrayOf(970001L, "اختبار واجهة Excel", "777000701", "صنعاء", "M04 UI", 2000L, 1, null, testPersonExternalId)
-        )
-        db.execSQL(
-            "INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",
-            arrayOf(980001L, 970001L, "YER", 123450L, 2001L, 2002L)
-        )
-        db.execSQL(
-            "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,externalId) VALUES (?,?,?,?,?,?,?,?)",
-            arrayOf(990001L, 980001L, "RECEIVABLE", 123450L, "عملية اختبار واجهة Excel", 2003L, 2004L, testTransactionExternalId)
-        )
-        db.execSQL(
-            "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)",
-            arrayOf(970002L, "مؤرشف لا يجب تصديره", "777000702", "تعز", "Archived", 2005L, 0, 2006L, archivedPersonExternalId)
-        )
+        db.execSQL("INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)", arrayOf(970001L, "اختبار واجهة Excel", "777000701", "صنعاء", "M04 UI", 2000L, 1, null, testPersonExternalId))
+        db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)", arrayOf(980001L, 970001L, "YER", 123450L, 2001L, 2002L))
+        db.execSQL("INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,externalId) VALUES (?,?,?,?,?,?,?,?)", arrayOf(990001L, 980001L, "RECEIVABLE", 123450L, "عملية اختبار واجهة Excel", 2003L, 2004L, testTransactionExternalId))
+        db.execSQL("INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)", arrayOf(970002L, "مؤرشف لا يجب تصديره", "777000702", "تعز", "Archived", 2005L, 0, 2006L, archivedPersonExternalId))
     }
 
     private fun deleteActiveTestData() {
@@ -178,5 +164,6 @@ class ExcelImportExportUiInstrumentedTest {
     private fun countPeopleByExternalId(id: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM people WHERE externalId=?", arrayOf(id)).use { c -> c.moveToFirst(); c.getInt(0) }
     private fun countTransactionsByExternalId(id: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM transactions WHERE externalId=?", arrayOf(id)).use { c -> c.moveToFirst(); c.getInt(0) }
     private fun countAccountsForPerson(externalId: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?)", arrayOf(externalId)).use { c -> c.moveToFirst(); c.getInt(0) }
+    private fun countAccountsForPersonAndCurrency(externalId: String, currency: String): Int = database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?) AND currencyCode=?", arrayOf(externalId, currency)).use { c -> c.moveToFirst(); c.getInt(0) }
     private fun balanceForPerson(externalId: String, currency: String): Long = database.openHelper.writableDatabase.query("SELECT balanceMinor FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId=?) AND currencyCode=?", arrayOf(externalId, currency)).use { c -> assertTrue(c.moveToFirst()); c.getLong(0) }
 }

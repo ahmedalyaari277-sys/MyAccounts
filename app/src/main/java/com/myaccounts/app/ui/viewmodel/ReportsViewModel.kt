@@ -141,6 +141,16 @@ class ReportsViewModel(private val repository: ReportRepository) : ViewModel() {
         }
     }
 
+    suspend fun getFreshMultiCurrencyPersonReport(
+        personId: Long,
+        startDateMillis: Long?,
+        endDateMillisExclusive: Long?
+    ): MultiCurrencyPersonReport = repository.getMultiCurrencyPersonReport(
+        personId,
+        startDateMillis ?: 0L,
+        endDateMillisExclusive ?: Long.MAX_VALUE
+    )
+
     fun setAllTime() {
         _uiState.value = _uiState.value.copy(startDateMillis = null, endDateMillisExclusive = null, errorMessage = null)
         if (_uiState.value.selectedCurrencyCode == "ALL") loadAllCurrencyReport() else loadCurrencyReport()
