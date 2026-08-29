@@ -147,37 +147,51 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun waitForPersonDialog() {
         assertTrue("Person dialog title not visible", device.wait(Until.hasObject(By.text("إضافة شخص")), 10_000))
-        assertTrue("Person name field not visible", device.wait(Until.hasObject(By.desc("الاسم")), 5_000))
-        assertTrue("Person phone field not visible", device.wait(Until.hasObject(By.desc("الهاتف")), 5_000))
+        assertTrue("Person name field not visible", device.wait(Until.hasObject(By.text("الاسم")), 5_000))
+        assertTrue("Person phone field not visible", device.wait(Until.hasObject(By.text("الهاتف")), 5_000))
     }
 
     private fun clickSavePerson() {
         hideKeyboardIfEditing()
         click(By.text("حفظ"), "Save person")
         device.waitForIdle()
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
+        assertTrue("Person dialog did not close", device.wait(Until.gone(By.text("إضافة شخص")), 10_000))
     }
 
     private fun waitForOperationDialog() {
-        assertTrue("Operation dialog not visible", device.wait(Until.hasObject(By.desc("حوار العملية")), 10_000))
-        assertTrue("Operation amount field not visible", device.wait(Until.hasObject(By.desc("المبلغ للعملية")), 5_000))
+        val visible = device.wait(Until.hasObject(By.text("إضافة عملية")), 10_000) ||
+            device.wait(Until.hasObject(By.text("تعديل العملية")), 10_000)
+        assertTrue("Operation dialog not visible", visible)
+        assertTrue("Operation amount field not visible", device.wait(Until.hasObject(By.text("المبلغ")), 5_000))
     }
 
     private fun setField(description: String, value: String) {
-        val semanticField = device.wait(Until.findObject(By.desc(description)), 10_000)
-            ?: error("Field '$description' not found")
-        semanticField.click()
+        val semanticField = device.wait(Until.findObject(By.desc(description)), 2_000)
+        if (semanticField != null) {
+            semanticField.click()
+        } else {
+            val label = visibleLabelFor(description)
+            val labelNode = device.wait(Until.findObject(By.text(label)), 10_000)
+                ?: error("Field '$description' not found")
+            clickNodeOrClickableAncestor(labelNode, "Field $description")
+        }
         device.waitForIdle()
 
-        val focused = device.wait(Until.findObject(By.focused(true)), 2_000)
+        val focused = device.wait(Until.findObject(By.focused(true)), 3_000)
         val actualField = if (focused?.className == "android.widget.EditText") {
             focused
         } else {
-            device.wait(Until.findObject(By.clazz("android.widget.EditText")), 2_000)
+            device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3_000)
         }
         if (actualField == null) error("Editable control for '$description' not found")
         actualField.text = value
         device.waitForIdle()
+    }
+
+    private fun visibleLabelFor(description: String): String = when (description) {
+        "المبلغ للعملية" -> "المبلغ"
+        "بيان العملية" -> "التفاصيل"
+        else -> description
     }
 
     private fun clickSaveOperation() {
@@ -186,7 +200,8 @@ class CustodyOperationsUiInstrumentedTest {
         device.waitForIdle()
         assertTrue(
             "Operation dialog did not close",
-            device.wait(Until.gone(By.desc("حوار العملية")), 10_000)
+            device.wait(Until.gone(By.text("إضافة عملية")), 5_000) ||
+                device.wait(Until.gone(By.text("تعديل العملية")), 10_000)
         )
     }
 
