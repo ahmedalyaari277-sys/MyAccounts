@@ -5,7 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import java.util.UUID
 
-@Entity(tableName = "custodies", indices = [Index("name"), Index("organizationName"), Index("externalId", unique = true)])
+@Entity(tableName = "custodies", indices = [Index("name"), Index("organizationName"), Index(value = ["externalId"], unique = true)])
 data class CustodyEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
@@ -36,18 +36,19 @@ data class CustodyPersonEntity(
     val externalId: String = "CP-${UUID.randomUUID()}"
 )
 
-@Entity(tableName = "custody_accounts", indices = [Index("custodyId"), Index("personId"), Index(value = ["custodyId", "personId", "currencyCode"], unique = true)], foreignKeys = [ForeignKey(entity = CustodyEntity::class, parentColumns = ["id"], childColumns = ["custodyId"], onDelete = ForeignKey.CASCADE), ForeignKey(entity = CustodyPersonEntity::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.CASCADE)])
+@Entity(tableName = "custody_accounts", indices = [Index("custodyId"), Index("personId"), Index(value = ["custodyId", "holderType", "personId", "currencyCode"], unique = true)], foreignKeys = [ForeignKey(entity = CustodyEntity::class, parentColumns = ["id"], childColumns = ["custodyId"], onDelete = ForeignKey.CASCADE), ForeignKey(entity = CustodyPersonEntity::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.CASCADE)])
 data class CustodyAccountEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val custodyId: Long,
-    val personId: Long,
+    val holderType: String,
+    val personId: Long? = null,
     val currencyCode: String,
     val balanceMinor: Long = 0L,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "custody_transactions", indices = [Index("custodyId"), Index("accountId"), Index("personId"), Index("transactionDate"), Index("type"), Index("externalId", unique = true)], foreignKeys = [ForeignKey(entity = CustodyEntity::class, parentColumns = ["id"], childColumns = ["custodyId"], onDelete = ForeignKey.CASCADE), ForeignKey(entity = CustodyAccountEntity::class, parentColumns = ["id"], childColumns = ["accountId"], onDelete = ForeignKey.CASCADE)])
+@Entity(tableName = "custody_transactions", indices = [Index("custodyId"), Index("accountId"), Index("personId"), Index("transactionDate"), Index("type"), Index(value = ["externalId"], unique = true)], foreignKeys = [ForeignKey(entity = CustodyEntity::class, parentColumns = ["id"], childColumns = ["custodyId"], onDelete = ForeignKey.CASCADE), ForeignKey(entity = CustodyAccountEntity::class, parentColumns = ["id"], childColumns = ["accountId"], onDelete = ForeignKey.CASCADE), ForeignKey(entity = CustodyPersonEntity::class, parentColumns = ["id"], childColumns = ["personId"], onDelete = ForeignKey.SET_NULL)])
 data class CustodyTransactionEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val custodyId: Long,
