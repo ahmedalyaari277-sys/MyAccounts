@@ -40,6 +40,7 @@ interface CustodyDao {
     @Query("UPDATE custody_accounts SET balanceMinor = balanceMinor + :delta, updatedAt = :updatedAt WHERE id = :accountId") suspend fun adjustAccountBalance(accountId: Long, delta: Long, updatedAt: Long)
     @Query("DELETE FROM custody_transactions WHERE id = :id") suspend fun deleteTransaction(id: Long)
     @Query("UPDATE custodies SET isArchived = 1, archivedAt = :at WHERE id = :id") suspend fun archiveCustody(id: Long, at: Long)
+    @Query("UPDATE custodies SET isArchived = 0, archivedAt = NULL WHERE id = :id") suspend fun restoreCustody(id: Long)
     @Query("DELETE FROM custody_transactions WHERE custodyId = :id") suspend fun deleteTransactions(id: Long)
     @Query("DELETE FROM custody_accounts WHERE custodyId = :id") suspend fun deleteAccounts(id: Long)
     @Query("DELETE FROM custody_persons WHERE custodyId = :id") suspend fun deletePersons(id: Long)
