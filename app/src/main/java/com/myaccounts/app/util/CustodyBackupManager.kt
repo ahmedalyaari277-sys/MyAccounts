@@ -71,6 +71,7 @@ object CustodyBackupManager {
         temp.outputStream().use { it.write(workbook) }
         try {
             val imported = CustodyExcelDataManager.import(context, Uri.fromFile(temp)).getOrThrow()
+            CustodyBalanceRebuilder.rebuildAllActive(db)
             val manifest = entries[MANIFEST]?.toString(Charsets.UTF_8).orEmpty()
             var restoredAttachments = 0
             if (manifest.isNotBlank()) {
@@ -85,27 +86,14 @@ object CustodyBackupManager {
                     val bytes = entries["$ATTACHMENTS${p[0]}.bin"] ?: return@forEach
                     val tempAttachment = writeTemp(context, "attachment", bytes)
                     try {
-                        val saved = CustodyAttachmentStorage.saveAttachments(
-                            context,
-                            tx.id,
-                            listOf(CustodyAttachmentStorage.Selected(Uri.fromFile(tempAttachment), fileName, mimeType))
-                        )
-                        saved.forEach { a ->
-                            db.openHelper.writableDatabase.execSQL(
-                                "INSERT INTO custody_transaction_attachments (transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?)",
-                                arrayOf(a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt)
-                            )
-                        }
+                        val saved = CustodyAttachmentStorage.saveAttachments(context, tx.id, listOf(CustodyAttachmentStorage.Selected(Uri.fromFile(tempAttachment), fileName, mimeType)))
+                        saved.forEach { a -> db.openHelper.writableDatabase.execSQL("INSERT INTO custody_transaction_attachments (transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?)", arrayOf(a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt)) }
                         restoredAttachments += saved.size
-                    } finally {
-                        tempAttachment.delete()
-                    }
+                    } finally { tempAttachment.delete() }
                 }
             }
             Summary(imported.custodiesAdded, imported.peopleAdded, imported.accountsAdded, imported.transactionsAdded, restoredAttachments)
-        } finally {
-            temp.delete()
-        }
+        } finally { temp.delete() }
     }
 
     private fun writeTemp(context: Context, prefix: String, bytes: ByteArray): File {
