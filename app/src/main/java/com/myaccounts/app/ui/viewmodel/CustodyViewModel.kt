@@ -50,7 +50,7 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     }
 
     fun attachments(id: Long): List<CustodyTransactionAttachmentEntity> = repo.attachments(id)
-    fun archivedCustodies() = kotlinx.coroutines.flow.flow { emit(dao.getAllCustodies(true)) }
+    suspend fun archivedCustodies(): List<CustodyEntity> = dao.getAllCustodies(true)
     fun create(c: CustodyEntity) = viewModelScope.launch { repo.createCustody(c) }
     fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch { repo.addPerson(id, p) }
     suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = repo.addPerson(id, p)
