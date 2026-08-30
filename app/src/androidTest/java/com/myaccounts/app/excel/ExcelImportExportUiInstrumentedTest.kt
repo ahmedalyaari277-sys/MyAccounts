@@ -43,6 +43,7 @@ class ExcelImportExportUiInstrumentedTest {
 
     @Test
     fun exportThenImportThroughRealUiAndSystemPickerRestoresOnlyActiveData() {
+        clickByText("دفتر الحسابات")
         clickByDescription("النسخ الاحتياطي والاستعادة")
         waitForText("النسخ الاحتياطي والمزامنة")
         clickByText("تصدير البيانات إلى Excel")
