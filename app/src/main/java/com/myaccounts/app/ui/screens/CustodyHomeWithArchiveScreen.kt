@@ -10,12 +10,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.CustodyEntity
@@ -31,7 +33,7 @@ fun CustodyHomeWithArchiveScreen(
     onOpen: (Long) -> Unit,
     onArchive: () -> Unit,
     onReports: () -> Unit,
-    onExport: () -> Unit
+    onTransfer: () -> Unit
 ) {
     val custodies by vm.custodies.collectAsState()
     var adding by remember { mutableStateOf(false) }
@@ -48,10 +50,13 @@ fun CustodyHomeWithArchiveScreen(
                 title = { Text("العُهَد") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = {
-                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }
-                    IconButton(onClick = onExport) { Icon(Icons.Default.FileDownload, "تصدير التقارير") }
-                    IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
+                    TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
                     IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
+                    IconButton(
+                        onClick = onTransfer,
+                        modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }
+                    ) { Icon(Icons.Default.Backup, contentDescription = null) }
+                    IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
                     DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                         DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false })
                         DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
@@ -104,7 +109,11 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
         },
         confirmButton = {
             Button(enabled = name.isNotBlank() && organization.isNotBlank(), onClick = {
-                onSave(CustodyEntity(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim()))
+                onSave(CustodyEntity(
+                    name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(),
+                    organizationName = organization.trim(), organizationPhone = organizationPhone.trim(),
+                    organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim()
+                ))
             }) { Text("حفظ") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
