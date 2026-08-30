@@ -75,7 +75,6 @@ object CustodyBackupManager {
             var restoredAttachments = 0
             if (manifest.isNotBlank()) {
                 val dao = db.custodyDao()
-                val store = CustodyAttachmentStore(context)
                 manifest.lineSequence().filter { it.isNotBlank() }.forEach { line ->
                     val p = line.split('\t')
                     if (p.size != 4) return@forEach
@@ -84,18 +83,23 @@ object CustodyBackupManager {
                     val mimeType = String(Base64.decode(p[3], Base64.NO_WRAP), Charsets.UTF_8)
                     val tx = dao.getTransactionByExternalId(txExternalId) ?: return@forEach
                     val bytes = entries["$ATTACHMENTS${p[0]}.bin"] ?: return@forEach
-                    val saved = CustodyAttachmentStorage.saveAttachments(
-                        context,
-                        tx.id,
-                        listOf(CustodyAttachmentStorage.Selected(Uri.fromFile(writeTemp(context, "attachment", bytes)), fileName, mimeType))
-                    )
-                    saved.forEach { a ->
-                        db.openHelper.writableDatabase.execSQL(
-                            "INSERT INTO custody_transaction_attachments (transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?)",
-                            arrayOf(a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt)
+                    val tempAttachment = writeTemp(context, "attachment", bytes)
+                    try {
+                        val saved = CustodyAttachmentStorage.saveAttachments(
+                            context,
+                            tx.id,
+                            listOf(CustodyAttachmentStorage.Selected(Uri.fromFile(tempAttachment), fileName, mimeType))
                         )
+                        saved.forEach { a ->
+                            db.openHelper.writableDatabase.execSQL(
+                                "INSERT INTO custody_transaction_attachments (transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?)",
+                                arrayOf(a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt)
+                            )
+                        }
+                        restoredAttachments += saved.size
+                    } finally {
+                        tempAttachment.delete()
                     }
-                    restoredAttachments += saved.size
                 }
             }
             Summary(imported.custodiesAdded, imported.peopleAdded, imported.accountsAdded, imported.transactionsAdded, restoredAttachments)
