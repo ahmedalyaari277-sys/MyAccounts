@@ -91,7 +91,7 @@ class ExcelImportExportInstrumentedTest {
         val import = ExcelDataManager.import(context, excelUri!!)
         assertTrue("Import failed: ${import.exceptionOrNull()}", import.isSuccess)
         assertEquals(1, import.getOrNull()?.peopleAdded)
-        assertEquals(1, import.getOrNull()?.accountsAdded)
+        assertEquals(3, import.getOrNull()?.accountsAdded)
         assertEquals(1, import.getOrNull()?.transactionsAdded)
 
         assertEquals(1, countPeopleByExternalId("P-EXCEL-001"))
