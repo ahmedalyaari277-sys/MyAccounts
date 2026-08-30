@@ -21,6 +21,7 @@ import java.math.BigDecimal
 
 private val reportCurrencies = listOf("ALL", "YER", "SAR", "USD")
 private fun amount(v: Long) = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
+private const val PDF_MIME = "application/pdf"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,8 +54,13 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                             Button(onClick = { scope.launch(Dispatchers.IO) { message = CustodyReportExporter.exportPdf(context, c, filtered, currency).fold({ "تم إنشاء تقرير PDF للعهدة." }, { "تعذر إنشاء PDF: ${it.message}" }) } }, Modifier.weight(1f)) { Text("PDF") }
                             OutlinedButton(onClick = {
                                 scope.launch(Dispatchers.IO) {
-                                    val result = ReportShareUtil.shareGeneratedReport(context, "MyAccounts_تقرير_عهدة_${c.name}", "application/pdf") { CustodyReportExporter.exportPdf(context, c, filtered, currency) }
-                                    message = result.fold({ "تم فتح خيارات مشاركة التقرير." }, { "تعذر مشاركة التقرير: ${it.message}" })
+                                    val exportedAt = System.currentTimeMillis()
+                                    val result = CustodyReportExporter.exportPdf(context, c, filtered, currency)
+                                    val share = result.fold(
+                                        onSuccess = { ReportShareUtil.findLatestReportAfter(context, "MyAccounts_تقرير_عهدة_${c.name}", PDF_MIME, exportedAt).fold({ uri -> ReportShareUtil.shareReport(context, uri, PDF_MIME) }, { Result.failure(it) }) },
+                                        onFailure = { Result.failure(it) }
+                                    )
+                                    message = share.fold({ "تم فتح خيارات مشاركة التقرير." }, { "تعذر مشاركة التقرير: ${it.message}" })
                                 }
                             }, Modifier.weight(1f)) { Text("مشاركة") }
                         }

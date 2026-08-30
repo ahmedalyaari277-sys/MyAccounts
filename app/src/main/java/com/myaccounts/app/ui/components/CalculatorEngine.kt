@@ -1,106 +1,81 @@
 package com.myaccounts.app.ui.components
 
 import java.math.BigDecimal
+import java.math.MathContext
 import java.math.RoundingMode
 
+/** Pure calculator logic. No Android/UI/database dependencies. */
 object CalculatorEngine {
-    fun evaluate(expression: String): String {
-        val normalized = expression
-            .replace("×", "*")
-            .replace("÷", "/")
-            .replace("−", "-")
-            .replace(" ", "")
+    private val mathContext = MathContext(34, RoundingMode.HALF_UP)
 
-        if (normalized.isBlank()) return "0"
-
-        return runCatching {
-            val tokens = tokenize(normalized) ?: return "خطأ"
-            if (tokens.isEmpty()) return "0"
-
-            // First pass: multiplication and division have higher precedence.
-            val reducedValues = mutableListOf<BigDecimal>()
-            val reducedOperators = mutableListOf<Char>()
-            var current = tokens[0].value
-            var index = 1
-
-            while (index < tokens.size) {
-                val operator = tokens[index].operator ?: return "خطأ"
-                val next = tokens[index + 1].value
-                when (operator) {
-                    '*' -> current = current.multiply(next)
-                    '/' -> current = current.divide(next, 12, RoundingMode.HALF_UP)
-                    '+', '-' -> {
-                        reducedValues += current
-                        reducedOperators += operator
-                        current = next
-                    }
-                    else -> return "خطأ"
-                }
-                index += 2
-            }
-            reducedValues += current
-
-            // Second pass: addition and subtraction from left to right.
-            var result = reducedValues.first()
-            for (operatorIndex in reducedOperators.indices) {
-                result = when (reducedOperators[operatorIndex]) {
-                    '+' -> result.add(reducedValues[operatorIndex + 1])
-                    '-' -> result.subtract(reducedValues[operatorIndex + 1])
-                    else -> return "خطأ"
-                }
-            }
-
-            result.stripTrailingZeros().toPlainString()
-        }.getOrElse { "خطأ" }
+    fun evaluate(expression: String): String? {
+        val normalized = expression.replace('×', '*').replace('÷', '/').replace('−', '-')
+        if (normalized.isBlank()) return null
+        return try {
+            val parser = Parser(normalized)
+            val value = parser.parseExpression()
+            if (!parser.atEnd()) return null
+            format(value)
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    private data class Token(
-        val value: BigDecimal,
-        val operator: Char? = null
-    )
+    private fun format(value: BigDecimal): String =
+        value.setScale(2, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
+            .let { if (it == "-0") "0" else it }
 
-    private fun tokenize(expression: String): List<Token>? {
-        val tokens = mutableListOf<Token>()
-        var index = 0
-        var expectingNumber = true
+    private class Parser(private val input: String) {
+        private var index = 0
+        fun atEnd() = index >= input.length
 
-        while (index < expression.length) {
-            var sign = ""
-            if (expectingNumber && (expression[index] == '+' || expression[index] == '-')) {
-                sign = expression[index].toString()
-                index++
+        fun parseExpression(): BigDecimal {
+            var value = parseTerm()
+            while (!atEnd()) {
+                value = when (input[index]) {
+                    '+' -> { index++; value.add(parseTerm(), mathContext) }
+                    '-' -> { index++; value.subtract(parseTerm(), mathContext) }
+                    else -> return value
+                }
             }
+            return value
+        }
 
-            val start = index
-            var dotSeen = false
-            while (index < expression.length) {
-                val char = expression[index]
-                when {
-                    char.isDigit() -> index++
-                    char == '.' && !dotSeen -> {
-                        dotSeen = true
+        private fun parseTerm(): BigDecimal {
+            var value = parseNumber()
+            while (!atEnd()) {
+                value = when (input[index]) {
+                    '*' -> { index++; value.multiply(parseNumber(), mathContext) }
+                    '/' -> {
                         index++
+                        val divisor = parseNumber()
+                        if (divisor.compareTo(BigDecimal.ZERO) == 0) throw ArithmeticException("division by zero")
+                        value.divide(divisor, mathContext)
                     }
+                    else -> return value
+                }
+            }
+            return value
+        }
+
+        private fun parseNumber(): BigDecimal {
+            while (!atEnd() && input[index].isWhitespace()) index++
+            val start = index
+            if (!atEnd() && (input[index] == '+' || input[index] == '-')) index++
+            var dotSeen = false
+            var digitSeen = false
+            while (!atEnd()) {
+                val c = input[index]
+                when {
+                    c.isDigit() -> { digitSeen = true; index++ }
+                    c == '.' && !dotSeen -> { dotSeen = true; index++ }
                     else -> break
                 }
             }
-
-            if (start == index) return null
-
-            val numberText = sign + expression.substring(start, index)
-            val number = numberText.toBigDecimalOrNull() ?: return null
-            tokens += Token(value = number)
-            expectingNumber = false
-
-            if (index < expression.length) {
-                val operator = expression[index]
-                if (operator !in charArrayOf('+', '-', '*', '/')) return null
-                tokens += Token(value = BigDecimal.ZERO, operator = operator)
-                index++
-                expectingNumber = true
-            }
+            if (!digitSeen) throw NumberFormatException("number expected")
+            return BigDecimal(input.substring(start, index), mathContext)
         }
-
-        return if (expectingNumber) null else tokens
     }
 }
