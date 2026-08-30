@@ -50,3 +50,5 @@ jobs:
       - name: Run debug unit tests
         if: always()
         run: gradle testDebugUnitTest --stacktrace
+
+      # Custody-only build workflow; the ledger module remains untouched.
