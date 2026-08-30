@@ -48,11 +48,12 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
                 { navController.navigate(Routes.custody(it)) },
                 { navController.navigate(Routes.CUSTODY_ARCHIVE) },
                 { navController.navigate(Routes.CUSTODY_REPORTS) },
-                { navController.navigate(Routes.CUSTODY_REPORTS) }
+                { navController.navigate(Routes.CUSTODY_TRANSFER) }
             )
         }
         composable(Routes.CUSTODY_ARCHIVE) { CustodyArchiveScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY_REPORTS) { CustodyReportsScreen(custody) { navController.popBackStack() } }
+        composable(Routes.CUSTODY_TRANSFER) { CustodyTransferScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyOperationsScreen(custody, id, { navController.popBackStack() }, { personId -> navController.navigate(Routes.custodyPerson(id, personId)) }) } }
         composable(Routes.CUSTODY_PERSON, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("personId") { type = NavType.LongType })) { e -> val cid = e.arguments?.getLong("custodyId"); val pid = e.arguments?.getLong("personId"); if (cid != null && pid != null) CustodyPersonOperationsScreen(custody, cid, pid, { navController.popBackStack() }) }
     }
