@@ -194,7 +194,7 @@ class CustodyOperationsUiInstrumentedTest {
         error("$label clickable ancestor not found")
     }
 
-    private fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity {
+    private suspend fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity {
         val until = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < until) {
             db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name }?.let { return it }
@@ -203,7 +203,7 @@ class CustodyOperationsUiInstrumentedTest {
         return db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name }.also { assertNotNull("Person was not persisted", it) }!!
     }
 
-    private fun waitForTransactions(custodyId: Long): List<com.myaccounts.app.data.custody.CustodyTransactionEntity> {
+    private suspend fun waitForTransactions(custodyId: Long): List<com.myaccounts.app.data.custody.CustodyTransactionEntity> {
         val until = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < until) {
             val tx = db.custodyDao().getAllTransactions(custodyId, false)
