@@ -6,6 +6,7 @@ on:
       - "main"
       - "master"
       - "fix/report-sharing-archive-restore"
+      - "custody/final-isolated"
 
   workflow_dispatch:
 
