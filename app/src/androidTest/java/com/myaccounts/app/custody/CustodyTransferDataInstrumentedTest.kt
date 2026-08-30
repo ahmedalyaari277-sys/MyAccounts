@@ -25,37 +25,41 @@ class CustodyTransferDataInstrumentedTest {
     private val context get() = instrumentation.targetContext
     private val db get() = AppDatabase.getInstance(context)
     private lateinit var externalId: String
-    private lateinit var custodyId: Long
+    private var custodyId: Long = 0L
     private lateinit var workbook: File
     private lateinit var backup: File
 
     @Before
-    fun setUp() = runBlocking {
-        val token = UUID.randomUUID().toString()
-        externalId = "TRANSFER-CUSTODY-$token"
-        custodyId = CustodyRepository(db, context).createCustody(
-            CustodyEntity(name = "اختبار نقل $token", organizationName = "جهة اختبار $token", externalId = externalId)
-        )
-        CustodyRepository(db, context).addTransaction(
-            custodyId = custodyId,
-            currency = "YER",
-            type = CustodyTransactionType.RECEIVED_FROM_ORG,
-            personId = null,
-            amountMinor = 125000L,
-            description = "اختبار نقل",
-            date = System.currentTimeMillis()
-        )
-        workbook = File(context.cacheDir, "custody-test-${System.nanoTime()}.xlsx")
-        backup = File(context.cacheDir, "custody-test-${System.nanoTime()}.custody")
+    fun setUp() {
+        runBlocking {
+            val token = UUID.randomUUID().toString()
+            externalId = "TRANSFER-CUSTODY-$token"
+            custodyId = CustodyRepository(db, context).createCustody(
+                CustodyEntity(name = "اختبار نقل $token", organizationName = "جهة اختبار $token", externalId = externalId)
+            )
+            CustodyRepository(db, context).addTransaction(
+                custodyId = custodyId,
+                currency = "YER",
+                type = CustodyTransactionType.RECEIVED_FROM_ORG,
+                personId = null,
+                amountMinor = 125000L,
+                description = "اختبار نقل",
+                date = System.currentTimeMillis()
+            )
+            workbook = File(context.cacheDir, "custody-test-${System.nanoTime()}.xlsx")
+            backup = File(context.cacheDir, "custody-test-${System.nanoTime()}.custody")
+        }
     }
 
     @After
-    fun tearDown() = runBlocking {
-        db.custodyDao().getCustodyByExternalId(externalId)?.let {
-            db.custodyDao().deleteTransactions(it.id)
-            db.custodyDao().deleteAccounts(it.id)
-            db.custodyDao().deletePersons(it.id)
-            db.custodyDao().deleteCustody(it.id)
+    fun tearDown() {
+        runBlocking {
+            db.custodyDao().getCustodyByExternalId(externalId)?.let {
+                db.custodyDao().deleteTransactions(it.id)
+                db.custodyDao().deleteAccounts(it.id)
+                db.custodyDao().deletePersons(it.id)
+                db.custodyDao().deleteCustody(it.id)
+            }
         }
         workbook.delete()
         backup.delete()
