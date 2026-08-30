@@ -12,10 +12,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,9 +42,7 @@ fun CustodyHomeWithArchiveScreen(
     onBack: () -> Unit,
     onOpen: (Long) -> Unit,
     onArchive: () -> Unit,
-    onReports: () -> Unit,
-    onImportExport: () -> Unit = {},
-    onSync: () -> Unit = {}
+    onReports: () -> Unit
 ) {
     val custodies by vm.custodies.collectAsState()
     var adding by remember { mutableStateOf(false) }
@@ -58,10 +52,8 @@ fun CustodyHomeWithArchiveScreen(
                 title = { Text("العُهَد") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = {
-                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, contentDescription = "تقارير العهد") }
-                    IconButton(onClick = onImportExport) { Icon(Icons.Default.FileDownload, contentDescription = "استيراد وتصدير العهد") }
-                    IconButton(onClick = onSync) { Icon(Icons.Default.Sync, contentDescription = "مزامنة العهد") }
-                    IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, contentDescription = "أرشيف العهد") }
+                    TextButton(onClick = onReports) { Text("التقارير") }
+                    TextButton(onClick = onArchive) { Text("الأرشيف") }
                 }
             )
         },
