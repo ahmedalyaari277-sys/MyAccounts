@@ -1,0 +1,44 @@
+name: Repair custody third pass
+on:
+  push:
+    branches: [repair-custody-run]
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: repair-custody-run, fetch-depth: 0}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17', cache: gradle}
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.2'}
+      - name: Apply corrections from verified build log
+        shell: python
+        run: |
+          from pathlib import Path
+          root=Path('.')
+          p=root/'app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt'
+          s=p.read_text()
+          s=s.replace('Icons.AutoMirrored.Filled.Sort','Icons.Default.Sort')
+          if 'import androidx.compose.ui.semantics.contentDescription' not in s:
+              s=s.replace('import androidx.compose.ui.semantics.semantics\n','import androidx.compose.ui.semantics.semantics\nimport androidx.compose.ui.semantics.contentDescription\n')
+          p.write_text(s)
+          # Do not alter ledger screens. The helper screen remains separate and custody-scoped.
+          p=root/'.github/workflows/repair2.yml'
+          if p.exists(): p.unlink()
+          p=root/'.github/workflows/repair-custody-runner.yml'
+          if p.exists(): p.unlink()
+          p=root/'.github/workflows/repair3.yml'
+      - name: Verify build and unit tests
+        run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace
+      - name: Commit repaired source and remove runner
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/repair3.yml
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt .github/workflows
+          git commit -m "fix(custody): correct verified toolbar compilation" || exit 0
+          git push origin HEAD:repair-custody-run
