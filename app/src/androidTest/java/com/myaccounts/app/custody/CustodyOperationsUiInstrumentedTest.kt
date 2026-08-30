@@ -34,23 +34,27 @@ class CustodyOperationsUiInstrumentedTest {
     private lateinit var custodyName: String
 
     @Before
-    fun setUp() = runBlocking {
-        val token = UUID.randomUUID().toString()
-        externalId = "UI-CUSTODY-$token"
-        custodyName = "اختبار واجهة العهدة $token"
-        CustodyRepository(db, context).createCustody(CustodyEntity(name = custodyName, organizationName = "اختبار الجهة $token", externalId = externalId))
+    fun setUp() {
+        runBlocking {
+            val token = UUID.randomUUID().toString()
+            externalId = "UI-CUSTODY-$token"
+            custodyName = "اختبار واجهة العهدة $token"
+            CustodyRepository(db, context).createCustody(CustodyEntity(name = custodyName, organizationName = "اختبار الجهة $token", externalId = externalId))
+        }
         instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         device.waitForIdle()
         assertTrue("Gateway not visible", device.wait(Until.hasObject(By.text("العُهَد")), 15_000))
     }
 
     @After
-    fun tearDown() = runBlocking {
-        db.custodyDao().getCustodyByExternalId(externalId)?.let {
-            db.custodyDao().deleteTransactions(it.id)
-            db.custodyDao().deleteAccounts(it.id)
-            db.custodyDao().deletePersons(it.id)
-            db.custodyDao().deleteCustody(it.id)
+    fun tearDown() {
+        runBlocking {
+            db.custodyDao().getCustodyByExternalId(externalId)?.let {
+                db.custodyDao().deleteTransactions(it.id)
+                db.custodyDao().deleteAccounts(it.id)
+                db.custodyDao().deletePersons(it.id)
+                db.custodyDao().deleteCustody(it.id)
+            }
         }
     }
 
