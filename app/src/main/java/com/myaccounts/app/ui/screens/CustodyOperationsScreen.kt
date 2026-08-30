@@ -67,7 +67,23 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
     val people by vm.persons(custodyId).collectAsState()
     val accounts by vm.accounts(custodyId).collectAsState()
     val transactions by vm.transactions(custodyId).collectAsState()
-    val current = custody ?: return
+    val current = custody
+    if (current == null) {
+        Scaffold(
+            modifier = Modifier.semantics { contentDescription = "شاشة تحميل تفاصيل العهدة" },
+            topBar = {
+                TopAppBar(
+                    title = { Text("العهدة") },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }
+                )
+            }
+        ) { pad ->
+            Box(Modifier.fillMaxSize().padding(pad), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        return
+    }
     var currency by remember { mutableStateOf("YER") }
     var dialogType by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
@@ -139,6 +155,7 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
     }
 
     if (addPerson) CustodyPersonDialog(
+        custodyId = custodyId,
         existing = people,
         onDismiss = { if (!personSaving) addPerson = false },
         onSave = { person ->
@@ -171,7 +188,7 @@ private fun AutomationMarker(label: String, focusRequester: FocusRequester? = nu
 }
 
 @Composable
-private fun CustodyPersonDialog(existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit) {
+private fun CustodyPersonDialog(custodyId: Long, existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
@@ -207,7 +224,7 @@ private fun CustodyPersonDialog(existing: List<CustodyPersonEntity>, onDismiss: 
             }
             if (error) Text("تعذر حفظ الشخص. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
         } },
-        confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = { val person = CustodyPersonEntity(custodyId = 0, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()); saving = true; error = false; scope.launch { runCatching { onSave(person) }.onFailure { saving = false; error = true } } }, modifier = Modifier.semantics { contentDescription = "حفظ الشخص" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } },
+        confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = { val person = CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()); saving = true; error = false; scope.launch { runCatching { onSave(person) }.onFailure { saving = false; error = true } } }, modifier = Modifier.semantics { contentDescription = "حفظ الشخص" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } },
         dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } }
     )
 }
