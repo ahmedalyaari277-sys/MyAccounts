@@ -2,7 +2,7 @@ name: Custody UI Emulator Tests
 
 on:
   push:
-    branches: [feat/custody-module]
+    branches: [custody/final-verified]
     paths:
       - 'app/src/main/java/com/myaccounts/app/ui/screens/Custody**'
       - 'app/src/main/java/com/myaccounts/app/ui/navigation/**'
