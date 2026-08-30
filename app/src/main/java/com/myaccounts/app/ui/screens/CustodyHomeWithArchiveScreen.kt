@@ -10,7 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +35,6 @@ fun CustodyHomeWithArchiveScreen(
 ) {
     val custodies by vm.custodies.collectAsState()
     var adding by remember { mutableStateOf(false) }
-    var showActionsMenu by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST) }
     val displayedCustodies = when (sortOrder) {
@@ -48,13 +48,10 @@ fun CustodyHomeWithArchiveScreen(
                 title = { Text("العُهَد") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = {
-                    IconButton(onClick = { showActionsMenu = true }) { Icon(Icons.Default.MoreVert, "إجراءات العُهَد") }
-                    DropdownMenu(expanded = showActionsMenu, onDismissRequest = { showActionsMenu = false }) {
-                        DropdownMenuItem(text = { Text("التقارير") }, onClick = { showActionsMenu = false; onReports() })
-                        DropdownMenuItem(text = { Text("تصدير التقارير") }, onClick = { showActionsMenu = false; onExport() })
-                        DropdownMenuItem(text = { Text("الأرشيف") }, onClick = { showActionsMenu = false; onArchive() })
-                        DropdownMenuItem(text = { Text("ترتيب العُهَد") }, onClick = { showActionsMenu = false; showSortMenu = true })
-                    }
+                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }
+                    IconButton(onClick = onExport) { Icon(Icons.Default.FileDownload, "تصدير التقارير") }
+                    IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
+                    IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
                     DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                         DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false })
                         DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
