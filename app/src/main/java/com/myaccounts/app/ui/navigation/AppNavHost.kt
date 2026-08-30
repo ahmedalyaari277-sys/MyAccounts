@@ -47,6 +47,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
                 { navController.popBackStack() },
                 { navController.navigate(Routes.custody(it)) },
                 { navController.navigate(Routes.CUSTODY_ARCHIVE) },
+                { navController.navigate(Routes.CUSTODY_REPORTS) },
                 { navController.navigate(Routes.CUSTODY_REPORTS) }
             )
         }
