@@ -63,7 +63,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo chmod 666 /dev/kvm
 
-      - name: Run custody instrumentation coverage
+      - name: Run complete custody instrumentation suite
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -80,9 +80,7 @@ jobs:
           pre-emulator-launch-script: adb start-server
           script: |
             set -e
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyDatabaseBootstrapTest --no-daemon --stacktrace
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsDatabaseTest --no-daemon --stacktrace
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.myaccounts.app.custody.CustodyOperationsUiInstrumentedTest --no-daemon --stacktrace
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.myaccounts.app.custody --no-daemon --stacktrace
 
       - name: Upload custody UI results
         if: always()
