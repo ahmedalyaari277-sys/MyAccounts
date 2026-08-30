@@ -15,15 +15,24 @@ import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.screens.ArchiveScreen
 import com.myaccounts.app.ui.screens.ArchivedPersonDetailScreen
 import com.myaccounts.app.ui.screens.BackupRestoreScreen
+import com.myaccounts.app.ui.screens.CustodyArchiveScreen
+import com.myaccounts.app.ui.screens.CustodyHomeWithArchiveScreen
+import com.myaccounts.app.ui.screens.CustodyOperationsScreen
+import com.myaccounts.app.ui.screens.CustodyPersonOperationsScreen
+import com.myaccounts.app.ui.screens.CustodyReportsScreen
+import com.myaccounts.app.ui.screens.CustodyTransferScreen
 import com.myaccounts.app.ui.screens.DetailsScreen
 import com.myaccounts.app.ui.screens.HomeScreen
 import com.myaccounts.app.ui.screens.PersonAccountScreen
 import com.myaccounts.app.ui.screens.SettingsScreen
 import com.myaccounts.app.ui.screens.TransactionScreen
+import com.myaccounts.app.ui.screens.AppGatewayScreen
 import com.myaccounts.app.ui.screens.normalizeRestorePersonName
 import com.myaccounts.app.ui.screens.reports.PersonReportScreen
 import com.myaccounts.app.ui.screens.reports.ReportsScreen
 import com.myaccounts.app.ui.theme.ThemeMode
+import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.ui.viewmodel.CustodyViewModelFactory
 import com.myaccounts.app.ui.viewmodel.LedgerViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModel
 import com.myaccounts.app.ui.viewmodel.ReportsViewModelFactory
@@ -40,23 +49,24 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, the
     val security = AppSecurityManager(context)
     val reportsViewModel: ReportsViewModel = viewModel(factory = ReportsViewModelFactory(application))
     val transactionViewModel: TransactionViewModel = viewModel(factory = TransactionViewModelFactory(application))
+    val custodyViewModel: CustodyViewModel = viewModel(factory = CustodyViewModelFactory(application))
     val archivedTransactions by transactionViewModel.archivedTransactionRows.collectAsState()
 
-    NavHost(navController = navController, startDestination = Routes.HOME) {
+    NavHost(navController = navController, startDestination = Routes.GATEWAY) {
+        composable(Routes.GATEWAY) {
+            AppGatewayScreen(
+                onAccounts = { navController.navigate(Routes.HOME) },
+                onCustodies = { navController.navigate(Routes.CUSTODIES) },
+                onSettings = { navController.navigate(Routes.SETTINGS) }
+            )
+        }
         composable(Routes.HOME) {
             HomeScreen(personsList = persons, onAddPerson = { n, p, a, no -> viewModel.addPerson(n, p, a, no) }, onPersonClick = { navController.navigate(Routes.personAccount(it)) }, onQuickTransactionClick = { _, _ -> }, onQuickTransactionSave = { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments) }, onReportsClick = { navController.navigate(Routes.REPORTS) }, onArchiveClick = { navController.navigate(Routes.ARCHIVE) }, onBackupRestoreClick = { navController.navigate(Routes.BACKUP_RESTORE) }, onSettingsClick = { navController.navigate(Routes.SETTINGS) })
         }
         composable(Routes.PERSON_ACCOUNT, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { entry ->
             val id = entry.arguments?.getLong("personId")
             val person = persons.firstOrNull { it.person.id == id }
-            if (person != null) PersonAccountScreen(
-                personWithAccounts = person,
-                transactionViewModel = transactionViewModel,
-                onBack = { navController.popBackStack() },
-                onUpdatePerson = { n, p, a, no -> viewModel.updatePerson(person.person.id, n, p, a, no) },
-                onDeletePerson = { viewModel.deletePerson(person.person.id); navController.popBackStack() },
-                onReportClick = { currency -> navController.navigate(Routes.personReport(person.person.id, currency)) }
-            )
+            if (person != null) PersonAccountScreen(personWithAccounts = person, transactionViewModel = transactionViewModel, onBack = { navController.popBackStack() }, onUpdatePerson = { n, p, a, no -> viewModel.updatePerson(person.person.id, n, p, a, no) }, onDeletePerson = { viewModel.deletePerson(person.person.id); navController.popBackStack() }, onReportClick = { currency -> navController.navigate(Routes.personReport(person.person.id, currency)) })
         }
         composable(Routes.TRANSACTIONS, arguments = listOf(navArgument("accountId") { type = NavType.LongType }, navArgument("currencyCode") { type = NavType.StringType })) { entry ->
             val aid = entry.arguments?.getLong("accountId")
@@ -76,12 +86,25 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, the
             val id = entry.arguments?.getLong("personId")
             val person = archivedPersons.firstOrNull { it.person.id == id }
             val archivedPersonTransactions = if (id != null) transactionViewModel.observeArchivedTransactionsForPerson(id).collectAsState(initial = emptyList()) else androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(emptyList<com.myaccounts.app.data.local.TransactionEntity>()) }
-            if (person != null) {
-                ArchivedPersonDetailScreen(personWithAccounts = person, archivedTransactions = archivedPersonTransactions.value, hasActiveSameName = activePersonNames.contains(normalizeRestorePersonName(person.person.name)), onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onRestoreTransaction = { transactionViewModel.restoreTransaction(it); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) })
-            }
+            if (person != null) ArchivedPersonDetailScreen(personWithAccounts = person, archivedTransactions = archivedPersonTransactions.value, hasActiveSameName = activePersonNames.contains(normalizeRestorePersonName(person.person.name)), onBack = { navController.popBackStack() }, onRestore = { viewModel.restorePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) }, onRestoreTransaction = { transactionViewModel.restoreTransaction(it); navController.popBackStack(Routes.ARCHIVE, false) }, onPermanentDelete = { viewModel.permanentlyDeletePerson(person.person.id); navController.popBackStack(Routes.ARCHIVE, false) })
         }
         composable(Routes.BACKUP_RESTORE) { BackupRestoreScreen(onBack = { navController.popBackStack() }) }
         composable(Routes.SETTINGS) { SettingsScreen(security = security, themeMode = themeMode, onThemeModeChanged = onThemeModeChanged, onBack = { navController.popBackStack() }, onDetailsClick = { navController.navigate(Routes.DETAILS) }) }
         composable(Routes.DETAILS) { DetailsScreen(onBack = { navController.popBackStack() }) }
+
+        composable(Routes.CUSTODIES) {
+            CustodyHomeWithArchiveScreen(custodyViewModel, { navController.popBackStack() }, { navController.navigate(Routes.custody(it)) }, { navController.navigate(Routes.CUSTODY_ARCHIVE) }, { navController.navigate(Routes.CUSTODY_REPORTS) }, { navController.navigate(Routes.CUSTODY_TRANSFER) })
+        }
+        composable(Routes.CUSTODY_ARCHIVE) { CustodyArchiveScreen(custodyViewModel) { navController.popBackStack() } }
+        composable(Routes.CUSTODY_REPORTS) { CustodyReportsScreen(custodyViewModel) { navController.popBackStack() } }
+        composable(Routes.CUSTODY_TRANSFER) { CustodyTransferScreen(custodyViewModel) { navController.popBackStack() } }
+        composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { entry ->
+            entry.arguments?.getLong("custodyId")?.let { id -> CustodyOperationsScreen(custodyViewModel, id, { navController.popBackStack() }, { personId -> navController.navigate(Routes.custodyPerson(id, personId)) }) }
+        }
+        composable(Routes.CUSTODY_PERSON, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("personId") { type = NavType.LongType })) { entry ->
+            val custodyId = entry.arguments?.getLong("custodyId")
+            val personId = entry.arguments?.getLong("personId")
+            if (custodyId != null && personId != null) CustodyPersonOperationsScreen(custodyViewModel, custodyId, personId) { navController.popBackStack() }
+        }
     }
 }
