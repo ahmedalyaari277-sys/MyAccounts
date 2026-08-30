@@ -13,6 +13,18 @@ on:
       - 'app/src/main/java/com/myaccounts/app/MainActivity.kt'
       - 'app/build.gradle.kts'
       - '.github/workflows/custody-ui-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/Custody**'
+      - 'app/src/main/java/com/myaccounts/app/ui/navigation/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/viewmodel/CustodyViewModel.kt'
+      - 'app/src/main/java/com/myaccounts/app/data/custody/**'
+      - 'app/src/androidTest/java/com/myaccounts/app/custody/**'
+      - 'app/src/main/java/com/myaccounts/app/data/local/AppDatabase.kt'
+      - 'app/src/main/java/com/myaccounts/app/MainActivity.kt'
+      - 'app/build.gradle.kts'
+      - '.github/workflows/custody-ui-tests.yml'
   workflow_dispatch:
     inputs:
       commit_sha:

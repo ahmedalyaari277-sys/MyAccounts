@@ -16,6 +16,16 @@ on:
       - 'app/src/androidTest/java/com/myaccounts/app/custody/**'
       - 'app/src/main/java/com/myaccounts/app/ui/navigation/**'
       - '.github/workflows/compose-ui-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/myaccounts/app/ui/screens/Custody**'
+      - 'app/src/main/java/com/myaccounts/app/data/custody/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/viewmodel/CustodyViewModel.kt'
+      - 'app/src/androidTest/java/com/myaccounts/app/custody/**'
+      - 'app/src/main/java/com/myaccounts/app/ui/navigation/**'
+      - 'app/build.gradle.kts'
+      - '.github/workflows/compose-ui-tests.yml'
 
 jobs:
   compose-ui-tests:
