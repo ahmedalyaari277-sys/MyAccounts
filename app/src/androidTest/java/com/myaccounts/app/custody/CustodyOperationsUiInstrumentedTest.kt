@@ -146,16 +146,16 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun waitForPersonDialog() {
-        assertTrue("Person dialog title not visible", device.wait(Until.hasObject(By.text("إضافة شخص")), 10_000))
-        assertTrue("Person name field not visible", device.wait(Until.hasObject(By.text("الاسم")), 5_000))
-        assertTrue("Person phone field not visible", device.wait(Until.hasObject(By.text("الهاتف")), 5_000))
+        assertTrue("Person dialog title not visible", device.wait(Until.hasObject(By.desc("حوار إضافة شخص")), 10_000))
+        assertTrue("Person name field not visible", device.wait(Until.hasObject(By.desc("الاسم")), 5_000))
+        assertTrue("Person phone field not visible", device.wait(Until.hasObject(By.desc("الهاتف")), 5_000))
     }
 
     private fun clickSavePerson() {
         hideKeyboardIfEditing()
-        click(By.text("حفظ"), "Save person")
+        click(By.desc("حفظ الشخص"), "Save person")
         device.waitForIdle()
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.text("إضافة شخص")), 10_000))
+        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
     }
 
     private fun waitForOperationDialog() {
