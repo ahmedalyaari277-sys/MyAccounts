@@ -1,5 +1,6 @@
 package com.myaccounts.app.util
 
+import androidx.room.withTransaction
 import com.myaccounts.app.data.custody.CustodyBalanceRules
 import com.myaccounts.app.data.local.AppDatabase
 
