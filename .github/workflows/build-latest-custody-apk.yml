@@ -1,0 +1,54 @@
+name: Build Latest Custody APK
+
+on:
+  push:
+    branches:
+      - "custody/final-verified"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+jobs:
+  build:
+    name: Build latest custody APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout latest custody version
+        uses: actions/checkout@v4
+        with:
+          ref: custody/final-verified
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.2"
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload latest APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: myaccounts-custody-latest-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Run debug unit tests
+        if: always()
+        run: gradle testDebugUnitTest --stacktrace
+
+      # Custody-only build workflow; the ledger module remains untouched.

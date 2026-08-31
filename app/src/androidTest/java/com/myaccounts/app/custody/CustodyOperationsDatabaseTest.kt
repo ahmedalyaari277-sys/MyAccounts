@@ -25,22 +25,25 @@ class CustodyOperationsDatabaseTest {
     private var personId = 0L
 
     @Before
-    fun setUp() = runBlocking {
-        externalId = "TEST-CUSTODY-OPS-${System.nanoTime()}"
-        val repo = CustodyRepository(db, context)
-        custodyId = repo.createCustody(CustodyEntity(name = "اختبار العهدة", organizationName = "اختبار الجهة", externalId = externalId))
-        personId = repo.addPerson(custodyId, CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
+    fun setUp() {
+        runBlocking {
+            externalId = "TEST-CUSTODY-OPS-${System.nanoTime()}"
+            val repo = CustodyRepository(db, context)
+            custodyId = repo.createCustody(CustodyEntity(name = "اختبار العهدة", organizationName = "اختبار الجهة", externalId = externalId))
+            personId = repo.addPerson(custodyId, CustodyPersonEntity(custodyId = custodyId, name = "اختبار الشخص"))
+        }
     }
 
     @After
-    fun tearDown() = runBlocking {
-        db.custodyDao().getCustodyByExternalId(externalId)?.let {
-            db.custodyDao().deleteTransactions(it.id)
-            db.custodyDao().deleteAccounts(it.id)
-            db.custodyDao().deletePersons(it.id)
-            db.custodyDao().deleteCustody(it.id)
+    fun tearDown() {
+        runBlocking {
+            db.custodyDao().getCustodyByExternalId(externalId)?.let {
+                db.custodyDao().deleteTransactions(it.id)
+                db.custodyDao().deleteAccounts(it.id)
+                db.custodyDao().deletePersons(it.id)
+                db.custodyDao().deleteCustody(it.id)
+            }
         }
-        Unit
     }
 
     @Test

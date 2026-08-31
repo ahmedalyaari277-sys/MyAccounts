@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.util.CustodyAttachmentStorage
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -13,15 +14,28 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val repo = CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
     private val dao = com.myaccounts.app.data.local.AppDatabase.getInstance(app).custodyDao()
     val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun custody(id: Long) = repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-    fun persons(id: Long) = repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun accounts(id: Long) = repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun transactions(id: Long) = repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun personTransactions(id: Long, personId: Long, currency: String) = repo.observePersonTransactions(id, personId, currency).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun balance(accountId: Long) = repo.observeBalance(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
+    private val personFlows = mutableMapOf<Long, StateFlow<List<CustodyPersonEntity>>>()
+    private val accountFlows = mutableMapOf<Long, StateFlow<List<CustodyAccountEntity>>>()
+    private val transactionFlows = mutableMapOf<Long, StateFlow<List<CustodyTransactionEntity>>>()
+    private val personTransactionFlows = mutableMapOf<String, StateFlow<List<CustodyTransactionEntity>>>()
+    private val balanceFlows = mutableMapOf<Long, StateFlow<Long>>()
+
+    fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) { repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null) }
+    fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) { repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
+    fun accounts(id: Long): StateFlow<List<CustodyAccountEntity>> = accountFlows.getOrPut(id) { repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
+    fun transactions(id: Long): StateFlow<List<CustodyTransactionEntity>> = transactionFlows.getOrPut(id) { repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
+    fun personTransactions(id: Long, personId: Long, currency: String): StateFlow<List<CustodyTransactionEntity>> {
+        val key = "$id:$personId:$currency"
+        return personTransactionFlows.getOrPut(key) { repo.observePersonTransactions(id, personId, currency).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
+    }
+    fun balance(accountId: Long): StateFlow<Long> = balanceFlows.getOrPut(accountId) { repo.observeBalance(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L) }
+
     fun attachments(id: Long): List<CustodyTransactionAttachmentEntity> = repo.attachments(id)
-    fun archivedCustodies() = kotlinx.coroutines.flow.flow { emit(dao.getAllCustodies(true)) }
+    suspend fun archivedCustodies(): List<CustodyEntity> = dao.getAllCustodies(true)
     fun create(c: CustodyEntity) = viewModelScope.launch { repo.createCustody(c) }
+    suspend fun createAndWait(c: CustodyEntity): Long = repo.createCustody(c)
     fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch { repo.addPerson(id, p) }
     suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = repo.addPerson(id, p)
     fun updatePerson(p: CustodyPersonEntity) = viewModelScope.launch { repo.updatePerson(p) }
