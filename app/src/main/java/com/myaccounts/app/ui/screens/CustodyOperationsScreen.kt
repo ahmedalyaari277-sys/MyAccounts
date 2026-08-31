@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,7 +59,7 @@ private fun formatCustodyAmount(value: Long): String = BigDecimal(value).movePoi
 
 private fun detailBalanceStatus(value: Long): String = when {
     value > 0L -> "لديه"
-    value < 0L -> "عليه"
+    value < 0L -> "عجز"
     else -> "متوازن"
 }
 
@@ -126,7 +127,7 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
         CustodyAddPersonDialog(custodyId, people, { showAddPerson = false }) { person -> vm.addPersonAndWait(person.custodyId, person); showAddPerson = false }
     }
     if (showQuick) {
-        CustodyLedgerOperationDialog(vm, custodyId, if (quickOwner) null else quickPersonId, quickOwner, "YER", if (quickOwner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, null, { showQuick = false }, { showQuick = false })
+        CustodyLedgerOperationDialog(vm, custodyId, if (quickOwner) null else quickPersonId, quickOwner, "YER", if (quickOwner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, null, .72f, { showQuick = false }, { showQuick = false })
     }
     if (showReport) CustodySummaryReportDialog(current, accounts, transactions, { showReport = false })
 }
@@ -136,7 +137,7 @@ private fun CustodyHolderCard(name: String, phone: String = "", balances: Map<St
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp), shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onQuick, modifier = Modifier.semantics { contentDescription = "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                IconButton(onClick = onQuick, modifier = Modifier.semantics { contentDescription = "إضافة عملية سريعة لـ $name" }) { Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                 Column(Modifier.weight(1f)) { Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); if (phone.isNotBlank()) Text(phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             Spacer(Modifier.height(12.dp))
