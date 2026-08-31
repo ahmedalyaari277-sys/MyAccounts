@@ -5,4 +5,5 @@ object Routes {
  fun personAccount(id:Long)="person_account/$id";fun transactions(id:Long,c:String)="transactions/$id/$c";fun quickTransaction(id:Long)="quick_transaction/$id";fun personReport(id:Long,c:String="ALL")="person_report/$id/$c";fun archivedPerson(id:Long)="archived_person/$id";fun custody(id:Long)="custody/$id";fun custodyPerson(custodyId:Long,personId:Long)="custody/$custodyId/person/$personId"
  // Custody-only navigation contract: the ledger routes above remain unchanged.
  // CI validation marker for the custody navigation surface.
+ // Final custody validation trigger after Excel/backup hardening.
 }
