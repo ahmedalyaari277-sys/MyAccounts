@@ -19,11 +19,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.myaccounts.app.data.custody.CustodyAccountEntity
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 
 private enum class CustodySortOrder { LATEST, ALPHABETICAL }
+private val custodyCurrencies = listOf("YER", "SAR", "USD")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,12 +43,60 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
         IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
         DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) { DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false }); DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false }) }
     }) }, floatingActionButton = { FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") } }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(displayedCustodies, key = { it.id }) { custody -> Row(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }.padding(14.dp)) { Column(Modifier.weight(1f)) { Text(custody.name, fontWeight = FontWeight.Bold); Text("الجهة: ${custody.organizationName}") } } }
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(displayedCustodies, key = { it.id }) { custody ->
+                val accountsFlow = remember(custody.id) { vm.accounts(custody.id) }
+                val accounts by accountsFlow.collectAsState()
+                val ownerBalances = remember(accounts) {
+                    custodyCurrencies.associateWith { currency ->
+                        accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == currency }?.balanceMinor ?: 0L
+                    }
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpen(custody.id) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text("الجهة: ${custody.organizationName}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            CustodyCurrencyLabel("ريال يمني", ownerBalances["YER"] ?: 0L)
+                            CustodyCurrencyLabel("ريال سعودي", ownerBalances["SAR"] ?: 0L)
+                            CustodyCurrencyLabel("دولار", ownerBalances["USD"] ?: 0L)
+                        }
+                    }
+                }
+            }
         }
     }
     if (adding) CustodyCreateDialog(onDismiss = { adding = false }, onSave = { vm.createAndWait(it) })
 }
+
+@Composable
+private fun CustodyCurrencyLabel(currency: String, balance: Long) {
+    val balanceColor = when {
+        balance > 0L -> MaterialTheme.colorScheme.error
+        balance < 0L -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(currency, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(formatCustodyBalance(balance), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = balanceColor)
+    }
+}
+
+private fun formatCustodyBalance(balance: Long): String = when {
+    balance > 0L -> "عليه ${formatCustodyAmount(balance)}"
+    balance < 0L -> "له ${formatCustodyAmount(-balance)}"
+    else -> "متوازن 0"
+}
+
+private fun formatCustodyAmount(amount: Long): String =
+    BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
 
 @Composable
 private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: suspend (CustodyEntity) -> Long) {
