@@ -47,7 +47,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -94,10 +93,10 @@ private fun custodyOperationLabel(type: String, owner: Boolean): String = when (
     else -> type
 }
 
-private fun custodyBalanceText(value: Long, owner: Boolean): String = when {
-    value > 0L -> "لديه ${custodyMoney(value)}"
-    value < 0L -> if (owner) "عجز ${custodyMoney(-value)}" else "زيادة ${custodyMoney(-value)}"
-    else -> "متوازن 0"
+private fun custodyBalanceStatus(value: Long): String = when {
+    value > 0L -> "لديه"
+    value < 0L -> "عليه"
+    else -> "متوازن"
 }
 
 private fun custodyBalanceColor(value: Long): androidx.compose.ui.graphics.Color = when {
@@ -142,7 +141,7 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
                 Text(if (owner) "المتبقي لدى صاحب العهدة" else "المتبقي لديه", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
                 Text(custodyMoney(kotlin.math.abs(balance)), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = balanceColor)
-                Text(custodyBalanceText(balance, owner), style = MaterialTheme.typography.bodySmall, color = balanceColor)
+                Text(custodyBalanceStatus(balance), style = MaterialTheme.typography.bodySmall, color = balanceColor)
             } }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -176,7 +175,7 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
 }
 
 @Composable
-private fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId: Long?, owner: Boolean, defaultCurrency: String, initialType: String, transaction: CustodyTransactionEntity?, onDismiss: () -> Unit, onFinished: () -> Unit) {
+fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId: Long?, owner: Boolean, defaultCurrency: String, initialType: String, transaction: CustodyTransactionEntity?, onDismiss: () -> Unit, onFinished: () -> Unit) {
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val calc = LocalCalculatorController.current
@@ -194,6 +193,7 @@ private fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, 
     val visibleExisting = existing.filter { a -> deletedAttachments.none { it.id == a.id } }
     DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = false }; onDispose { calc.setResultConsumer(null) } }
     val allowedTypes = if (owner) listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.RETURNED_TO_ORG) else listOf(CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON)
+
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Card(Modifier.fillMaxWidth(.92f), shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
