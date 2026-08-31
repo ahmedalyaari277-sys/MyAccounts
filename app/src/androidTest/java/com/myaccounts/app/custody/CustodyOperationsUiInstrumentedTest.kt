@@ -61,6 +61,7 @@ class CustodyOperationsUiInstrumentedTest {
     @Test
     fun custodyPersonAndPersonOperationWorkEndToEndIncludingEditDeleteAndCurrencyChange() = runBlocking {
         openCustodyDetail(); clickAction("إضافة شخص"); waitForPersonDialog(); setField("الاسم", "اختبار شخص واجهة"); setField("الهاتف", "777000000"); setField("العنوان", "صنعاء"); setField("الملاحظات", "اختبار")
+        hideKeyboard()
         clickClickable(first(By.desc("حفظ الشخص"), By.text("حفظ")) ?: error("Save person not found"), "Save person")
         assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
         val custody = db.custodyDao().getCustodyByExternalId(externalId)!!; val person = waitForPerson(custody.id, "اختبار شخص واجهة"); clickClickable(By.text("اختبار شخص واجهة"), "Custody person"); assertTrue(device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
