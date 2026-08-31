@@ -7,8 +7,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import androidx.test.uiautomator.UiObject2
 import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.data.custody.CustodyRepository
@@ -63,6 +63,7 @@ class CustodyOperationsUiInstrumentedTest {
         openCustodyDetail(); clickAction("إضافة شخص"); waitForPersonDialog(); setField("الاسم", "اختبار شخص واجهة"); setField("الهاتف", "777000000"); setField("العنوان", "صنعاء"); setField("الملاحظات", "اختبار")
         hideKeyboard()
         clickClickable(first(By.desc("حفظ الشخص"), By.text("حفظ")) ?: error("Save person not found"), "Save person")
+        assertTrue("Person did not appear in the custody UI after save", device.wait(Until.hasObject(By.text("اختبار شخص واجهة")), 10_000))
         assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
         val custody = db.custodyDao().getCustodyByExternalId(externalId)!!; val person = waitForPerson(custody.id, "اختبار شخص واجهة"); clickClickable(By.text("اختبار شخص واجهة"), "Custody person"); assertTrue(device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
         clickAction("إضافة عملية"); waitForOperationDialog(false); setField("المبلغ للعملية", "250"); setField("بيان العملية", "صرف واجهة"); clickSaveOperation(); assertTrue(device.wait(Until.hasObject(By.text("عليه 250")), 10_000))
