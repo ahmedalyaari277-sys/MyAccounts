@@ -16,15 +16,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.data.custody.CustodyFinancialSummary
+import com.myaccounts.app.ui.theme.Due
+import com.myaccounts.app.ui.theme.Owed
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private enum class CustodySortOrder { LATEST, ALPHABETICAL }
 private val custodyCurrencies = listOf("YER", "SAR", "USD")
@@ -41,18 +47,22 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
-                TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
-                IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
-                IconButton(onClick = onTransfer, modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }) { Icon(Icons.Default.Backup, null) }
-                IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
-                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                    DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false })
-                    DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
+            TopAppBar(
+                title = { Text("العُهَد") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
+                actions = {
+                    TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                    IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
+                    IconButton(onClick = onTransfer, modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }) { Icon(Icons.Default.Backup, null) }
+                    IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
+                    DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                        DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false })
+                        DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
+                    }
                 }
-            })
+            )
         },
-        floatingActionButton = { FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") } }
+        floatingActionButton = { FloatingActionButton(onClick = { adding = true }, modifier = Modifier.semantics { contentDescription = "إضافة عهدة" }) { Icon(Icons.Default.Add, "إضافة عهدة") } }
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(displayedCustodies, key = { it.id }) { custody ->
@@ -63,18 +73,21 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text("مستلم العهدة: ${custody.name}", style = MaterialTheme.typography.bodySmall)
                                 Text("الجهة: ${custody.organizationName}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                Text("التاريخ: ${SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(custody.createdAt))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }
-                            if (custody.isClosed) AssistChip(onClick = {}, enabled = false, label = { Text("مغلقة ومسواة") })
+                            AssistChip(onClick = {}, enabled = false, label = { Text(if (custody.isClosed) "مغلقة ومسواة" else "مفتوحة") })
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth()) {
                             custodyCurrencies.forEach { code ->
                                 val balance = CustodyFinancialSummary.custodyOwnerBalance(transactions, code)
+                                val c: Color = when { balance > 0 -> Due; balance < 0 -> Owed; else -> MaterialTheme.colorScheme.onSurfaceVariant }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                                    Text(code, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                    Text(money(kotlin.math.abs(balance)), fontWeight = FontWeight.Bold, color = when { balance > 0 -> MaterialTheme.colorScheme.primary; balance < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant })
-                                    Text(status(balance), style = MaterialTheme.typography.labelSmall, color = when { balance > 0 -> MaterialTheme.colorScheme.primary; balance < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant })
+                                    Text(code, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(money(kotlin.math.abs(balance)), fontWeight = FontWeight.Bold, color = c)
+                                    Text(status(balance), style = MaterialTheme.typography.labelSmall, color = c)
                                 }
                             }
                         }
