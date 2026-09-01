@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.myaccounts.app.ui.screens
 
 import android.app.DatePickerDialog
@@ -46,43 +48,25 @@ import java.util.Date
 import java.util.Locale
 
 private val custodyLedgerCurrencies = listOf("YER", "SAR", "USD")
-
-private fun custodyMoney(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
-
-private fun custodyParseAmount(v: String): Long? = runCatching {
-    BigDecimal(v.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact()
-}.getOrNull()
-
-private fun custodyOperationLabel(type: String, owner: Boolean, personName: String = ""): String = when (type) {
+private fun money(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
+private fun parseAmount(v: String): Long? = runCatching { BigDecimal(v.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
+private fun typeLabel(type: String, owner: Boolean, personName: String = ""): String = when (type) {
     CustodyTransactionType.RECEIVED_FROM_ORG -> "استلام من الجهة"
     CustodyTransactionType.RETURNED_TO_ORG -> "مرتجع للجهة"
     CustodyTransactionType.PAID_TO_PERSON -> if (owner && personName.isNotBlank()) "صرف لـ $personName" else "صرف"
     CustodyTransactionType.RETURNED_FROM_PERSON -> if (owner && personName.isNotBlank()) "مرتجع من $personName" else "مرتجع"
+    CustodyTransactionType.ORG_LOAN_FROM_OWNER -> "تسليف الجهة"
+    CustodyTransactionType.ORG_LOAN_REPAYMENT -> "سداد تسليف الجهة"
+    CustodyTransactionType.PERSON_LOAN_TO_OWNER -> if (owner && personName.isNotBlank()) "تسليف من $personName" else "تسليف لحامل العهدة"
+    CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> if (owner && personName.isNotBlank()) "سداد تسليف لـ $personName" else "سداد تسليف للشخص"
     else -> type
 }
-
-private fun custodyBalanceStatus(value: Long, owner: Boolean): String = when {
-    value > 0L -> if (owner) "المتبقي لديه" else "لديه"
-    value < 0L -> if (owner) "عجز" else "مرتجع زائد"
-    else -> "متوازن"
-}
+private fun custodyStatus(v: Long, owner: Boolean) = when { v > 0 -> if (owner) "متبقي لديه" else "لديه"; v < 0 -> if (owner) "عجز" else "مستحق له"; else -> "متوازن" }
+private fun debtStatus(v: Long, positive: String, negative: String) = when { v > 0 -> positive; v < 0 -> negative; else -> "متوازن" }
+private fun balanceColor(v: Long) = if (v > 0) Due else if (v < 0) Owed else androidx.compose.ui.graphics.Color.Unspecified
 
 @Composable
-private fun custodyBalanceColor(value: Long): androidx.compose.ui.graphics.Color = when {
-    value > 0L -> Due
-    value < 0L -> Owed
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustodyLedgerScreen(
-    vm: CustodyViewModel,
-    custodyId: Long,
-    personId: Long?,
-    onBack: () -> Unit,
-    dialogWidth: Float = .92f
-) {
+fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, onBack: () -> Unit, dialogWidth: Float = .92f) {
     val people by vm.persons(custodyId).collectAsState()
     val accounts by vm.accounts(custodyId).collectAsState()
     val transactions by vm.transactions(custodyId).collectAsState()
@@ -90,104 +74,69 @@ fun CustodyLedgerScreen(
     val owner = personId == null
     val person = people.firstOrNull { it.id == personId }
     if (!owner && person == null) return
-
-    val title = if (owner) custody?.name ?: "صاحب العهدة" else person!!.name
-    val visibleAccounts = accounts.filter { a ->
-        if (owner) a.holderType == "OWNER" && a.personId == null
-        else a.holderType == "PERSON" && a.personId == personId
-    }
-    var selectedCurrency by remember(visibleAccounts) { mutableStateOf(visibleAccounts.firstOrNull()?.currencyCode ?: "YER") }
+    val current = custody ?: return
+    val title = if (owner) current.name else person!!.name
+    val ownerAccountIds = accounts.filter { it.holderType == "OWNER" && it.personId == null }.map { it.id }.toSet()
+    val selectedPersonId = personId
+    var selectedCurrency by remember { mutableStateOf("YER") }
     var showAdd by remember { mutableStateOf(false) }
-    var initialType by remember(owner) {
-        mutableStateOf(if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON)
-    }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
-
     val rows = transactions.filter { t ->
-        t.currencyCode == selectedCurrency && if (owner) {
-            accounts.any { it.id == t.accountId && it.holderType == "OWNER" && it.personId == null && it.currencyCode == selectedCurrency }
-        } else {
-            t.personId == personId
-        }
+        t.currencyCode == selectedCurrency && if (owner) t.accountId in ownerAccountIds else t.personId == selectedPersonId
     }.sortedByDescending { it.transactionDate }
-
-    val balance = if (owner) {
-        visibleAccounts.firstOrNull { it.currencyCode == selectedCurrency }?.balanceMinor ?: 0L
-    } else {
-        transactions.filter { it.currencyCode == selectedCurrency && it.personId == personId }
-            .sumOf { CustodyBalanceRules.personDelta(it.type, it.amountMinor) }
-    }
-    val balanceColor = custodyBalanceColor(balance)
+    val custodyBalance = if (owner) {
+        accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == selectedCurrency }?.balanceMinor ?: 0L
+    } else CustodyFinancialSummary.personCustodyBalance(transactions, selectedPersonId!!, selectedCurrency)
+    val orgDebt = if (owner) CustodyFinancialSummary.ownerOrganizationDebt(transactions, selectedCurrency) else 0L
+    val peopleDebt = if (owner) CustodyFinancialSummary.ownerPeopleDebt(transactions, selectedCurrency) else CustodyFinancialSummary.personDebt(transactions, selectedPersonId!!, selectedCurrency)
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("عمليات $title", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    initialType = if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON
-                    showAdd = true
-                },
-                modifier = Modifier.semantics { contentDescription = "إضافة عملية" }
-            ) { Icon(Icons.Default.Add, contentDescription = null) }
-        }
+        topBar = { TopAppBar(title = { Text("عمليات $title", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) },
+        floatingActionButton = { FloatingActionButton(enabled = !current.isClosed, onClick = { showAdd = true }, modifier = Modifier.semantics { contentDescription = "إضافة عملية" }) { Icon(Icons.Default.Add, null) } }
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                custodyLedgerCurrencies.forEach { code ->
-                    if (visibleAccounts.any { it.currencyCode == code }) {
-                        FilterChip(
-                            selected = selectedCurrency == code,
-                            onClick = { selectedCurrency = code },
-                            label = { Text(code, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.weight(1f)
-                        )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                custodyLedgerCurrencies.forEach { code -> FilterChip(selected = selectedCurrency == code, onClick = { selectedCurrency = code }, label = { Text(code, fontWeight = FontWeight.Bold) }, modifier = Modifier.weight(1f)) }
+            }
+            Spacer(Modifier.height(10.dp))
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("$selectedCurrency", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    SummaryBalance("العهدة", custodyBalance, custodyStatus(custodyBalance, owner))
+                    if (owner) {
+                        SummaryBalance("ذمة الجهة", orgDebt, debtStatus(orgDebt, "مستحق له", "مستحق عليه"))
+                        SummaryBalance("ذمم الأشخاص", peopleDebt, debtStatus(peopleDebt, "له على الأشخاص", "عليه للأشخاص"))
+                    } else {
+                        SummaryBalance("الذمة", peopleDebt, debtStatus(peopleDebt, "مستحق له", "مستحق عليه"))
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text("الرصيد الحالي", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(4.dp))
-                    Text(custodyMoney(kotlin.math.abs(balance)), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = balanceColor)
-                    Text(custodyBalanceStatus(balance, owner), style = MaterialTheme.typography.bodySmall, color = balanceColor)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
             if (rows.isEmpty()) {
                 Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(8.dp))
-                        Text("لا توجد عمليات حتى الآن", fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(4.dp))
-                        Text("أضف أول عملية باستخدام زر +", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("لا توجد عمليات لهذه العملة", fontWeight = FontWeight.Bold)
+                        Text("استخدم زر + لإضافة أول عملية", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
                     items(rows, key = { it.id }) { t ->
-                        val personNameForOwner = if (owner && t.personId != null) people.firstOrNull { it.id == t.personId }?.name.orEmpty() else ""
-                        val attachmentCount = remember(t.id) { vm.attachments(t.id).size }
+                        val pName = t.personId?.let { id -> people.firstOrNull { it.id == id }?.name }.orEmpty()
+                        val attachCount = remember(t.id) { vm.attachments(t.id).size }
                         Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                            Column(Modifier.padding(12.dp)) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(custodyOperationLabel(t.type, owner, personNameForOwner), fontWeight = FontWeight.Bold)
+                                    Text(typeLabel(t.type, owner, pName), fontWeight = FontWeight.Bold)
                                     Text(SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(t.transactionDate)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Spacer(Modifier.height(4.dp))
-                                Text("${custodyMoney(t.amountMinor)} $selectedCurrency", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text("${money(t.amountMinor)} $selectedCurrency", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                                 if (t.description.isNotBlank()) Text(t.description, style = MaterialTheme.typography.bodySmall)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                    if (attachmentCount > 0) Icon(Icons.Default.AttachFile, contentDescription = "المرفقات")
-                                    IconButton(onClick = { editing = t }, modifier = Modifier.semantics { contentDescription = "تعديل" }) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
-                                    IconButton(onClick = { deleting = t }, modifier = Modifier.semantics { contentDescription = "حذف" }) { Icon(Icons.Default.Delete, contentDescription = "حذف") }
+                                    if (attachCount > 0) Icon(Icons.Default.AttachFile, "المرفقات")
+                                    IconButton(enabled = !current.isClosed, onClick = { editing = t }, modifier = Modifier.semantics { contentDescription = "تعديل" }) { Icon(Icons.Default.Edit, "تعديل") }
+                                    IconButton(enabled = !current.isClosed, onClick = { deleting = t }, modifier = Modifier.semantics { contentDescription = "حذف" }) { Icon(Icons.Default.Delete, "حذف") }
                                 }
                             }
                         }
@@ -197,42 +146,19 @@ fun CustodyLedgerScreen(
         }
     }
 
-    if (showAdd) {
-        CustodyLedgerOperationDialog(
-            vm = vm,
-            custodyId = custodyId,
-            personId = personId,
-            owner = owner,
-            defaultCurrency = selectedCurrency,
-            initialType = initialType,
-            transaction = null,
-            dialogWidth = dialogWidth,
-            onDismiss = { showAdd = false },
-            onFinished = { showAdd = false }
-        )
-    }
-    editing?.let { t ->
-        CustodyLedgerOperationDialog(
-            vm = vm,
-            custodyId = custodyId,
-            personId = if (owner) t.personId else personId,
-            owner = owner && t.personId == null,
-            defaultCurrency = t.currencyCode,
-            initialType = t.type,
-            transaction = t,
-            dialogWidth = .92f,
-            onDismiss = { editing = null },
-            onFinished = { editing = null }
-        )
-    }
-    deleting?.let { t ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("حذف العملية") },
-            text = { Text("سيتم حذف العملية نهائيًا.") },
-            confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }
-        )
+    if (showAdd) CustodyLedgerOperationDialog(vm, custodyId, personId, owner, selectedCurrency, if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, null, dialogWidth, { showAdd = false }, { showAdd = false })
+    editing?.let { t -> CustodyLedgerOperationDialog(vm, custodyId, if (owner) t.personId else personId, owner = owner, defaultCurrency = t.currencyCode, initialType = t.type, transaction = t, dialogWidth = dialogWidth, onDismiss = { editing = null }, onFinished = { editing = null }) }
+    deleting?.let { t -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }) }
+}
+
+@Composable
+private fun SummaryBalance(title: String, value: Long, status: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(title, fontWeight = FontWeight.Medium)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(money(kotlin.math.abs(value)), fontWeight = FontWeight.Bold, color = balanceColor(value))
+            Text(status, style = MaterialTheme.typography.bodySmall, color = balanceColor(value))
+        }
     }
 }
 
@@ -255,147 +181,58 @@ fun CustodyLedgerOperationDialog(
     val scope = rememberCoroutineScope()
     var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }
     var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }
-    var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { custodyMoney(it.amountMinor) } ?: "") }
+    var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }
     var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }
     var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }
     var saving by remember(transaction?.id) { mutableStateOf(false) }
-    var error by remember(transaction?.id) { mutableStateOf(false) }
+    var error by remember(transaction?.id) { mutableStateOf<String?>(null) }
     var attachments by remember(transaction?.id) { mutableStateOf<List<TransactionAttachmentStorage.SelectedAttachment>>(emptyList()) }
     var deletedAttachments by remember(transaction?.id) { mutableStateOf<List<CustodyTransactionAttachmentEntity>>(emptyList()) }
     val existing = remember(transaction?.id) { transaction?.let { vm.attachments(it.id) } ?: emptyList() }
     val visibleExisting = existing.filter { a -> deletedAttachments.none { it.id == a.id } }
+    DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = null }; onDispose { calc.setResultConsumer(null) } }
+    val availableTypes = if (owner) listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.RETURNED_TO_ORG, CustodyTransactionType.ORG_LOAN_FROM_OWNER, CustodyTransactionType.ORG_LOAN_REPAYMENT) else listOf(CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.PERSON_LOAN_TO_OWNER, CustodyTransactionType.OWNER_REPAY_PERSON_LOAN)
 
-    DisposableEffect(calc, transaction?.id) {
-        calc.setResultConsumer { amount = it; error = false }
-        onDispose { calc.setResultConsumer(null) }
-    }
-
-    val allowedTypes = when {
-        !owner -> listOf(CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON)
-        transaction?.personId != null -> listOf(CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON)
-        else -> listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.RETURNED_TO_ORG)
-    }
-
-    Dialog(
-        onDismissRequest = { if (!saving) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
+    Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Card(Modifier.fillMaxWidth(dialogWidth).imePadding(), shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        amount,
-                        { amount = it; error = false },
-                        Modifier.weight(1.35f),
-                        label = { Text("المبلغ") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        enabled = !saving,
-                        isError = error,
-                        trailingIcon = { CalculatorButton(onClick = calc::open) }
-                    )
-                    OutlinedTextField(
-                        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)),
-                        {},
-                        Modifier.weight(1f),
-                        label = { Text("التاريخ") },
-                        readOnly = true,
-                        singleLine = true,
-                        enabled = !saving,
-                        trailingIcon = {
-                            IconButton(enabled = !saving, onClick = {
-                                val d = Calendar.getInstance().apply { timeInMillis = date }
-                                DatePickerDialog(
-                                    context,
-                                    { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis },
-                                    d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)
-                                ).show()
-                            }) { Icon(Icons.Default.CalendarToday, contentDescription = "اختيار التاريخ") }
-                        }
-                    )
+                    OutlinedTextField(amount, { amount = it; error = null }, Modifier.weight(1.35f), label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = !saving, isError = error != null, trailingIcon = { CalculatorButton(onClick = calc::open) })
+                    OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, Modifier.weight(1f), label = { Text("التاريخ") }, readOnly = true, singleLine = true, enabled = !saving, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "اختيار التاريخ") } })
                 }
-                if (error) Text("أدخل مبلغًا صحيحًا أكبر من صفر.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), label = { Text("التفاصيل") }, singleLine = true, enabled = !saving)
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
                 Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    custodyLedgerCurrencies.forEach { code ->
-                        FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) })
-                    }
-                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyLedgerCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
                 Text("نوع العملية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    allowedTypes.forEach { kind ->
-                        FilterChip(selected = type == kind, onClick = { if (!saving) type = kind }, label = { Text(custodyOperationLabel(kind, owner)) })
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    availableTypes.forEach { kind -> FilterChip(selected = type == kind, onClick = { if (!saving) type = kind }, label = { Text(typeLabel(kind, owner)) }, modifier = Modifier.fillMaxWidth()) }
+                }
+                if (transaction != null) {
+                    if (visibleExisting.isNotEmpty()) {
+                        Text("المرفقات الحالية: ${visibleExisting.size}", fontWeight = FontWeight.Bold)
+                        visibleExisting.forEach { a -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AttachFile, null); Text(a.fileName, Modifier.weight(1f), maxLines = 1); IconButton(enabled = !saving, onClick = { deletedAttachments = deletedAttachments + a }) { Icon(Icons.Default.Delete, "حذف المرفق") } } }
                     }
                 }
-                if (transaction != null && visibleExisting.isNotEmpty()) {
-                    Text("المرفقات الحالية: ${visibleExisting.size}", fontWeight = FontWeight.Bold)
-                    visibleExisting.forEach { a ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.AttachFile, contentDescription = null)
-                            Text(a.fileName, modifier = Modifier.weight(1f), maxLines = 1)
-                            IconButton(enabled = !saving, onClick = { deletedAttachments = deletedAttachments + a }) { Icon(Icons.Default.Delete, contentDescription = "حذف المرفق") }
-                        }
-                    }
-                }
-                TransactionAttachmentPicker(
-                    selectedAttachments = attachments,
-                    onAttachmentsChanged = { if (!saving) attachments = it }
-                )
+                TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !saving, onClick = {
-                        val parsed = custodyParseAmount(amount)
-                        if (parsed == null || parsed <= 0L) {
-                            error = true
-                            return@Button
-                        }
+                        val parsed = parseAmount(amount)
+                        if (parsed == null || parsed <= 0L) { error = "أدخل مبلغًا صحيحًا أكبر من صفر."; return@Button }
+                        saving = true; error = null
                         val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }
-                        saving = true
                         scope.launch {
                             runCatching {
-                                if (transaction == null) {
-                                    vm.addTransactionAndWait(custodyId, currency, type, personId, parsed, details.trim(), date, selected)
-                                } else {
-                                    vm.updateTransactionAndWait(transaction.id, currency, type, personId, parsed, details.trim(), date, selected, deletedAttachments)
-                                }
-                            }.onSuccess {
-                                keyboard?.hide()
-                                calc.close()
-                                saving = false
-                                onFinished()
-                            }.onFailure {
-                                saving = false
-                                error = true
-                            }
+                                if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, parsed, details.trim(), date, selected)
+                                else vm.updateTransactionAndWait(transaction.id, currency, type, personId, parsed, details.trim(), date, selected, deletedAttachments)
+                            }.onSuccess { keyboard?.hide(); calc.close(); saving = false; onFinished() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ العملية" }
                         }
-                    }, modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }) {
-                        Text(if (saving) "جارٍ الحفظ…" else "حفظ")
-                    }
-                    OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, modifier = Modifier.weight(1f)) {
-                        Text("إلغاء")
-                    }
+                    }, Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
+                    OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, Modifier.weight(1f)) { Text("إلغاء") }
                 }
             }
         }
     }
-
-    if (calc.isOpen) {
-        Dialog(
-            onDismissRequest = calc::close,
-            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-        ) {
-            Card(Modifier.fillMaxWidth(.92f).imePadding()) {
-                CalculatorOverlay(
-                    expression = calc.expression,
-                    result = calc.result.orEmpty(),
-                    onKey = calc::press,
-                    onClear = calc::clear,
-                    onBackspace = calc::backspace,
-                    onDismiss = calc::close,
-                    onUseResult = calc::useResult
-                )
-            }
-        }
-    }
+    if (calc.isOpen) Dialog(onDismissRequest = calc::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { Card(Modifier.fillMaxWidth(.92f).imePadding()) { CalculatorOverlay(expression = calc.expression, result = calc.result.orEmpty(), onKey = calc::press, onClear = calc::clear, onBackspace = calc::backspace, onDismiss = calc::close, onUseResult = calc::useResult) } }
 }
