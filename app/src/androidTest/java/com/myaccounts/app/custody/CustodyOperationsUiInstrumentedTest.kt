@@ -35,8 +35,12 @@ class CustodyOperationsUiInstrumentedTest {
 
     @Before
     fun setUp() {
-        device.executeShellCommand("pm clear com.myaccounts.app")
         runBlocking {
+            db.openHelper.writableDatabase.execSQL("DELETE FROM custody_transactions")
+            db.openHelper.writableDatabase.execSQL("DELETE FROM custody_accounts")
+            db.openHelper.writableDatabase.execSQL("DELETE FROM custody_persons")
+            db.openHelper.writableDatabase.execSQL("DELETE FROM custodies")
+
             val token = UUID.randomUUID().toString()
             externalId = "UI-CUSTODY-$token"
             custodyName = "اختبار واجهة العهدة $token"
