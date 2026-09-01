@@ -36,8 +36,10 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch { repo.addPerson(id, p) }
     suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = repo.addPerson(id, p)
     fun updatePerson(p: CustodyPersonEntity) = viewModelScope.launch { repo.updatePerson(p) }
+    suspend fun updatePersonAndWait(p: CustodyPersonEntity) = repo.updatePerson(p)
     suspend fun deletePersonAndWait(id: Long) = repo.deletePerson(id)
     fun updateCustody(c: CustodyEntity) = viewModelScope.launch { repo.updateCustody(c) }
+    suspend fun updateCustodyAndWait(c: CustodyEntity) = repo.updateCustody(c)
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, description, date, attachments) }
     fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = viewModelScope.launch { repo.updateTransaction(id, currency, type, personId, amount, description, date, newAttachments, deleted) }
     suspend fun addTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = repo.addTransaction(id, currency, type, personId, amount, description, date, attachments)
