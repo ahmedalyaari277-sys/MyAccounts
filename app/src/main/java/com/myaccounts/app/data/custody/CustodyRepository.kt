@@ -12,18 +12,46 @@ object CustodyTransactionType {
     const val PAID_TO_PERSON = "PAID_TO_PERSON"
     const val RETURNED_FROM_PERSON = "RETURNED_FROM_PERSON"
     const val RETURNED_TO_ORG = "RETURNED_TO_ORG"
+    const val ORG_LOAN_FROM_OWNER = "ORG_LOAN_FROM_OWNER"
+    const val ORG_LOAN_REPAYMENT = "ORG_LOAN_REPAYMENT"
+    const val PERSON_LOAN_TO_OWNER = "PERSON_LOAN_TO_OWNER"
+    const val OWNER_REPAY_PERSON_LOAN = "OWNER_REPAY_PERSON_LOAN"
 }
 
 object CustodyBalanceRules {
-    fun ownerDelta(type: String, amount: Long): Long = when (type) {
-        CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.RETURNED_FROM_PERSON -> amount
-        CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_TO_ORG -> -amount
+    fun ownerCashDelta(type: String, amount: Long): Long = when (type) {
+        CustodyTransactionType.RECEIVED_FROM_ORG,
+        CustodyTransactionType.RETURNED_FROM_PERSON,
+        CustodyTransactionType.ORG_LOAN_REPAYMENT,
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER -> amount
+        CustodyTransactionType.PAID_TO_PERSON,
+        CustodyTransactionType.RETURNED_TO_ORG,
+        CustodyTransactionType.ORG_LOAN_FROM_OWNER,
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> -amount
         else -> error("نوع عملية عهدة غير معروف")
     }
 
-    fun personDelta(type: String, amount: Long): Long = when (type) {
+    fun personCustodyDelta(type: String, amount: Long): Long = when (type) {
         CustodyTransactionType.PAID_TO_PERSON -> amount
         CustodyTransactionType.RETURNED_FROM_PERSON -> -amount
+        else -> 0L
+    }
+
+    fun ownerOrgDebtDelta(type: String, amount: Long): Long = when (type) {
+        CustodyTransactionType.ORG_LOAN_FROM_OWNER -> amount
+        CustodyTransactionType.ORG_LOAN_REPAYMENT -> -amount
+        else -> 0L
+    }
+
+    fun ownerPeopleDebtDelta(type: String, amount: Long): Long = when (type) {
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER -> -amount
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> amount
+        else -> 0L
+    }
+
+    fun personDebtDelta(type: String, amount: Long): Long = when (type) {
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER -> amount
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> -amount
         else -> 0L
     }
 }
@@ -36,7 +64,11 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         CustodyTransactionType.RECEIVED_FROM_ORG,
         CustodyTransactionType.PAID_TO_PERSON,
         CustodyTransactionType.RETURNED_FROM_PERSON,
-        CustodyTransactionType.RETURNED_TO_ORG
+        CustodyTransactionType.RETURNED_TO_ORG,
+        CustodyTransactionType.ORG_LOAN_FROM_OWNER,
+        CustodyTransactionType.ORG_LOAN_REPAYMENT,
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER,
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN
     )
 
     fun observeCustodies(): Flow<List<CustodyEntity>> = dao.observeCustodies()
@@ -76,18 +108,34 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         dao.updatePerson(p.copy(name = p.name.trim()))
     }
 
-    suspend fun addTransaction(custodyId: Long, currency: String, type: String, personId: Long?, amountMinor: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()): Long = withContext(Dispatchers.IO) {
+    private fun validateOperation(type: String, personId: Long?) {
+        require(type in allowedTypes) { "نوع عملية عهدة غير صالح" }
+        val needsPerson = type == CustodyTransactionType.PAID_TO_PERSON ||
+            type == CustodyTransactionType.RETURNED_FROM_PERSON ||
+            type == CustodyTransactionType.PERSON_LOAN_TO_OWNER ||
+            type == CustodyTransactionType.OWNER_REPAY_PERSON_LOAN
+        require(needsPerson == (personId != null)) { "العملية لا تتوافق مع الطرف المحدد" }
+    }
+
+    suspend fun addTransaction(
+        custodyId: Long,
+        currency: String,
+        type: String,
+        personId: Long?,
+        amountMinor: Long,
+        description: String,
+        date: Long,
+        attachments: List<CustodyAttachmentStorage.Selected> = emptyList()
+    ): Long = withContext(Dispatchers.IO) {
         require(currency in currencies)
-        require(type in allowedTypes)
         require(amountMinor > 0)
-        val personOperation = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
-        require(personOperation == (personId != null))
+        validateOperation(type, personId)
         require(dao.getCustody(custodyId)?.isArchived == false) { "العهدة غير موجودة أو مؤرشفة" }
         if (personId != null) require(dao.getPerson(personId)?.let { it.custodyId == custodyId && !it.isArchived } == true) { "الشخص لا ينتمي إلى هذه العهدة" }
         val ownerAccount = dao.getOwnerAccount(custodyId, currency) ?: error("حساب صاحب العهدة للعملة غير موجود")
         val personAccount = personId?.let { dao.getPersonAccount(custodyId, it, currency) }
-        val ownerDelta = CustodyBalanceRules.ownerDelta(type, amountMinor)
-        val personDelta = CustodyBalanceRules.personDelta(type, amountMinor)
+        val ownerDelta = CustodyBalanceRules.ownerCashDelta(type, amountMinor)
+        val personDelta = CustodyBalanceRules.personCustodyDelta(type, amountMinor)
         var transactionId = 0L
         try {
             transactionId = db.withTransaction {
@@ -102,8 +150,11 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
             if (transactionId != 0L) {
                 attachmentStore.deleteForTransaction(transactionId)
                 runCatching { db.withTransaction { dao.getTransaction(transactionId)?.let { old ->
-                    dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerDelta(old.type, old.amountMinor), System.currentTimeMillis())
-                    if (old.personId != null) dao.getPersonAccount(old.custodyId, old.personId, old.currencyCode)?.let { pa -> val pd = CustodyBalanceRules.personDelta(old.type, old.amountMinor); if (pd != 0L) dao.adjustAccountBalance(pa.id, -pd, System.currentTimeMillis()) }
+                    dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerCashDelta(old.type, old.amountMinor), System.currentTimeMillis())
+                    if (old.personId != null) dao.getPersonAccount(old.custodyId, old.personId, old.currencyCode)?.let { pa ->
+                        val pd = CustodyBalanceRules.personCustodyDelta(old.type, old.amountMinor)
+                        if (pd != 0L) dao.adjustAccountBalance(pa.id, -pd, System.currentTimeMillis())
+                    }
                     dao.deleteTransaction(transactionId)
                 } } }
             }
@@ -111,30 +162,38 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         }
     }
 
-    suspend fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amountMinor: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deletedAttachments: List<CustodyTransactionAttachmentEntity> = emptyList()) = withContext(Dispatchers.IO) {
+    suspend fun updateTransaction(
+        id: Long,
+        currency: String,
+        type: String,
+        personId: Long?,
+        amountMinor: Long,
+        description: String,
+        date: Long,
+        newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(),
+        deletedAttachments: List<CustodyTransactionAttachmentEntity> = emptyList()
+    ) = withContext(Dispatchers.IO) {
         require(currency in currencies)
-        require(type in allowedTypes)
         require(amountMinor > 0)
         val old = dao.getTransaction(id) ?: return@withContext
-        val personOperation = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
-        require(personOperation == (personId != null))
+        validateOperation(type, personId)
         require(dao.getCustody(old.custodyId)?.isArchived == false) { "العهدة غير موجودة أو مؤرشفة" }
         if (personId != null) require(dao.getPerson(personId)?.let { it.custodyId == old.custodyId && !it.isArchived } == true)
         val newOwnerAccount = dao.getOwnerAccount(old.custodyId, currency) ?: error("حساب صاحب العهدة للعملة غير موجود")
         val newPersonAccount = personId?.let { dao.getPersonAccount(old.custodyId, it, currency) }
         val now = System.currentTimeMillis()
         db.withTransaction {
-            dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerDelta(old.type, old.amountMinor), now)
+            dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerCashDelta(old.type, old.amountMinor), now)
             if (old.personId != null) {
                 dao.getPersonAccount(old.custodyId, old.personId, old.currencyCode)?.let { pa ->
-                    val delta = CustodyBalanceRules.personDelta(old.type, old.amountMinor)
+                    val delta = CustodyBalanceRules.personCustodyDelta(old.type, old.amountMinor)
                     if (delta != 0L) dao.adjustAccountBalance(pa.id, -delta, now)
                 }
             }
             dao.updateTransaction(old.copy(accountId = newOwnerAccount.id, currencyCode = currency, type = type, personId = personId, amountMinor = amountMinor, description = description.trim(), transactionDate = date))
-            dao.adjustAccountBalance(newOwnerAccount.id, CustodyBalanceRules.ownerDelta(type, amountMinor), now)
+            dao.adjustAccountBalance(newOwnerAccount.id, CustodyBalanceRules.ownerCashDelta(type, amountMinor), now)
             if (newPersonAccount != null) {
-                val delta = CustodyBalanceRules.personDelta(type, amountMinor)
+                val delta = CustodyBalanceRules.personCustodyDelta(type, amountMinor)
                 if (delta != 0L) dao.adjustAccountBalance(newPersonAccount.id, delta, now)
             }
         }
@@ -144,15 +203,34 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
 
     suspend fun deleteTransaction(id: Long) = db.withTransaction {
         val old = dao.getTransaction(id) ?: return@withTransaction
-        dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerDelta(old.type, old.amountMinor), System.currentTimeMillis())
+        dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerCashDelta(old.type, old.amountMinor), System.currentTimeMillis())
         if (old.personId != null) {
             dao.getPersonAccount(old.custodyId, old.personId, old.currencyCode)?.let { pa ->
-                val delta = CustodyBalanceRules.personDelta(old.type, old.amountMinor)
+                val delta = CustodyBalanceRules.personCustodyDelta(old.type, old.amountMinor)
                 if (delta != 0L) dao.adjustAccountBalance(pa.id, -delta, System.currentTimeMillis())
             }
         }
         attachmentStore.deleteForTransaction(id)
         dao.deleteTransaction(id)
+    }
+
+    suspend fun closeCustody(
+        id: Long,
+        settlementYerActualMinor: Long,
+        settlementSarActualMinor: Long,
+        settlementUsdActualMinor: Long,
+        notes: String
+    ) = db.withTransaction {
+        val custody = dao.getCustody(id) ?: error("العهدة غير موجودة")
+        require(!custody.isArchived) { "العهدة مؤرشفة" }
+        require(!custody.isClosed) { "العهدة مغلقة بالفعل" }
+        require(settlementYerActualMinor >= 0 && settlementSarActualMinor >= 0 && settlementUsdActualMinor >= 0) { "القيم الفعلية لا يمكن أن تكون سالبة" }
+        dao.updateCustody(custody.copy(isClosed = true, closedAt = System.currentTimeMillis(), settlementYerActualMinor = settlementYerActualMinor, settlementSarActualMinor = settlementSarActualMinor, settlementUsdActualMinor = settlementUsdActualMinor, settlementNotes = notes.trim()))
+    }
+
+    suspend fun reopenCustody(id: Long) = db.withTransaction {
+        val custody = dao.getCustody(id) ?: error("العهدة غير موجودة")
+        dao.updateCustody(custody.copy(isClosed = false, closedAt = null, settlementYerActualMinor = null, settlementSarActualMinor = null, settlementUsdActualMinor = null, settlementNotes = ""))
     }
 
     suspend fun archive(id: Long) = dao.archiveCustody(id, System.currentTimeMillis())
