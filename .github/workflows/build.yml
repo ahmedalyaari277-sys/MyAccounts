@@ -8,6 +8,7 @@ on:
       - "feat/custody-module"
       - "repair/custody-final-20260831"
       - "repair/custody-ui-final-20260831"
+      - "repair/custody-final-settlement-20260901"
   pull_request:
     branches:
       - "main"
