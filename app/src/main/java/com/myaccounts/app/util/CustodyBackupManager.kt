@@ -17,6 +17,7 @@ object CustodyBackupManager {
     const val SUGGESTED_FILE_NAME = "MyAccounts_Custodies_Backup.custody"
     private const val WORKBOOK = "custody.xlsx"
     private const val MANIFEST = "attachments.tsv"
+    private const val SETTLEMENT = "settlement.tsv"
     private const val ATTACHMENTS = "attachments/"
 
     data class Summary(val custodies: Int, val people: Int, val accounts: Int, val transactions: Int, val attachments: Int)
@@ -29,15 +30,12 @@ object CustodyBackupManager {
         val accounts = custodies.flatMap { dao.getAllAccounts(it.id) }
         val transactions = custodies.flatMap { dao.getAllTransactions(it.id, false) }
         val attachments = transactions.flatMap { tx -> CustodyAttachmentStore(context).list(tx.id) }
-
         val workbookFile = File(context.cacheDir, "custody-backup-${System.nanoTime()}.xlsx")
         try {
             CustodyExcelDataManager.exportActive(context, Uri.fromFile(workbookFile)).getOrThrow()
             context.contentResolver.openOutputStream(uri)?.use { output ->
                 ZipOutputStream(output.buffered()).use { zip ->
-                    zip.putNextEntry(ZipEntry(WORKBOOK))
-                    workbookFile.inputStream().use { it.copyTo(zip) }
-                    zip.closeEntry()
+                    zip.putNextEntry(ZipEntry(WORKBOOK)); workbookFile.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
                     val manifest = buildString {
                         attachments.forEachIndexed { index, a ->
                             val tx = transactions.firstOrNull { it.id == a.transactionId } ?: return@forEachIndexed
@@ -48,18 +46,25 @@ object CustodyBackupManager {
                             zip.putNextEntry(ZipEntry("$ATTACHMENTS$index.bin"))
                             val file = CustodyAttachmentStorage.fileFor(context, a)
                             require(file.isFile) { "مرفق العهدة مفقود: ${a.fileName}" }
-                            file.inputStream().use { it.copyTo(zip) }
-                            zip.closeEntry()
+                            file.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
                         }
                     }
-                    zip.putNextEntry(ZipEntry(MANIFEST))
-                    zip.write(manifest.toByteArray(Charsets.UTF_8))
-                    zip.closeEntry()
+                    zip.putNextEntry(ZipEntry(MANIFEST)); zip.write(manifest.toByteArray(Charsets.UTF_8)); zip.closeEntry()
+                    val settlement = buildString {
+                        custodies.forEach { c ->
+                            append(Base64.encodeToString(c.externalId.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)).append('\t')
+                            append(if (c.isClosed) "1" else "0").append('\t')
+                            append(c.closedAt ?: 0L).append('\t')
+                            append(c.settlementYerActualMinor ?: 0L).append('\t')
+                            append(c.settlementSarActualMinor ?: 0L).append('\t')
+                            append(c.settlementUsdActualMinor ?: 0L).append('\t')
+                            append(Base64.encodeToString(c.settlementNotes.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)).append('\n')
+                        }
+                    }
+                    zip.putNextEntry(ZipEntry(SETTLEMENT)); zip.write(settlement.toByteArray(Charsets.UTF_8)); zip.closeEntry()
                 }
             } ?: error("تعذر فتح ملف النسخة الاحتياطية للكتابة.")
-        } finally {
-            workbookFile.delete()
-        }
+        } finally { workbookFile.delete() }
         Summary(custodies.size, people.size, accounts.size, transactions.size, attachments.size)
     }
 
@@ -72,48 +77,39 @@ object CustodyBackupManager {
         try {
             val imported = CustodyExcelDataManager.import(context, Uri.fromFile(temp)).getOrThrow()
             CustodyBalanceRebuilder.rebuildAllActive(db)
+            val dao = db.custodyDao()
+            entries[SETTLEMENT]?.toString(Charsets.UTF_8).orEmpty().lineSequence().filter { it.isNotBlank() }.forEach { line ->
+                val p = line.split('\t'); if (p.size < 7) return@forEach
+                val externalId = String(Base64.decode(p[0], Base64.NO_WRAP), Charsets.UTF_8)
+                val c = dao.getCustodyByExternalId(externalId) ?: return@forEach
+                val closed = p[1] == "1"
+                val closedAt = p[2].toLongOrNull()?.takeIf { it != 0L }
+                val yer = p[3].toLongOrNull()?.takeIf { it != 0L }
+                val sar = p[4].toLongOrNull()?.takeIf { it != 0L }
+                val usd = p[5].toLongOrNull()?.takeIf { it != 0L }
+                val notes = runCatching { String(Base64.decode(p[6], Base64.NO_WRAP), Charsets.UTF_8) }.getOrDefault("")
+                dao.updateCustody(c.copy(isClosed = closed, closedAt = closedAt, settlementYerActualMinor = yer, settlementSarActualMinor = sar, settlementUsdActualMinor = usd, settlementNotes = notes))
+            }
             val manifest = entries[MANIFEST]?.toString(Charsets.UTF_8).orEmpty()
             var restoredAttachments = 0
-            if (manifest.isNotBlank()) {
-                val dao = db.custodyDao()
-                manifest.lineSequence().filter { it.isNotBlank() }.forEach { line ->
-                    val p = line.split('\t')
-                    if (p.size != 4) return@forEach
-                    val txExternalId = String(Base64.decode(p[1], Base64.NO_WRAP), Charsets.UTF_8)
-                    val fileName = String(Base64.decode(p[2], Base64.NO_WRAP), Charsets.UTF_8)
-                    val mimeType = String(Base64.decode(p[3], Base64.NO_WRAP), Charsets.UTF_8)
-                    val tx = dao.getTransactionByExternalId(txExternalId) ?: return@forEach
-                    val bytes = entries["$ATTACHMENTS${p[0]}.bin"] ?: return@forEach
-                    val tempAttachment = writeTemp(context, "attachment", bytes)
-                    try {
-                        val saved = CustodyAttachmentStorage.saveAttachments(context, tx.id, listOf(CustodyAttachmentStorage.Selected(Uri.fromFile(tempAttachment), fileName, mimeType)))
-                        saved.forEach { a -> db.openHelper.writableDatabase.execSQL("INSERT INTO custody_transaction_attachments (transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?)", arrayOf(a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt)) }
-                        restoredAttachments += saved.size
-                    } finally { tempAttachment.delete() }
-                }
+            if (manifest.isNotBlank()) manifest.lineSequence().filter { it.isNotBlank() }.forEach { line ->
+                val p = line.split('\t'); if (p.size != 4) return@forEach
+                val txExternalId = String(Base64.decode(p[1], Base64.NO_WRAP), Charsets.UTF_8)
+                val fileName = String(Base64.decode(p[2], Base64.NO_WRAP), Charsets.UTF_8)
+                val mimeType = String(Base64.decode(p[3], Base64.NO_WRAP), Charsets.UTF_8)
+                val tx = dao.getTransactionByExternalId(txExternalId) ?: return@forEach
+                val bytes = entries["$ATTACHMENTS${p[0]}.bin"] ?: return@forEach
+                val tempAttachment = writeTemp(context, "attachment", bytes)
+                try {
+                    val saved = CustodyAttachmentStorage.saveAttachments(context, tx.id, listOf(CustodyAttachmentStorage.Selected(Uri.fromFile(tempAttachment), fileName, mimeType)))
+                    saved.forEach { a -> db.openHelper.writableDatabase.execSQL("INSERT INTO custody_transaction_attachments (transactionId,fileName,mimeType,relativePath,sizeBytes,createdAt) VALUES (?,?,?,?,?,?)", arrayOf(a.transactionId, a.fileName, a.mimeType, a.relativePath, a.sizeBytes, a.createdAt)) }
+                    restoredAttachments += saved.size
+                } finally { tempAttachment.delete() }
             }
             Summary(imported.custodiesAdded, imported.peopleAdded, imported.accountsAdded, imported.transactionsAdded, restoredAttachments)
         } finally { temp.delete() }
     }
 
-    private fun writeTemp(context: Context, prefix: String, bytes: ByteArray): File {
-        val file = File(context.cacheDir, "$prefix-${System.nanoTime()}.bin")
-        file.outputStream().use { it.write(bytes) }
-        return file
-    }
-
-    private fun readZip(context: Context, uri: Uri): Map<String, ByteArray> {
-        val input = context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف نسخة العهد الاحتياطية.")
-        val result = mutableMapOf<String, ByteArray>()
-        ZipInputStream(input.buffered()).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                if (entry.isDirectory) continue
-                val out = ByteArrayOutputStream()
-                zip.copyTo(out)
-                result[entry.name] = out.toByteArray()
-            }
-        }
-        return result
-    }
+    private fun writeTemp(context: Context, prefix: String, bytes: ByteArray): File { val file = File(context.cacheDir, "$prefix-${System.nanoTime()}.bin"); file.outputStream().use { it.write(bytes) }; return file }
+    private fun readZip(context: Context, uri: Uri): Map<String, ByteArray> { val input = context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف نسخة العهد الاحتياطية."); val result = mutableMapOf<String, ByteArray>(); ZipInputStream(input.buffered()).use { zip -> while (true) { val entry = zip.nextEntry ?: break; if (entry.isDirectory) continue; val out = ByteArrayOutputStream(); zip.copyTo(out); result[entry.name] = out.toByteArray() } }; return result }
 }
