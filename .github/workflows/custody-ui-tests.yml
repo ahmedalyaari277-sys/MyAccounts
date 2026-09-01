@@ -1,5 +1,6 @@
 name: Custody UI Emulator Tests
 
+# Validate the current custody branch head, not a stale PR merge checkout.
 on:
   push:
     branches: [feat/custody-module, repair/custody-final-20260831, repair/custody-ui-final-20260831, repair/custody-final-settlement-20260901]
