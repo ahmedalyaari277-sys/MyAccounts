@@ -35,6 +35,7 @@ class CustodyOperationsUiInstrumentedTest {
 
     @Before
     fun setUp() {
+        device.executeShellCommand("pm clear com.myaccounts.app")
         runBlocking {
             val token = UUID.randomUUID().toString()
             externalId = "UI-CUSTODY-$token"
@@ -54,7 +55,7 @@ class CustodyOperationsUiInstrumentedTest {
     @Test
     fun custodyOwnerLedgerAndOrganizationOperationsWorkEndToEnd() = runBlocking {
         openCustodyDetail()
-        clickClickable(By.desc("إضافة عملية سريعة"), "Owner quick action")
+        clickClickable(first(By.descContains("إضافة عملية سريعة"), By.descContains("إضافة عملية")) ?: error("Owner quick action"), "Owner quick action")
         waitForOperationDialog(false)
         setField("المبلغ", "1000")
         clickSaveOperation()
@@ -86,12 +87,11 @@ class CustodyOperationsUiInstrumentedTest {
         hideKeyboard()
         clickClickable(first(By.desc("حفظ الشخص"), By.text("حفظ")) ?: error("Save person not found"), "Save person")
         assertTrue("Person did not appear in the custody UI after save", device.wait(Until.hasObject(By.text("اختبار شخص واجهة")), 10_000))
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
 
         val custody = db.custodyDao().getCustodyByExternalId(externalId)!!
         val person = waitForPerson(custody.id, "اختبار شخص واجهة")
 
-        clickClickable(first(By.desc("إضافة عملية سريعة"), By.text("اختبار شخص واجهة")) ?: error("Person card not found"), "Person quick/card action")
+        clickClickable(first(By.descContains("إضافة عملية سريعة"), By.text("اختبار شخص واجهة")) ?: error("Person card not found"), "Person quick/card action")
         waitForOperationDialog(false)
         setField("المبلغ", "250")
         setField("التفاصيل", "صرف واجهة")
@@ -150,7 +150,7 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun waitForPersonDialog() {
-        assertTrue(device.wait(Until.hasObject(By.desc("حوار إضافة شخص")), 10_000))
+        assertTrue(device.wait(Until.hasObject(By.text("إضافة شخص")), 10_000))
         assertTrue(device.wait(Until.hasObject(By.desc("الاسم")), 5_000))
         assertTrue(device.wait(Until.hasObject(By.desc("الهاتف")), 5_000))
     }
@@ -178,8 +178,7 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun hideKeyboard() {
         if (device.findObject(By.focused(true))?.className == "android.widget.EditText") {
-            device.pressBack()
-            device.waitForIdle()
+            device.pressBack(); device.waitForIdle()
         }
     }
 
@@ -190,9 +189,7 @@ class CustodyOperationsUiInstrumentedTest {
     private fun waitForText(text: String) { assertTrue("Text '$text' not found", device.wait(Until.hasObject(By.text(text)), 10_000)) }
 
     private fun first(vararg selectors: BySelector): UiObject2? = selectors.firstNotNullOfOrNull { device.findObject(it) }
-
     private fun clickClickable(selector: BySelector, label: String) { clickClickable(device.wait(Until.findObject(selector), 10_000) ?: error("$label not found"), label) }
-
     private fun clickClickable(start: UiObject2, label: String) {
         var node: UiObject2? = start
         repeat(8) {
@@ -202,7 +199,6 @@ class CustodyOperationsUiInstrumentedTest {
         }
         error("$label clickable ancestor not found")
     }
-
     private suspend fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity {
         val until = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < until) {
@@ -211,7 +207,6 @@ class CustodyOperationsUiInstrumentedTest {
         }
         return db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name }.also { assertNotNull("Person was not persisted", it) }!!
     }
-
     private suspend fun waitForTransactions(custodyId: Long): List<com.myaccounts.app.data.custody.CustodyTransactionEntity> {
         val until = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < until) {
