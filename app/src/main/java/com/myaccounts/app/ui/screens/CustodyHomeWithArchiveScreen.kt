@@ -21,12 +21,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.CustodyEntity
+import com.myaccounts.app.data.custody.CustodyFinancialSummary
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
 private enum class CustodySortOrder { LATEST, ALPHABETICAL }
 private val custodyCurrencies = listOf("YER", "SAR", "USD")
+private fun money(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
+private fun status(v: Long): String = when { v > 0 -> "متبقي"; v < 0 -> "عجز"; else -> "متوازن" }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,67 +39,54 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     var showSortMenu by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST) }
     val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
-    Scaffold(topBar = { TopAppBar(title = { Text("العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
-        TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
-        IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
-        IconButton(onClick = onTransfer, modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }) { Icon(Icons.Default.Backup, contentDescription = null) }
-        IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
-        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) { DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false }); DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false }) }
-    }) }, floatingActionButton = { FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") } }) { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
+                TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
+                IconButton(onClick = onTransfer, modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }) { Icon(Icons.Default.Backup, null) }
+                IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
+                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                    DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false })
+                    DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
+                }
+            })
+        },
+        floatingActionButton = { FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") } }
+    ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(displayedCustodies, key = { it.id }) { custody ->
-                val accountsFlow = remember(custody.id) { vm.accounts(custody.id) }
-                val accounts by accountsFlow.collectAsState()
-                val ownerBalances = remember(accounts) {
-                    custodyCurrencies.associateWith { currency ->
-                        accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == currency }?.balanceMinor ?: 0L
-                    }
-                }
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { onOpen(custody.id) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    shape = MaterialTheme.shapes.medium
-                ) {
+                val accounts by vm.accounts(custody.id).collectAsState()
+                val transactions by vm.transactions(custody.id).collectAsState()
+                val totalBalances = custodyCurrencies.associateWith { code -> CustodyFinancialSummary.custodyTotalBalance(transactions, accounts, code, vm.persons(custody.id).value) }
+                Card(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }, shape = MaterialTheme.shapes.medium) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Text("الجهة: ${custody.organizationName}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text("الجهة: ${custody.organizationName}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (custody.isClosed) AssistChip(onClick = {}, enabled = false, label = { Text("مغلقة ومسواة") })
+                        }
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            CustodyCurrencyLabel("ريال يمني", ownerBalances["YER"] ?: 0L)
-                            CustodyCurrencyLabel("ريال سعودي", ownerBalances["SAR"] ?: 0L)
-                            CustodyCurrencyLabel("دولار", ownerBalances["USD"] ?: 0L)
+                            custodyCurrencies.forEach { code ->
+                                val balance = totalBalances[code] ?: 0L
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                    Text(code, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    Text(money(kotlin.math.abs(balance)), fontWeight = FontWeight.Bold, color = when { balance > 0 -> MaterialTheme.colorScheme.primary; balance < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant })
+                                    Text(status(balance), style = MaterialTheme.typography.labelSmall, color = when { balance > 0 -> MaterialTheme.colorScheme.primary; balance < 0 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant })
+                                }
+                            }
                         }
                     }
                 }
             }
+            if (displayedCustodies.isEmpty()) item { Text("لا توجد عُهَد نشطة.") }
         }
     }
     if (adding) CustodyCreateDialog(onDismiss = { adding = false }, onSave = { vm.createAndWait(it) })
 }
-
-@Composable
-private fun CustodyCurrencyLabel(currency: String, balance: Long) {
-    val balanceColor = when {
-        balance > 0L -> MaterialTheme.colorScheme.error
-        balance < 0L -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(currency, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(formatCustodyBalance(balance), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = balanceColor)
-    }
-}
-
-private fun formatCustodyBalance(balance: Long): String = when {
-    balance > 0L -> "عليه ${formatCustodyAmount(balance)}"
-    balance < 0L -> "له ${formatCustodyAmount(-balance)}"
-    else -> "متوازن 0"
-}
-
-private fun formatCustodyAmount(amount: Long): String =
-    BigDecimal(amount).movePointLeft(2).stripTrailingZeros().toPlainString()
 
 @Composable
 private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: suspend (CustodyEntity) -> Long) {
