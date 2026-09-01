@@ -185,6 +185,7 @@ class BackupRestoreInstrumentedTest {
         ui.pressHome()
         instrumentation.targetContext.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         assertTrue("MyAccounts did not become visible", ui.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
+        clickFresh(ui, By.text("دفتر الحسابات"), "Accounts gateway button")
         clickFresh(ui, By.desc("النسخ الاحتياطي والاستعادة"), "Backup/restore button")
         assertTrue("Backup restore screen did not open", ui.wait(Until.hasObject(By.text("استعادة نسخة احتياطية")), 10_000))
         clickFresh(ui, By.text("استعادة نسخة احتياطية"), "Restore backup button")
@@ -276,27 +277,37 @@ class BackupRestoreInstrumentedTest {
                 if (searchField != null) {
                     searchField.text = fileName
                     waitForDocumentsUiToSettle(ui)
-                    fileSelector = firstMatchingSelector(ui, By.text(fileName), By.textContains(fileName))
+                    fileSelector = firstMatchingSelector(ui, By.text(fileName), By.textContains(fileName), By.descContains(fileName))
                 }
             }
         }
-        clickFresh(ui, fileSelector ?: error("Backup file '$fileName' was not selectable in Android DocumentsUI"), "Backup file '$fileName'")
-    }
-
-    private fun firstMatchingSelector(ui: UiDevice, vararg selectors: BySelector): BySelector? {
-        selectors.forEach { if (ui.findObject(it) != null) return it }
-        return null
-    }
-
-    private fun clickFresh(ui: UiDevice, selector: BySelector, description: String) {
-        val object2 = ui.wait(Until.findObject(selector), 7_000) ?: error("$description was not found")
-        object2.click()
-        ui.waitForIdle()
+        val file = fileSelector ?: error("Backup file '$fileName' was not found in DocumentsUI")
+        clickFresh(ui, file, "Backup file")
+        waitForDocumentsUiToSettle(ui)
     }
 
     private fun waitForDocumentsUiToSettle(ui: UiDevice) {
         ui.waitForIdle()
         Thread.sleep(300)
-        ui.waitForIdle()
+    }
+
+    private fun firstMatchingSelector(ui: UiDevice, vararg selectors: BySelector): UiObject2? =
+        selectors.firstNotNullOfOrNull { ui.findObject(it) }
+
+    private fun clickFresh(ui: UiDevice, selector: BySelector, label: String) {
+        val object2 = ui.wait(Until.findObject(selector), 10_000) ?: error("$label was not found")
+        clickFresh(ui, object2, label)
+    }
+
+    private fun clickFresh(ui: UiDevice, object2: UiObject2, label: String) {
+        repeat(4) {
+            if (object2.isClickable) {
+                object2.click()
+                ui.waitForIdle()
+                return
+            }
+            Thread.sleep(200)
+        }
+        error("$label was not clickable")
     }
 }
