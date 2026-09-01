@@ -60,7 +60,6 @@ fun CustodyOwnerEditDialog(vm: CustodyViewModel, custody: CustodyEntity, onDismi
 
 @Composable
 fun CustodyDataEditDialog(vm: CustodyViewModel, custody: CustodyEntity, onDismiss: () -> Unit, onSaved: () -> Unit) {
-    var name by remember { mutableStateOf(custody.name) }
     var organization by remember { mutableStateOf(custody.organizationName) }
     var organizationPhone by remember { mutableStateOf(custody.organizationPhone) }
     var organizationAddress by remember { mutableStateOf(custody.organizationAddress) }
@@ -68,17 +67,16 @@ fun CustodyDataEditDialog(vm: CustodyViewModel, custody: CustodyEntity, onDismis
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات العهدة") }, text = {
+    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات العهدة والجهة") }, text = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("اسم العهدة") }, singleLine = true, enabled = !saving)
             OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth(), label = { Text("اسم الجهة") }, singleLine = true, enabled = !saving)
             OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth(), label = { Text("هاتف الجهة") }, singleLine = true, enabled = !saving)
             OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth(), label = { Text("عنوان الجهة") }, singleLine = true, enabled = !saving)
             OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات الجهة") }, minLines = 2, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { Button(enabled = name.isNotBlank() && organization.isNotBlank() && !saving, onClick = {
+    }, confirmButton = { Button(enabled = organization.isNotBlank() && !saving, onClick = {
         saving = true
-        scope.launch { runCatching { vm.updateCustodyAndWait(custody.copy(name = name.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())) }.onSuccess { saving = false; onSaved() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ التعديل" } }
+        scope.launch { runCatching { vm.updateCustodyAndWait(custody.copy(organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())) }.onSuccess { saving = false; onSaved() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ التعديل" } }
     }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } }, dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } })
 }
