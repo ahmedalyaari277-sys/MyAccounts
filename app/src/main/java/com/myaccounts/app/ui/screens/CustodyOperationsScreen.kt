@@ -296,17 +296,17 @@ private fun CustodyAddPersonDialog(custodyId: Long, existing: List<CustodyPerson
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("إضافة شخص") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            OutlinedTextField(name, { name = it; error = null }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(name, { name = it; error = null }, Modifier.fillMaxWidth().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true, enabled = !saving)
             matches.forEach { match -> TextButton(onClick = { name = match.name; phone = match.phone; address = match.address; notes = match.notes }) { Text(match.name) } }
-            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
+            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().semantics { contentDescription = "العنوان" }, label = { Text("العنوان") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         } },
         confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = {
             saving = true
             scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())) }.onFailure { error = it.message ?: "تعذر حفظ الشخص"; saving = false } }
-        }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } },
+        }, modifier = Modifier.semantics { contentDescription = "حفظ الشخص" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } },
         dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } }
     )
 }

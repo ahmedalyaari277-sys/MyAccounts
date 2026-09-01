@@ -58,7 +58,7 @@ import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 
-private enum class PersonSortOrder { LATEST_TRANSACTION, ALPHABETICAL }
+private enum class HomePersonSortOrder { LATEST_TRANSACTION, ALPHABETICAL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +76,7 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
     var quickTransactionPersonId by remember { mutableStateOf<Long?>(null) }
-    var sortOrder by remember { mutableStateOf(PersonSortOrder.LATEST_TRANSACTION) }
+    var sortOrder by remember { mutableStateOf(HomePersonSortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     val filteredList = personsList.filter { item ->
@@ -87,8 +87,8 @@ fun HomeScreen(
     }
 
     val displayedList = when (sortOrder) {
-        PersonSortOrder.LATEST_TRANSACTION -> filteredList
-        PersonSortOrder.ALPHABETICAL -> filteredList.sortedBy { it.person.name.lowercase() }
+        HomePersonSortOrder.LATEST_TRANSACTION -> filteredList
+        HomePersonSortOrder.ALPHABETICAL -> filteredList.sortedBy { it.person.name.lowercase() }
     }
 
     val quickPerson = personsList.firstOrNull { it.person.id == quickTransactionPersonId }
@@ -114,14 +114,14 @@ fun HomeScreen(
                         DropdownMenuItem(
                             text = { Text("حسب أحدث عملية") },
                             onClick = {
-                                sortOrder = PersonSortOrder.LATEST_TRANSACTION
+                                sortOrder = HomePersonSortOrder.LATEST_TRANSACTION
                                 showSortMenu = false
                             }
                         )
                         DropdownMenuItem(
                             text = { Text("حسب الأبجدية") },
                             onClick = {
-                                sortOrder = PersonSortOrder.ALPHABETICAL
+                                sortOrder = HomePersonSortOrder.ALPHABETICAL
                                 showSortMenu = false
                             }
                         )

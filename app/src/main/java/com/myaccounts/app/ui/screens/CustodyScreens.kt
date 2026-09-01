@@ -284,7 +284,7 @@ private fun CustodyTransactionDialog(
                 item { OperationChoice("استلام من الجهة", type == CustodyTransactionType.RECEIVED_FROM_ORG) { type = CustodyTransactionType.RECEIVED_FROM_ORG; personId = null } }
                 item { OperationChoice("صرف للشخص", type == CustodyTransactionType.PAID_TO_PERSON) { type = CustodyTransactionType.PAID_TO_PERSON } }
                 item { OperationChoice("مرتجع من الشخص", type == CustodyTransactionType.RETURNED_FROM_PERSON) { type = CustodyTransactionType.RETURNED_FROM_PERSON } }
-                item { OperationChoice("مرتجع للجهة / تصفية", type == CustodyTransactionType.RETURNED_TO_ORG) { type = CustodyTransactionType.RETURNED_TO_ORG; personId = null } }
+                item { OperationChoice("مرتجع للجهة", type == CustodyTransactionType.RETURNED_TO_ORG) { type = CustodyTransactionType.RETURNED_TO_ORG; personId = null } }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) }) }
