@@ -46,7 +46,6 @@ object CustodyBalanceRules {
         CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> -amount
         else -> 0L
     }
-    // Compatibility for existing custody UI/report code.
     fun ownerDelta(type: String, amount: Long): Long = ownerCashDelta(type, amount)
     fun personDelta(type: String, amount: Long): Long = personCustodyDelta(type, amount)
 }
@@ -142,8 +141,19 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         attachmentStore.deleteForTransaction(id); dao.deleteTransaction(id)
     }
     suspend fun closeCustody(id: Long, settlementYerActualMinor: Long, settlementSarActualMinor: Long, settlementUsdActualMinor: Long, notes: String) = db.withTransaction {
-        val custody = dao.getCustody(id) ?: error("العهدة غير موجودة"); require(!custody.isArchived) { "العهدة مؤرشفة" }; require(!custody.isClosed) { "العهدة مغلقة بالفعل" }
-        require(settlementYerActualMinor >= 0 && settlementSarActualMinor >= 0 && settlementUsdActualMinor >= 0) { "القيم الفعلية لا يمكن أن تكون سالبة" }
+        val custody = dao.getCustody(id) ?: error("العهدة غير موجودة")
+        require(!custody.isArchived) { "العهدة مؤرشفة" }
+        require(!custody.isClosed) { "العهدة مغلقة بالفعل" }
+        val actuals = mapOf("YER" to settlementYerActualMinor, "SAR" to settlementSarActualMinor, "USD" to settlementUsdActualMinor)
+        require(actuals.values.all { it >= 0L }) { "القيم الفعلية لا يمكن أن تكون سالبة" }
+        val persons = dao.getAllPersons(id)
+        currencies.forEach { currency ->
+            val owner = dao.getOwnerAccount(id, currency)?.balanceMinor ?: 0L
+            val people = persons.sumOf { p -> dao.getPersonAccount(id, p.id, currency)?.balanceMinor ?: 0L }
+            require(owner == 0L) { "$currency: لا يمكن إغلاق العهدة؛ رصيد الحامل غير مسوى." }
+            require(people == 0L) { "$currency: لا يمكن إغلاق العهدة؛ توجد أرصدة عهدة لدى أشخاص." }
+            require(actuals[currency] == 0L) { "$currency: الموجود الفعلي يجب أن يكون صفراً عند الإغلاق النهائي." }
+        }
         dao.updateCustody(custody.copy(isClosed = true, closedAt = System.currentTimeMillis(), settlementYerActualMinor = settlementYerActualMinor, settlementSarActualMinor = settlementSarActualMinor, settlementUsdActualMinor = settlementUsdActualMinor, settlementNotes = notes.trim()))
     }
     suspend fun reopenCustody(id: Long) = db.withTransaction { val custody = dao.getCustody(id) ?: error("العهدة غير موجودة"); dao.updateCustody(custody.copy(isClosed = false, closedAt = null, settlementYerActualMinor = null, settlementSarActualMinor = null, settlementUsdActualMinor = null, settlementNotes = "")) }
