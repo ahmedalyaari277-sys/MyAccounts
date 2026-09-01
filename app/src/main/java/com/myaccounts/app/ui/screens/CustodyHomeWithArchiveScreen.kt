@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,6 +37,7 @@ private enum class CustodySortOrder { LATEST, ALPHABETICAL }
 private val custodyCurrencies = listOf("YER", "SAR", "USD")
 private fun money(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun status(v: Long): String = when { v > 0 -> "متبقي"; v < 0 -> "عجز"; else -> "متوازن" }
+private fun closedStatus(custody: CustodyEntity, ownerBalance: Long, actual: Long?): String = if (!custody.isClosed) "مفتوحة" else when { actual == null || actual == ownerBalance -> "مغلقة ومسواة"; actual > ownerBalance -> "مغلقة مع فائض"; else -> "مغلقة مع عجز" }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +46,14 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     var adding by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST) }
-    val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
+    var search by remember { mutableStateOf("") }
+    val sortedCustodies = when (sortOrder) {
+        CustodySortOrder.LATEST -> custodies
+        CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() }
+    }
+    val displayedCustodies = sortedCustodies.filter {
+        search.isBlank() || it.name.contains(search.trim(), true) || it.organizationName.contains(search.trim(), true)
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -65,6 +74,16 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
         floatingActionButton = { FloatingActionButton(onClick = { adding = true }, modifier = Modifier.semantics { contentDescription = "إضافة عهدة" }) { Icon(Icons.Default.Add, "إضافة عهدة") } }
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بحث في العهد" },
+                    label = { Text("بحث في العُهَد") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    singleLine = true
+                )
+            }
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState()
                 val transactions by vm.transactions(custody.id).collectAsState()
@@ -77,24 +96,27 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                                 Text("الجهة: ${custody.organizationName}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                                 Text("التاريخ: ${SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(custody.createdAt))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }
-                            AssistChip(onClick = {}, enabled = false, label = { Text(if (custody.isClosed) "مغلقة ومسواة" else "مفتوحة") })
+                            val yerActual = custody.settlementYerActualMinor
+                            val yerBook = CustodyFinancialSummary.custodyOwnerBalance(transactions, "YER")
+                            AssistChip(onClick = {}, enabled = false, label = { Text(closedStatus(custody, yerBook, yerActual)) })
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth()) {
                             custodyCurrencies.forEach { code ->
                                 val balance = CustodyFinancialSummary.custodyOwnerBalance(transactions, code)
+                                val actual = when (code) { "YER" -> custody.settlementYerActualMinor; "SAR" -> custody.settlementSarActualMinor; else -> custody.settlementUsdActualMinor }
                                 val c: Color = when { balance > 0 -> Due; balance < 0 -> Owed; else -> MaterialTheme.colorScheme.onSurfaceVariant }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                                     Text(code, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(money(kotlin.math.abs(balance)), fontWeight = FontWeight.Bold, color = c)
-                                    Text(status(balance), style = MaterialTheme.typography.labelSmall, color = c)
+                                    Text(if (custody.isClosed && actual != null) closedStatus(custody, balance, actual) else status(balance), style = MaterialTheme.typography.labelSmall, color = c)
                                 }
                             }
                         }
                     }
                 }
             }
-            if (displayedCustodies.isEmpty()) item { Text("لا توجد عُهَد نشطة.") }
+            if (displayedCustodies.isEmpty()) item { Text(if (search.isBlank()) "لا توجد عُهَد نشطة." else "لا توجد نتائج مطابقة.") }
         }
     }
     if (adding) CustodyCreateDialog(onDismiss = { adding = false }, onSave = { vm.createAndWait(it) })
