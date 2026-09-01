@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
-import com.myaccounts.app.util.CustodyFinancialSummary
+import com.myaccounts.app.data.custody.CustodyFinancialSummary
 import com.myaccounts.app.util.CustodyReportExporter
 import com.myaccounts.app.util.ReportShareUtil
 import kotlinx.coroutines.Dispatchers
@@ -52,9 +52,9 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                         Text(c.name, fontWeight = FontWeight.Bold)
                         Text("الجهة: ${c.organizationName}")
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Button(onClick = { scope.launch(Dispatchers.IO) { message = CustodyReportExporter.exportExcel(context, c, filtered, currency).fold({ "تم إنشاء تقرير Excel للعهدة." }, { "تعذر إنشاء Excel: ${it.message}" }) } }, Modifier.weight(1f)) { Text("Excel") }
-                            Button(onClick = { scope.launch(Dispatchers.IO) { message = CustodyReportExporter.exportPdf(context, c, filtered, currency).fold({ "تم إنشاء تقرير PDF للعهدة." }, { "تعذر إنشاء PDF: ${it.message}" }) } }, Modifier.weight(1f)) { Text("PDF") }
-                            OutlinedButton(onClick = { scope.launch(Dispatchers.IO) { val result = ReportShareUtil.shareGeneratedReport(context, "MyAccounts_تقرير_عهدة_${c.name}", "application/pdf") { CustodyReportExporter.exportPdf(context, c, filtered, currency) }; message = result.fold({ "تم فتح خيارات مشاركة التقرير." }, { "تعذر مشاركة التقرير: ${it.message}" }) } }, Modifier.weight(1f)) { Text("مشاركة") }
+                            Button(onClick = { scope.launch(Dispatchers.IO) { message = CustodyReportExporter.exportExcel(context, c, filtered, currency).fold({ "تم إنشاء تقرير Excel للعهدة." }, { "تعذر إنشاء Excel: ${it.message}" }) } }, modifier = Modifier.weight(1f)) { Text("Excel") }
+                            Button(onClick = { scope.launch(Dispatchers.IO) { message = CustodyReportExporter.exportPdf(context, c, filtered, currency).fold({ "تم إنشاء تقرير PDF للعهدة." }, { "تعذر إنشاء PDF: ${it.message}" }) } }, modifier = Modifier.weight(1f)) { Text("PDF") }
+                            OutlinedButton(onClick = { scope.launch(Dispatchers.IO) { val result = ReportShareUtil.shareGeneratedReport(context, "MyAccounts_تقرير_عهدة_${c.name}", "application/pdf") { CustodyReportExporter.exportPdf(context, c, filtered, currency) }; message = result.fold({ "تم فتح خيارات مشاركة التقرير." }, { "تعذر مشاركة التقرير: ${it.message}" }) } }, modifier = Modifier.weight(1f)) { Text("مشاركة") }
                         }
                         when (mode) {
                             0 -> {
