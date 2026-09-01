@@ -46,6 +46,9 @@ object CustodyBalanceRules {
         CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> -amount
         else -> 0L
     }
+    // Compatibility for existing custody UI/report code.
+    fun ownerDelta(type: String, amount: Long): Long = ownerCashDelta(type, amount)
+    fun personDelta(type: String, amount: Long): Long = personCustodyDelta(type, amount)
 }
 
 class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabase, context: Context) {
@@ -113,7 +116,7 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
             }
             attachmentStore.save(transactionId, attachments); transactionId
         } catch (e: Throwable) {
-            if (transactionId != 0L) { attachmentStore.deleteForTransaction(transactionId); runCatching { db.withTransaction { dao.getTransaction(transactionId)?.let { old -> dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerCashDelta(old.type, old.amountMinor), System.currentTimeMillis()); if (old.personId != null) dao.getPersonAccount(old.custodyId, old.personId, old.currencyCode)?.let { pa -> val pd = CustodyBalanceRules.personCustodyDelta(old.type, old.amountMinor); if (pd != 0L) dao.adjustAccountBalance(pa.id, -pd, System.currentTimeMillis()) }; dao.deleteTransaction(transactionId) } } } }
+            if (transactionId != 0L) { attachmentStore.deleteForTransaction(transactionId); runCatching { db.withTransaction { dao.getTransaction(transactionId)?.let { old -> dao.adjustAccountBalance(old.accountId, -CustodyBalanceRules.ownerCashDelta(old.type, old.amountMinor), System.currentTimeMillis()); if (old.personId != null) dao.getPersonAccount(old.custodyId, old.personId, old.currencyCode)?.let { pa -> val d = CustodyBalanceRules.personCustodyDelta(old.type, old.amountMinor); if (d != 0L) dao.adjustAccountBalance(pa.id, -d, System.currentTimeMillis()) }; dao.deleteTransaction(transactionId) } } } }
             throw e
         }
     }
