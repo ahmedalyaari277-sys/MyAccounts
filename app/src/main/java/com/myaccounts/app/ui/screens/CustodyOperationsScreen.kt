@@ -295,7 +295,7 @@ private fun CustodyAddPersonDialog(custodyId: Long, existing: List<CustodyPerson
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("إضافة شخص") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        text = { Column(Modifier.verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             OutlinedTextField(name, { name = it; error = null }, Modifier.fillMaxWidth().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true, enabled = !saving)
             matches.forEach { match -> TextButton(onClick = { name = match.name; phone = match.phone; address = match.address; notes = match.notes }) { Text(match.name) } }
             OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
@@ -359,7 +359,7 @@ private fun CustodySettlementDialog(vm: CustodyViewModel, custody: CustodyEntity
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("إغلاق وتسوية العهدة") },
         text = {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 600.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 600.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { Text("التسوية للعهدة كلها. لا تمنع أرصدة الأشخاص إغلاق العهدة؛ المعيار هو تسوية ذمة حامل العهدة مع الجهة. الموجود الفعلي يسجل حالة متوازن/عجز/فائض لكل عملة.", style = MaterialTheme.typography.bodySmall) }
                 custodyCurrencies.forEachIndexed { i, code ->
                     val actual = actuals[i]
