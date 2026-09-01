@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,21 +28,15 @@ import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
 private val custodyCurrencies = listOf("YER", "SAR", "USD")
-
 private fun money(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun currencyName(code: String): String = when (code) {
     "YER" -> "ريال يمني"
     "SAR" -> "ريال سعودي"
     else -> "دولار"
 }
-private fun custodyLabel(balance: Long): String = when {
-    balance > 0 -> "متبقي"
-    balance < 0 -> "عجز"
-    else -> "متوازن"
-}
 private fun ownerCustodyLabel(balance: Long): String = when {
     balance > 0 -> "متبقي لديه"
-    balance < 0 -> "مستحق له"
+    balance < 0 -> "عجز"
     else -> "متوازن"
 }
 private fun debtLabel(value: Long, positive: String, negative: String): String = when {
@@ -48,6 +44,13 @@ private fun debtLabel(value: Long, positive: String, negative: String): String =
     value < 0 -> negative
     else -> "متوازن"
 }
+private fun settlementDeltaStatus(actual: Long, book: Long): String = when {
+    actual > book -> "فائض"
+    actual < book -> "عجز"
+    else -> "متوازن"
+}
+
+private enum class PersonSortOrder { LATEST, ALPHABETICAL }
 
 @Composable
 fun CustodyOperationsScreen(
@@ -70,6 +73,9 @@ fun CustodyOperationsScreen(
     var quickPersonId by remember { mutableStateOf<Long?>(null) }
     var quickOwner by remember { mutableStateOf(false) }
     var showSettlement by remember { mutableStateOf(false) }
+    var personSearch by remember { mutableStateOf("") }
+    var personSort by remember { mutableStateOf(PersonSortOrder.LATEST) }
+    var showPersonSortMenu by remember { mutableStateOf(false) }
 
     fun openQuick(owner: Boolean, personId: Long? = null) {
         if (current.isClosed) return
@@ -77,6 +83,11 @@ fun CustodyOperationsScreen(
         quickPersonId = personId
         showQuick = true
     }
+
+    val displayedPeople = when (personSort) {
+        PersonSortOrder.LATEST -> people
+        PersonSortOrder.ALPHABETICAL -> people.sortedBy { it.name.trim().lowercase() }
+    }.filter { personSearch.isBlank() || it.name.contains(personSearch.trim(), ignoreCase = true) }
 
     Scaffold(
         modifier = Modifier.semantics { contentDescription = "شاشة تفاصيل العهدة" },
@@ -124,14 +135,31 @@ fun CustodyOperationsScreen(
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("الأشخاص", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    TextButton(enabled = !current.isClosed, onClick = { showAddPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة شخص" }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("إضافة شخص")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { showPersonSortMenu = true }, modifier = Modifier.semantics { contentDescription = "ترتيب الأشخاص" }) { Icon(Icons.Default.Sort, null) }
+                        TextButton(enabled = !current.isClosed, onClick = { showAddPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة شخص" }) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("إضافة شخص")
+                        }
+                        DropdownMenu(expanded = showPersonSortMenu, onDismissRequest = { showPersonSortMenu = false }) {
+                            DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { personSort = PersonSortOrder.LATEST; showPersonSortMenu = false })
+                            DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { personSort = PersonSortOrder.ALPHABETICAL; showPersonSortMenu = false })
+                        }
                     }
                 }
             }
-            items(people, key = { it.id }) { person ->
+            item {
+                OutlinedTextField(
+                    value = personSearch,
+                    onValueChange = { personSearch = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics { contentDescription = "بحث في الأشخاص" },
+                    label = { Text("بحث في الأشخاص") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    singleLine = true
+                )
+            }
+            items(displayedPeople, key = { it.id }) { person ->
                 CustodyPersonCard(
                     person = person,
                     transactions = transactions,
@@ -140,13 +168,12 @@ fun CustodyOperationsScreen(
                     enabled = !current.isClosed
                 )
             }
-            if (people.isEmpty()) {
+            if (displayedPeople.isEmpty()) {
                 item {
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("لا يوجد أشخاص في هذه العهدة", fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(4.dp))
-                            Text("اضغط «إضافة شخص» لإضافة أول شخص", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (personSearch.isBlank()) "لا يوجد أشخاص في هذه العهدة" else "لا توجد نتائج مطابقة", fontWeight = FontWeight.Bold)
+                            if (personSearch.isBlank()) Text("اضغط «إضافة شخص» لإضافة أول شخص", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -177,7 +204,7 @@ fun CustodyOperationsScreen(
         )
     }
     if (showReport) CustodySummaryReportDialog(current, transactions, people) { showReport = false }
-    if (showSettlement) CustodySettlementDialog(vm, current, accounts, transactions, people, { showSettlement = false })
+    if (showSettlement) CustodySettlementDialog(vm, current, transactions, people, { showSettlement = false })
 }
 
 @Composable
@@ -251,7 +278,7 @@ private fun SummaryLine(title: String, value: String, status: String, modifier: 
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-        Text(status, style = MaterialTheme.typography.labelSmall, color = when (status) { "متوازن" -> MaterialTheme.colorScheme.onSurfaceVariant; else -> MaterialTheme.colorScheme.primary })
+        Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -313,54 +340,44 @@ private fun CustodySummaryReportDialog(custody: CustodyEntity, transactions: Lis
 }
 
 @Composable
-private fun CustodySettlementDialog(
-    vm: CustodyViewModel,
-    custody: CustodyEntity,
-    accounts: List<CustodyAccountEntity>,
-    transactions: List<CustodyTransactionEntity>,
-    persons: List<CustodyPersonEntity>,
-    onDismiss: () -> Unit
-) {
+private fun CustodySettlementDialog(vm: CustodyViewModel, custody: CustodyEntity, transactions: List<CustodyTransactionEntity>, persons: List<CustodyPersonEntity>, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var yer by remember { mutableStateOf(custody.settlementYerActualMinor?.let(::money) ?: "") }
-    var sar by remember { mutableStateOf(custody.settlementSarActualMinor?.let(::money) ?: "") }
-    var usd by remember { mutableStateOf(custody.settlementUsdActualMinor?.let(::money) ?: "") }
-    var notes by remember { mutableStateOf(custody.settlementNotes) }
+    var yer by remember { mutableStateOf("") }
+    var sar by remember { mutableStateOf("") }
+    var usd by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
 
     fun parse(text: String): Long? = runCatching { BigDecimal(text.trim()).setScale(2).movePointRight(2).longValueExact() }.getOrNull()
     val actuals = listOf(parse(yer), parse(sar), parse(usd))
     val ownerBalances = custodyCurrencies.map { code -> CustodyFinancialSummary.custodyOwnerBalance(transactions, code) }
-    val personTotals = custodyCurrencies.map { code -> persons.sumOf { CustodyFinancialSummary.personCustodyBalance(transactions, it.id, code) } }
-    val totalCustody = ownerBalances.mapIndexed { i, owner -> owner + personTotals[i] }
-    val actualOwner = actuals.map { it ?: Long.MIN_VALUE }
-    val eachCurrencyReconciled = actualOwner.indices.all { i -> actualOwner[i] == ownerBalances[i] }
-    val fullySettled = totalCustody.all { it == 0L } && personTotals.all { it == 0L } && eachCurrencyReconciled
+    val orgDebts = custodyCurrencies.map { code -> CustodyFinancialSummary.ownerOrganizationDebt(transactions, code) }
+    val eligible = actuals.all { it != null } && orgDebts.all { it == 0L }
 
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("إغلاق وتسوية العهدة") },
         text = {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                item { Text("تتم التسوية للعملات الثلاث معًا. الأرقام الدفترية محسوبة تلقائيًا ولا يمكن تعديلها هنا.", style = MaterialTheme.typography.bodySmall) }
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 600.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item { Text("التسوية للعهدة كلها. لا تمنع أرصدة الأشخاص إغلاق العهدة؛ المعيار هو تسوية ذمة حامل العهدة مع الجهة. الموجود الفعلي يسجل حالة متوازن/عجز/فائض لكل عملة.", style = MaterialTheme.typography.bodySmall) }
                 custodyCurrencies.forEachIndexed { i, code ->
+                    val actual = actuals[i]
                     item {
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(currencyName(code), fontWeight = FontWeight.Bold)
-                                Text("الرصيد لدى الحامل: ${money(kotlin.math.abs(ownerBalances[i]))} — ${ownerCustodyLabel(ownerBalances[i])}")
-                                Text("إجمالي ما لدى الأشخاص: ${money(kotlin.math.abs(personTotals[i]))}")
-                                Text("إجمالي رصيد العهدة: ${money(kotlin.math.abs(totalCustody[i]))}")
+                                Text("الرصيد الدفتري لدى الحامل: ${money(ownerBalances[i])}")
+                                Text("ذمة الجهة: ${money(orgDebts[i])}")
                                 OutlinedTextField(
                                     value = when (code) { "YER" -> yer; "SAR" -> sar; else -> usd },
                                     onValueChange = { when (code) { "YER" -> yer = it; "SAR" -> sar; else -> usd = it } },
                                     modifier = Modifier.fillMaxWidth(),
                                     label = { Text("الموجود الفعلي لدى الحامل") },
                                     singleLine = true,
-                                    enabled = !saving,
-                                    supportingText = { Text("يجب أن يطابق الرصيد المحسوب لدى الحامل عند الإغلاق") }
+                                    enabled = !saving
                                 )
+                                if (actual != null) Text("الحالة: ${settlementDeltaStatus(actual, ownerBalances[i])}", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -369,25 +386,24 @@ private fun CustodySettlementDialog(
                 item {
                     Text(
                         when {
-                            fullySettled -> "🟢 جاهزة للإغلاق: جميع العملات متوازنة وتمت تصفيتها."
-                            totalCustody.any { it != 0L } -> "🟡 لا يمكن الإغلاق: توجد أرصدة عهدة قائمة لدى الحامل أو الأشخاص."
-                            !eachCurrencyReconciled -> "🔴 لا يمكن الإغلاق: الموجود الفعلي لا يطابق الرصيد الدفتري لدى الحامل."
-                            else -> "🔴 لا يمكن الإغلاق: توجد حالة تسوية غير مكتملة."
+                            !actuals.all { it != null } -> "أدخل الموجود الفعلي للعملات الثلاث."
+                            orgDebts.any { it != 0L } -> "لا يمكن الإغلاق: ما زالت ذمة حامل العهدة مع الجهة غير مسواة في عملة واحدة على الأقل."
+                            else -> "🟢 العهدة مؤهلة للإغلاق. يمكن أن تبقى ذمم الأشخاص قائمة لأنها مستقلة عن مسؤولية الحامل أمام الجهة."
                         },
                         fontWeight = FontWeight.Bold,
-                        color = if (fullySettled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        color = if (eligible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                 }
-                if (message != null) item { Text(message!!, color = MaterialTheme.colorScheme.error) }
+                message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             }
         },
         confirmButton = {
-            Button(enabled = fullySettled && !saving, onClick = {
+            Button(enabled = eligible && !saving, onClick = {
                 saving = true
                 scope.launch {
-                    runCatching {
-                        vm.closeCustodyAndWait(custody.id, actuals[0]!!, actuals[1]!!, actuals[2]!!, notes)
-                    }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; message = it.message ?: "تعذر إغلاق العهدة" }
+                    runCatching { vm.closeCustodyAndWait(custody.id, actuals[0]!!, actuals[1]!!, actuals[2]!!, notes) }
+                        .onSuccess { saving = false; onDismiss() }
+                        .onFailure { saving = false; message = it.message ?: "تعذر إغلاق العهدة" }
                 }
             }) { Text(if (saving) "جارٍ الحفظ…" else "إغلاق وتسوية العهدة") }
         },
