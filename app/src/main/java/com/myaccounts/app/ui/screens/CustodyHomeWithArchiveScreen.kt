@@ -58,7 +58,8 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState()
                 val transactions by vm.transactions(custody.id).collectAsState()
-                val totalBalances = custodyCurrencies.associateWith { code -> CustodyFinancialSummary.custodyTotalBalance(transactions, accounts, code, vm.persons(custody.id).value) }
+                val people by vm.persons(custody.id).collectAsState()
+                val totalBalances = custodyCurrencies.associateWith { code -> CustodyFinancialSummary.custodyTotalBalance(transactions, accounts, code, people) }
                 Card(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }, shape = MaterialTheme.shapes.medium) {
                     Column(Modifier.padding(16.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -69,7 +70,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                             if (custody.isClosed) AssistChip(onClick = {}, enabled = false, label = { Text("مغلقة ومسواة") })
                         }
                         Spacer(Modifier.height(12.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(Modifier.fillMaxWidth()) {
                             custodyCurrencies.forEach { code ->
                                 val balance = totalBalances[code] ?: 0L
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
