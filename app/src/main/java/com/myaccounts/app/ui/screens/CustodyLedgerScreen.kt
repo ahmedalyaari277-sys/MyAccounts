@@ -198,8 +198,8 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
                                 .onSuccess { keyboard?.hide(); calc.close(); saving = false; onFinished() }
                                 .onFailure { saving = false; error = it.message ?: "تعذر حفظ العملية" }
                         }
-                    }, Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
-                    OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, Modifier.weight(1f)) { Text("إلغاء") }
+                    }, modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ العملية" }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
+                    OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
                 }
             }
         }
