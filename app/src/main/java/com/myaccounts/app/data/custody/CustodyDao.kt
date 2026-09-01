@@ -30,6 +30,7 @@ interface CustodyDao {
     @Query("SELECT * FROM custody_accounts WHERE id = :id LIMIT 1") suspend fun getAccount(id: Long): CustodyAccountEntity?
     @Query("SELECT * FROM custody_transactions WHERE id = :id LIMIT 1") suspend fun getTransaction(id: Long): CustodyTransactionEntity?
     @Query("SELECT * FROM custody_persons WHERE id = :id LIMIT 1") suspend fun getPerson(id: Long): CustodyPersonEntity?
+    @Query("SELECT * FROM custody_transactions WHERE personId = :personId") suspend fun getTransactionsForPerson(personId: Long): List<CustodyTransactionEntity>
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertCustody(custody: CustodyEntity): Long
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertPerson(person: CustodyPersonEntity): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertAccounts(accounts: List<CustodyAccountEntity>)
@@ -42,7 +43,10 @@ interface CustodyDao {
     @Query("UPDATE custodies SET isArchived = 1, archivedAt = :at WHERE id = :id") suspend fun archiveCustody(id: Long, at: Long)
     @Query("UPDATE custodies SET isArchived = 0, archivedAt = NULL WHERE id = :id") suspend fun restoreCustody(id: Long)
     @Query("DELETE FROM custody_transactions WHERE custodyId = :id") suspend fun deleteTransactions(id: Long)
+    @Query("DELETE FROM custody_transactions WHERE personId = :personId") suspend fun deleteTransactionsForPerson(personId: Long)
     @Query("DELETE FROM custody_accounts WHERE custodyId = :id") suspend fun deleteAccounts(id: Long)
+    @Query("DELETE FROM custody_accounts WHERE personId = :personId") suspend fun deleteAccountsForPerson(personId: Long)
     @Query("DELETE FROM custody_persons WHERE custodyId = :id") suspend fun deletePersons(id: Long)
+    @Query("DELETE FROM custody_persons WHERE id = :personId") suspend fun deletePerson(personId: Long)
     @Query("DELETE FROM custodies WHERE id = :id") suspend fun deleteCustody(id: Long)
 }
