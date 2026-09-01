@@ -64,6 +64,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
         .filter { search.isBlank() || it.name.contains(search.trim(), true) || it.phone.contains(search.trim(), true) }
 
     Scaffold(
+        modifier = Modifier.semantics { contentDescription = "شاشة تفاصيل العهدة" },
         topBar = {
             TopAppBar(
                 title = { Text(current.name, fontWeight = FontWeight.Bold) },
