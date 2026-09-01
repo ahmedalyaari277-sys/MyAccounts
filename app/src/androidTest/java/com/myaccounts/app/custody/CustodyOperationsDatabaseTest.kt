@@ -133,4 +133,22 @@ class CustodyOperationsDatabaseTest {
         assertEquals(3, accounts.count { it.holderType == "OWNER" })
         assertEquals(3, accounts.count { it.holderType == "PERSON" && it.personId == personId })
     }
+
+    @Test
+    fun closeRequiresAllThreeCurrencyCustodyBalancesToBeSettledAndCanReopen() = runBlocking {
+        val repo = CustodyRepository(db, context)
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RECEIVED_FROM_ORG, null, 100_000L, "استلام", 10_000L)
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.PAID_TO_PERSON, personId, 30_000L, "صرف", 11_000L)
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_FROM_PERSON, personId, 30_000L, "مرتجع", 12_000L)
+        repo.addTransaction(custodyId, "YER", CustodyTransactionType.RETURNED_TO_ORG, null, 100_000L, "تصفية", 13_000L)
+        repo.closeCustody(custodyId, 0L, 0L, 0L, "تسوية كاملة")
+        assertTrue(db.custodyDao().getCustody(custodyId)!!.isClosed)
+        var failed = false
+        try { repo.addTransaction(custodyId, "YER", CustodyTransactionType.RECEIVED_FROM_ORG, null, 1_000L, "ممنوع بعد الإغلاق", 14_000L) } catch (_: IllegalArgumentException) { failed = true }
+        assertTrue("Closed custody accepted a new transaction", failed)
+        repo.reopenCustody(custodyId)
+        assertTrue(!db.custodyDao().getCustody(custodyId)!!.isClosed)
+        repo.addTransaction(custodyId, "SAR", CustodyTransactionType.RECEIVED_FROM_ORG, null, 2_000L, "بعد إعادة الفتح", 15_000L)
+        assertEquals(2_000L, db.custodyDao().getOwnerAccount(custodyId, "SAR")!!.balanceMinor)
+    }
 }
