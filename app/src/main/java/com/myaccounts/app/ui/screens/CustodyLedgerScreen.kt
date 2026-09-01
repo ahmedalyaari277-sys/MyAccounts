@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,13 +82,26 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
+    var showOwnerMenu by remember { mutableStateOf(false) }
+    var showEditOwner by remember { mutableStateOf(false) }
+    var showEditCustody by remember { mutableStateOf(false) }
     val rows = transactions.filter { t -> t.currencyCode == selectedCurrency && if (owner) t.accountId in ownerAccountIds else t.personId == personId }.sortedByDescending { it.transactionDate }
     val custodyBalance = if (owner) accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == selectedCurrency }?.balanceMinor ?: 0L else CustodyFinancialSummary.personCustodyBalance(transactions, personId!!, selectedCurrency)
     val orgDebt = if (owner) CustodyFinancialSummary.ownerOrganizationDebt(transactions, selectedCurrency) else 0L
     val peopleDebt = if (owner) CustodyFinancialSummary.ownerPeopleDebt(transactions, selectedCurrency) else CustodyFinancialSummary.personDebt(transactions, personId!!, selectedCurrency)
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("عمليات $title", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) },
+        topBar = { TopAppBar(title = { Text("عمليات $title", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
+            if (owner) {
+                IconButton(onClick = { showOwnerMenu = true }, modifier = Modifier.semantics { contentDescription = "خيارات حامل العهدة" }) { Icon(Icons.Default.MoreVert, "المزيد") }
+                DropdownMenu(expanded = showOwnerMenu, onDismissRequest = { showOwnerMenu = false }) {
+                    if (!current.isClosed) {
+                        DropdownMenuItem(text = { Text("تعديل بيانات حامل العهدة") }, onClick = { showOwnerMenu = false; showEditOwner = true })
+                        DropdownMenuItem(text = { Text("تعديل بيانات العهدة والجهة") }, onClick = { showOwnerMenu = false; showEditCustody = true })
+                    }
+                }
+            }
+        } ) },
         floatingActionButton = { FloatingActionButton(onClick = { if (!current.isClosed) showAdd = true }, modifier = Modifier.semantics { contentDescription = "إضافة عملية" }) { Icon(Icons.Default.Add, null) } }
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -139,6 +153,8 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
     if (showAdd) CustodyLedgerOperationDialog(vm = vm, custodyId = custodyId, personId = personId, owner = owner, defaultCurrency = selectedCurrency, initialType = if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, transaction = null, dialogWidth = dialogWidth, onDismiss = { showAdd = false }, onFinished = { showAdd = false })
     editing?.let { t -> CustodyLedgerOperationDialog(vm = vm, custodyId = custodyId, personId = if (owner) t.personId else personId, owner = owner, defaultCurrency = t.currencyCode, initialType = t.type, transaction = t, dialogWidth = dialogWidth, onDismiss = { editing = null }, onFinished = { editing = null }) }
     deleting?.let { t -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }) }
+    if (showEditOwner) CustodyOwnerEditDialog(vm, current, onDismiss = { showEditOwner = false }, onSaved = { showEditOwner = false })
+    if (showEditCustody) CustodyDataEditDialog(vm, current, onDismiss = { showEditCustody = false }, onSaved = { showEditCustody = false })
 }
 
 @Composable
