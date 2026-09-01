@@ -34,12 +34,14 @@ class CustodyOperationsDatabaseTest {
     }
 
     @After
-    fun tearDown() = runBlocking {
-        db.custodyDao().getCustodyByExternalId(externalId)?.let {
-            db.custodyDao().deleteTransactions(it.id)
-            db.custodyDao().deleteAccounts(it.id)
-            db.custodyDao().deletePersons(it.id)
-            db.custodyDao().deleteCustody(it.id)
+    fun tearDown() {
+        runBlocking {
+            db.custodyDao().getCustodyByExternalId(externalId)?.let {
+                db.custodyDao().deleteTransactions(it.id)
+                db.custodyDao().deleteAccounts(it.id)
+                db.custodyDao().deletePersons(it.id)
+                db.custodyDao().deleteCustody(it.id)
+            }
         }
     }
 
