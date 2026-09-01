@@ -10,7 +10,7 @@ fun CustodyPersonOperationsScreen(
     personId: Long,
     onBack: () -> Unit
 ) {
-    CustodyLedgerScreen(
+    CustodyPersonLedgerScreen(
         vm = vm,
         custodyId = custodyId,
         personId = personId,
