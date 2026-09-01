@@ -16,8 +16,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,85 +29,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.2"
-      # CUSTODY_PATCH_START
-      - name: Apply final custody maintenance wiring
-        shell: python
-        run: |
-          from pathlib import Path
-          import re, subprocess
-
-          def replace_once(path, old, new):
-              s = path.read_text()
-              if new in s:
-                  return
-              if old not in s:
-                  raise SystemExit(f'anchor not found: {path}: {old[:120]}')
-              path.write_text(s.replace(old, new, 1))
-
-          led = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyLedgerScreen.kt')
-          replace_once(led, 'import androidx.compose.material.icons.filled.Edit\n', 'import androidx.compose.material.icons.filled.Edit\nimport androidx.compose.material.icons.filled.MoreVert\n')
-          replace_once(led, '    var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }\n', '    var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }\n    var showOwnerMenu by remember { mutableStateOf(false) }\n    var showEditOwner by remember { mutableStateOf(false) }\n    var showEditCustody by remember { mutableStateOf(false) }\n')
-          replace_once(led,
-              '        topBar = { TopAppBar(title = { Text("عمليات $title", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) },',
-              '''        topBar = { TopAppBar(title = { Text("عمليات $title", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
-            if (owner) {
-                IconButton(onClick = { showOwnerMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
-                DropdownMenu(expanded = showOwnerMenu, onDismissRequest = { showOwnerMenu = false }) {
-                    if (!current.isClosed) {
-                        DropdownMenuItem(text = { Text("تعديل بيانات حامل العهدة") }, onClick = { showOwnerMenu = false; showEditOwner = true })
-                        DropdownMenuItem(text = { Text("تعديل بيانات العهدة والجهة") }, onClick = { showOwnerMenu = false; showEditCustody = true })
-                    }
-                }
-            }
-        } ) },''')
-          replace_once(led,
-              '    deleting?.let { t -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }) }\n',
-              '    deleting?.let { t -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { vm.deleteTransaction(t.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }) }\n    if (showEditOwner) CustodyOwnerEditDialog(vm, current, onDismiss = { showEditOwner = false }, onSaved = { showEditOwner = false })\n    if (showEditCustody) CustodyDataEditDialog(vm, current, onDismiss = { showEditCustody = false }, onSaved = { showEditCustody = false })\n')
-
-          ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt')
-          replace_once(ops, '    var showPersonSortMenu by remember { mutableStateOf(false) }\n', '    var showPersonSortMenu by remember { mutableStateOf(false) }\n    var showEditCustody by remember { mutableStateOf(false) }\n')
-          replace_once(ops,
-              '                        DropdownMenuItem(text = { Text("تقرير العهدة") }, onClick = { menu = false; showReport = true })\n',
-              '                        DropdownMenuItem(text = { Text("تقرير العهدة") }, onClick = { menu = false; showReport = true })\n                        if (!current.isClosed) DropdownMenuItem(text = { Text("تعديل بيانات العهدة والجهة") }, onClick = { menu = false; showEditCustody = true })\n')
-          replace_once(ops,
-              '    if (showSettlement) CustodySettlementDialog(vm, current, transactions, people, { showSettlement = false })\n',
-              '    if (showSettlement) CustodySettlementDialog(vm, current, transactions, people, { showSettlement = false })\n    if (showEditCustody) CustodyDataEditDialog(vm, current, onDismiss = { showEditCustody = false }, onSaved = { showEditCustody = false })\n')
-
-          dlg = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyEditDialogs.kt')
-          s = dlg.read_text()
-          s = re.sub(r'    var name by remember \{ mutableStateOf\(custody\.name\) \}\n    var organization by remember \{ mutableStateOf\(custody\.organizationName\) \}', '    var organization by remember { mutableStateOf(custody.organizationName) }', s, count=1)
-          s = s.replace('            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("اسم العهدة") }, singleLine = true, enabled = !saving)\n', '')
-          s = s.replace('enabled = name.isNotBlank() && organization.isNotBlank() && !saving', 'enabled = organization.isNotBlank() && !saving')
-          s = s.replace('custody.copy(name = name.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())', 'custody.copy(organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())')
-          dlg.write_text(s)
-
-          # Remove old temporary workflows and this staging step before committing.
-          for p in [Path('.github/workflows/complete-custody-edit-flows-20260901.yml'), Path('.github/workflows/wire-custody-maintenance-ui-20260901.yml'), Path('.github/workflows/finalize-custody-ui-wiring-20260901.yml')]:
-              if p.exists(): p.unlink()
-          wf = Path('.github/workflows/build.yml')
-          text = wf.read_text()
-          start = text.find('      # CUSTODY_PATCH_START\n')
-          end = text.find('      # CUSTODY_PATCH_END\n')
-          if start < 0 or end < 0:
-              # The file currently contains START but the runner needs an explicit end marker.
-              end_marker = '          subprocess.run([\'git\',\'push\',\'origin\',\'repair/custody-final-settlement-20260901\'], check=True)\n'
-              if end_marker not in text:
-                  raise SystemExit('temporary build step end anchor missing')
-          # Remove the staging section using the known start marker and the 'Run debug unit tests' step.
-          start = text.find('      # CUSTODY_PATCH_START\n')
-          run_tests = text.find('      - name: Run debug unit tests\n', start)
-          if start < 0 or run_tests < 0:
-              raise SystemExit('build cleanup anchors missing')
-          text = text[:start] + text[run_tests:]
-          # Keep workflow permissions because the cleanup commit needs write access only during this run.
-          wf.write_text(text)
-
-          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
-          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
-          subprocess.run(['git','add','.'], check=True)
-          subprocess.run(['git','commit','-m','feat(custody): complete remaining maintenance edit flows'], check=True)
-          subprocess.run(['git','push','origin','repair/custody-final-settlement-20260901'], check=True)
-      # CUSTODY_PATCH_END
       - name: Run debug unit tests
         run: gradle testDebugUnitTest --no-daemon --stacktrace
       - name: Build Debug APK
