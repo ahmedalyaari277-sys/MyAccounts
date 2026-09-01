@@ -3,82 +3,65 @@
 package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.myaccounts.app.data.custody.CustodyBalanceRules
-import com.myaccounts.app.data.custody.CustodyEntity
-import com.myaccounts.app.data.custody.CustodyPersonEntity
-import com.myaccounts.app.data.custody.CustodyTransactionEntity
-import com.myaccounts.app.data.custody.CustodyTransactionType
-import com.myaccounts.app.ui.theme.Due
-import com.myaccounts.app.ui.theme.Owed
+import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 
-private val custodyCurrenciesForDetails = listOf("YER", "SAR", "USD")
+private val custodyCurrencies = listOf("YER", "SAR", "USD")
 
-private fun formatCustodyAmount(value: Long): String = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
-
-private fun detailBalanceStatus(value: Long): String = when {
-    value > 0L -> "لديه"
-    value < 0L -> "عجز"
+private fun money(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
+private fun currencyName(code: String): String = when (code) {
+    "YER" -> "ريال يمني"
+    "SAR" -> "ريال سعودي"
+    else -> "دولار"
+}
+private fun custodyLabel(balance: Long): String = when {
+    balance > 0 -> "متبقي"
+    balance < 0 -> "عجز"
+    else -> "متوازن"
+}
+private fun ownerCustodyLabel(balance: Long): String = when {
+    balance > 0 -> "متبقي لديه"
+    balance < 0 -> "مستحق له"
+    else -> "متوازن"
+}
+private fun debtLabel(value: Long, positive: String, negative: String): String = when {
+    value > 0 -> positive
+    value < 0 -> negative
     else -> "متوازن"
 }
 
 @Composable
-fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () -> Unit, onPerson: (Long) -> Unit, onOwner: () -> Unit) {
+fun CustodyOperationsScreen(
+    vm: CustodyViewModel,
+    custodyId: Long,
+    onBack: () -> Unit,
+    onPerson: (Long) -> Unit,
+    onOwner: () -> Unit
+) {
     val custody by vm.custody(custodyId).collectAsState()
     val people by vm.persons(custodyId).collectAsState()
     val accounts by vm.accounts(custodyId).collectAsState()
     val transactions by vm.transactions(custodyId).collectAsState()
-    val current = custody ?: run {
-        Scaffold(topBar = { TopAppBar(title = { Text("العهدة") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } }) }) { pad ->
-            Column(Modifier.fillMaxSize().padding(pad), horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(40.dp)); androidx.compose.material3.CircularProgressIndicator()
-            }
-        }
-        return
-    }
+    val current = custody ?: return
 
     var menu by remember { mutableStateOf(false) }
     var showReport by remember { mutableStateOf(false) }
@@ -86,12 +69,10 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
     var showQuick by remember { mutableStateOf(false) }
     var quickPersonId by remember { mutableStateOf<Long?>(null) }
     var quickOwner by remember { mutableStateOf(false) }
-
-    val ownerBalances = custodyCurrenciesForDetails.associateWith { code ->
-        accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == code }?.balanceMinor ?: 0L
-    }
+    var showSettlement by remember { mutableStateOf(false) }
 
     fun openQuick(owner: Boolean, personId: Long? = null) {
+        if (current.isClosed) return
         quickOwner = owner
         quickPersonId = personId
         showQuick = true
@@ -102,11 +83,16 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
         topBar = {
             TopAppBar(
                 title = { Text(current.name, fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "المزيد") }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("تقرير العهدة") }, onClick = { menu = false; showReport = true })
+                        if (!current.isClosed) {
+                            DropdownMenuItem(text = { Text("إغلاق وتسوية العهدة") }, onClick = { menu = false; showSettlement = true })
+                        } else {
+                            DropdownMenuItem(text = { Text("إعادة فتح العهدة") }, onClick = { menu = false; vm.reopenCustody(custodyId) })
+                        }
                         DropdownMenuItem(text = { Text("أرشفة العهدة") }, onClick = { menu = false; vm.archive(custodyId); onBack() })
                     }
                 }
@@ -117,30 +103,41 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
             Modifier.fillMaxSize().padding(pad).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            if (current.isClosed) {
+                item {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
+                        Text("هذه العهدة مغلقة ومسواة ولا يمكن إضافة أو تعديل عمليات حتى إعادة فتحها.", Modifier.fillMaxWidth().padding(12.dp), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             item {
-                CustodyHolderCard(name = current.name, balances = ownerBalances, onClick = onOwner, onQuick = { openQuick(true) })
+                CustodyOwnerCard(
+                    name = current.name,
+                    accounts = accounts,
+                    transactions = transactions,
+                    persons = people,
+                    onClick = onOwner,
+                    onQuick = { openQuick(true) },
+                    enabled = !current.isClosed
+                )
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("الأشخاص", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    TextButton(onClick = { showAddPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة شخص" }) {
+                    TextButton(enabled = !current.isClosed, onClick = { showAddPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة شخص" }) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.padding(horizontal = 2.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text("إضافة شخص")
                     }
                 }
             }
             items(people, key = { it.id }) { person ->
-                val personBalances = custodyCurrenciesForDetails.associateWith { code ->
-                    transactions.filter { it.personId == person.id && it.currencyCode == code }
-                        .sumOf { CustodyBalanceRules.personDelta(it.type, it.amountMinor) }
-                }
-                CustodyHolderCard(
-                    name = person.name,
-                    phone = person.phone,
-                    balances = personBalances,
+                CustodyPersonCard(
+                    person = person,
+                    transactions = transactions,
                     onClick = { onPerson(person.id) },
-                    onQuick = { openQuick(false, person.id) }
+                    onQuick = { openQuick(false, person.id) },
+                    enabled = !current.isClosed
                 )
             }
             if (people.isEmpty()) {
@@ -174,144 +171,226 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
             defaultCurrency = "YER",
             initialType = if (quickOwner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON,
             transaction = null,
-            dialogWidth = .72f,
+            dialogWidth = .92f,
             onDismiss = { showQuick = false },
             onFinished = { showQuick = false }
         )
     }
-    if (showReport) CustodySummaryReportDialog(current, accounts, transactions, { showReport = false })
+    if (showReport) CustodySummaryReportDialog(current, transactions, people) { showReport = false }
+    if (showSettlement) CustodySettlementDialog(vm, current, accounts, transactions, people, { showSettlement = false })
 }
 
 @Composable
-private fun CustodyHolderCard(name: String, phone: String = "", balances: Map<String, Long>, onClick: () -> Unit, onQuick: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = MaterialTheme.shapes.medium
-    ) {
+private fun CustodyOwnerCard(
+    name: String,
+    accounts: List<CustodyAccountEntity>,
+    transactions: List<CustodyTransactionEntity>,
+    persons: List<CustodyPersonEntity>,
+    onClick: () -> Unit,
+    onQuick: () -> Unit,
+    enabled: Boolean
+) {
+    Card(Modifier.fillMaxWidth().clickable(enabled = true, onClick = onClick), shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onQuick, modifier = Modifier.semantics { contentDescription = "إضافة عملية سريعة لـ $name" }) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                }
+                IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.semantics { contentDescription = "إضافة عملية سريعة لـ $name" }) { Icon(Icons.Default.Add, null) }
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    if (phone.isNotBlank()) Text(phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("مستلم العهدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                custodyCurrencyCell("ريال يمني", balances["YER"] ?: 0L)
-                custodyCurrencyCell("ريال سعودي", balances["SAR"] ?: 0L)
-                custodyCurrencyCell("دولار", balances["USD"] ?: 0L)
+            HorizontalDivider()
+            custodyCurrencies.forEach { code ->
+                val summary = CustodyFinancialSummary.ownerDisplay(transactions, accounts, persons, code)
+                Spacer(Modifier.height(7.dp))
+                Text(currencyName(code), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SummaryLine("العهدة", money(kotlin.math.abs(summary.custodyMinor)), ownerCustodyLabel(summary.custodyMinor), Modifier.weight(1f))
+                    SummaryLine("ذمة الجهة", money(kotlin.math.abs(summary.organizationDebtMinor)), debtLabel(summary.organizationDebtMinor, "مستحق له", "مستحق عليه"), Modifier.weight(1f))
+                    SummaryLine("ذمم الأشخاص", money(kotlin.math.abs(summary.peopleDebtMinor)), debtLabel(summary.peopleDebtMinor, "له على الأشخاص", "عليه للأشخاص"), Modifier.weight(1f))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun custodyCurrencyCell(label: String, balance: Long) {
-    val color = when { balance > 0L -> Due; balance < 0L -> Owed; else -> MaterialTheme.colorScheme.onSurfaceVariant }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(formatCustodyAmount(kotlin.math.abs(balance)), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = color)
-        Text(detailBalanceStatus(balance), style = MaterialTheme.typography.labelSmall, color = color)
+private fun CustodyPersonCard(
+    person: CustodyPersonEntity,
+    transactions: List<CustodyTransactionEntity>,
+    onClick: () -> Unit,
+    onQuick: () -> Unit,
+    enabled: Boolean
+) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.semantics { contentDescription = "إضافة عملية سريعة لـ ${person.name}" }) { Icon(Icons.Default.Add, null) }
+                Column(Modifier.weight(1f)) {
+                    Text(person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            HorizontalDivider()
+            custodyCurrencies.forEach { code ->
+                val custodyBalance = CustodyFinancialSummary.personCustodyBalance(transactions, person.id, code)
+                val debt = CustodyFinancialSummary.personDebt(transactions, person.id, code)
+                Spacer(Modifier.height(7.dp))
+                Text(currencyName(code), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SummaryLine("العهدة", money(kotlin.math.abs(custodyBalance)), when { custodyBalance > 0 -> "لديه"; custodyBalance < 0 -> "مستحق له"; else -> "متوازن" }, Modifier.weight(1f))
+                    SummaryLine("الذمة", money(kotlin.math.abs(debt)), debtLabel(debt, "مستحق له", "مستحق عليه"), Modifier.weight(1f))
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun CustodyAddPersonDialog(
-    custodyId: Long,
-    existing: List<CustodyPersonEntity>,
-    onDismiss: () -> Unit,
-    onSave: suspend (CustodyPersonEntity) -> Unit
-) {
+private fun SummaryLine(title: String, value: String, status: String, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        Text(status, style = MaterialTheme.typography.labelSmall, color = when (status) { "متوازن" -> MaterialTheme.colorScheme.onSurfaceVariant; else -> MaterialTheme.colorScheme.primary })
+    }
+}
+
+@Composable
+private fun CustodyAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val matches = existing.filter { name.isNotBlank() && it.name.contains(name.trim(), true) }.take(5)
-
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("إضافة شخص") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                OutlinedTextField(name, { name = it; error = false }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, enabled = !saving, isError = error)
-                matches.forEach { match ->
-                    TextButton(onClick = { if (!saving) { name = match.name; phone = match.phone; address = match.address; notes = match.notes } }, Modifier.fillMaxWidth()) { Text(match.name) }
-                }
-                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
-                OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
-                OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
-                if (error) Text("تعذر حفظ الشخص. تحقق من البيانات وحاول مرة أخرى.", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        confirmButton = {
-            Button(enabled = name.isNotBlank() && !saving, onClick = {
-                saving = true
-                error = false
-                val person = CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())
-                scope.launch {
-                    runCatching { onSave(person) }
-                        .onSuccess { saving = false }
-                        .onFailure { saving = false; error = true }
-                }
-            }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
-        },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            OutlinedTextField(name, { name = it; error = null }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, enabled = !saving)
+            matches.forEach { match -> TextButton(onClick = { name = match.name; phone = match.phone; address = match.address; notes = match.notes }) { Text(match.name) } }
+            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        } },
+        confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = {
+            saving = true
+            scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())) }.onFailure { error = it.message ?: "تعذر حفظ الشخص"; saving = false } }
+        }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } },
         dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } }
     )
 }
 
 @Composable
-private fun CustodySummaryReportDialog(
-    custody: CustodyEntity,
-    accounts: List<com.myaccounts.app.data.custody.CustodyAccountEntity>,
-    transactions: List<CustodyTransactionEntity>,
-    onDismiss: () -> Unit
-) {
-    var currency by remember { mutableStateOf("YER") }
-    val rows = transactions.filter { it.currencyCode == currency }.sortedBy { it.transactionDate }
-    val balance = rows.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("تقرير العهدة") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                item {
-                    Text(custody.name, fontWeight = FontWeight.Bold)
-                    Text("الجهة: ${custody.organizationName}")
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        custodyCurrenciesForDetails.forEach { code ->
-                            androidx.compose.material3.FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) })
-                        }
-                    }
-                    Text("المتبقي: ${formatCustodyAmount(kotlin.math.abs(balance))}", fontWeight = FontWeight.Bold)
-                }
+private fun CustodySummaryReportDialog(custody: CustodyEntity, transactions: List<CustodyTransactionEntity>, people: List<CustodyPersonEntity>, onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("تقرير العهدة") }, text = {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            item { Text(custody.name, fontWeight = FontWeight.Bold); Text("الجهة: ${custody.organizationName}") }
+            custodyCurrencies.forEach { code ->
+                val rows = transactions.filter { it.currencyCode == code }
+                item { Text("$code — الرصيد: ${money(kotlin.math.abs(CustodyFinancialSummary.custodyOwnerBalance(transactions, code)))}") }
                 items(rows, key = { it.id }) { row ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(8.dp)) {
-                            Text(
-                                when (row.type) {
-                                    CustodyTransactionType.RECEIVED_FROM_ORG -> "استلام من الجهة"
-                                    CustodyTransactionType.RETURNED_TO_ORG -> "مرتجع للجهة"
-                                    CustodyTransactionType.PAID_TO_PERSON -> "صرف"
-                                    CustodyTransactionType.RETURNED_FROM_PERSON -> "مرتجع"
-                                    else -> row.type
-                                },
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text("${formatCustodyAmount(row.amountMinor)} $currency")
-                            if (row.description.isNotBlank()) Text(row.description, style = MaterialTheme.typography.bodySmall)
-                        }
+                    val personName = row.personId?.let { id -> people.firstOrNull { it.id == id }?.name }
+                    val label = when (row.type) {
+                        CustodyTransactionType.RECEIVED_FROM_ORG -> "استلام من الجهة"
+                        CustodyTransactionType.RETURNED_TO_ORG -> "مرتجع للجهة"
+                        CustodyTransactionType.PAID_TO_PERSON -> "صرف${personName?.let { " لـ $it" } ?: ""}"
+                        CustodyTransactionType.RETURNED_FROM_PERSON -> "مرتجع${personName?.let { " من $it" } ?: ""}"
+                        CustodyTransactionType.ORG_LOAN_FROM_OWNER -> "تسليف الجهة"
+                        CustodyTransactionType.ORG_LOAN_REPAYMENT -> "سداد تسليف الجهة"
+                        CustodyTransactionType.PERSON_LOAN_TO_OWNER -> "تسليف لحامل العهدة${personName?.let { " من $it" } ?: ""}"
+                        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> "سداد تسليف للشخص${personName?.let { " لـ $it" } ?: ""}"
+                        else -> row.type
                     }
+                    Text("$label — ${money(row.amountMinor)} $code", style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+    }, confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق") } })
+}
+
+@Composable
+private fun CustodySettlementDialog(
+    vm: CustodyViewModel,
+    custody: CustodyEntity,
+    accounts: List<CustodyAccountEntity>,
+    transactions: List<CustodyTransactionEntity>,
+    persons: List<CustodyPersonEntity>,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var yer by remember { mutableStateOf(custody.settlementYerActualMinor?.let(::money) ?: "") }
+    var sar by remember { mutableStateOf(custody.settlementSarActualMinor?.let(::money) ?: "") }
+    var usd by remember { mutableStateOf(custody.settlementUsdActualMinor?.let(::money) ?: "") }
+    var notes by remember { mutableStateOf(custody.settlementNotes) }
+    var saving by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    fun parse(text: String): Long? = runCatching { BigDecimal(text.trim()).setScale(2).movePointRight(2).longValueExact() }.getOrNull()
+    val actuals = listOf(parse(yer), parse(sar), parse(usd))
+    val ownerBalances = custodyCurrencies.map { code -> CustodyFinancialSummary.custodyOwnerBalance(transactions, code) }
+    val personTotals = custodyCurrencies.map { code -> persons.sumOf { CustodyFinancialSummary.personCustodyBalance(transactions, it.id, code) } }
+    val totalCustody = ownerBalances.mapIndexed { i, owner -> owner + personTotals[i] }
+    val actualOwner = actuals.map { it ?: Long.MIN_VALUE }
+    val eachCurrencyReconciled = actualOwner.indices.all { i -> actualOwner[i] == ownerBalances[i] }
+    val fullySettled = totalCustody.all { it == 0L } && personTotals.all { it == 0L } && eachCurrencyReconciled
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("إغلاق وتسوية العهدة") },
+        text = {
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item { Text("تتم التسوية للعملات الثلاث معًا. الأرقام الدفترية محسوبة تلقائيًا ولا يمكن تعديلها هنا.", style = MaterialTheme.typography.bodySmall) }
+                custodyCurrencies.forEachIndexed { i, code ->
+                    item {
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(currencyName(code), fontWeight = FontWeight.Bold)
+                                Text("الرصيد لدى الحامل: ${money(kotlin.math.abs(ownerBalances[i]))} — ${ownerCustodyLabel(ownerBalances[i])}")
+                                Text("إجمالي ما لدى الأشخاص: ${money(kotlin.math.abs(personTotals[i]))}")
+                                Text("إجمالي رصيد العهدة: ${money(kotlin.math.abs(totalCustody[i]))}")
+                                OutlinedTextField(
+                                    value = when (code) { "YER" -> yer; "SAR" -> sar; else -> usd },
+                                    onValueChange = { when (code) { "YER" -> yer = it; "SAR" -> sar; else -> usd = it } },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("الموجود الفعلي لدى الحامل") },
+                                    singleLine = true,
+                                    enabled = !saving,
+                                    supportingText = { Text("يجب أن يطابق الرصيد المحسوب لدى الحامل عند الإغلاق") }
+                                )
+                            }
+                        }
+                    }
+                }
+                item { OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات التسوية") }, minLines = 2, enabled = !saving) }
+                item {
+                    Text(
+                        when {
+                            fullySettled -> "🟢 جاهزة للإغلاق: جميع العملات متوازنة وتمت تصفيتها."
+                            totalCustody.any { it != 0L } -> "🟡 لا يمكن الإغلاق: توجد أرصدة عهدة قائمة لدى الحامل أو الأشخاص."
+                            !eachCurrencyReconciled -> "🔴 لا يمكن الإغلاق: الموجود الفعلي لا يطابق الرصيد الدفتري لدى الحامل."
+                            else -> "🔴 لا يمكن الإغلاق: توجد حالة تسوية غير مكتملة."
+                        },
+                        fontWeight = FontWeight.Bold,
+                        color = if (fullySettled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                }
+                if (message != null) item { Text(message!!, color = MaterialTheme.colorScheme.error) }
+            }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق") } }
+        confirmButton = {
+            Button(enabled = fullySettled && !saving, onClick = {
+                saving = true
+                scope.launch {
+                    runCatching {
+                        vm.closeCustodyAndWait(custody.id, actuals[0]!!, actuals[1]!!, actuals[2]!!, notes)
+                    }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; message = it.message ?: "تعذر إغلاق العهدة" }
+                }
+            }) { Text(if (saving) "جارٍ الحفظ…" else "إغلاق وتسوية العهدة") }
+        },
+        dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } }
     )
 }
