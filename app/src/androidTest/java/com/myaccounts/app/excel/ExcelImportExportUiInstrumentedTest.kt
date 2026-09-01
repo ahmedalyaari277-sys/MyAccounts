@@ -36,6 +36,7 @@ class ExcelImportExportUiInstrumentedTest {
         val intent = Intent(context, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         instrumentation.startActivitySync(intent)
         device.waitForIdle()
+        clickByText("دفتر الحسابات")
     }
 
     @After
