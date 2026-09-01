@@ -19,7 +19,13 @@ data class CustodyEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val isArchived: Boolean = false,
     val archivedAt: Long? = null,
-    val externalId: String = "C-${UUID.randomUUID()}"
+    val externalId: String = "C-${UUID.randomUUID()}",
+    val isClosed: Boolean = false,
+    val closedAt: Long? = null,
+    val settlementYerActualMinor: Long? = null,
+    val settlementSarActualMinor: Long? = null,
+    val settlementUsdActualMinor: Long? = null,
+    val settlementNotes: String = ""
 )
 
 @Entity(tableName = "custody_persons", indices = [Index("custodyId"), Index("name"), Index(name = "index_custody_persons_custody_external", value = ["custodyId", "externalId"], unique = true)], foreignKeys = [ForeignKey(entity = CustodyEntity::class, parentColumns = ["id"], childColumns = ["custodyId"], onDelete = ForeignKey.CASCADE)])
