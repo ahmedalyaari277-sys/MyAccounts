@@ -5,11 +5,14 @@ package com.myaccounts.app.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,23 +48,54 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
     val transactions by vm.transactions(custodyId).collectAsState()
     val person = people.firstOrNull { it.id == personId } ?: return
     val current = custody ?: return
+    val scope = rememberCoroutineScope()
     var currency by remember { mutableStateOf("YER") }
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var transferring by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
+    var showPersonMenu by remember { mutableStateOf(false) }
+    var showEditPerson by remember { mutableStateOf(false) }
+    var showDeletePerson by remember { mutableStateOf(false) }
 
     val rows = transactions.filter { it.personId == personId && it.currencyCode == currency }.sortedByDescending { it.transactionDate }
     val custodyBalance = CustodyFinancialSummary.personCustodyBalance(transactions, personId, currency)
     val debt = CustodyFinancialSummary.personDebt(transactions, personId, currency)
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(person.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) },
-        floatingActionButton = { FloatingActionButton(onClick = { if (!current.isClosed) showAdd = true }, modifier = Modifier.semantics { contentDescription = "إضافة عملية" }) { Icon(Icons.Default.Add, null) } }
+        topBar = {
+            TopAppBar(
+                title = { Text(person.name, fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
+                actions = {
+                    IconButton(onClick = { showPersonMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
+                    DropdownMenu(expanded = showPersonMenu, onDismissRequest = { showPersonMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("تعديل بيانات الشخص") },
+                            onClick = { showPersonMenu = false; showEditPerson = true }
+                        )
+                        if (!current.isClosed) {
+                            DropdownMenuItem(
+                                text = { Text("حذف الشخص وعملياته") },
+                                onClick = { showPersonMenu = false; showDeletePerson = true }
+                            )
+                        }
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { if (!current.isClosed) showAdd = true },
+                modifier = Modifier.semantics { contentDescription = "إضافة عملية" }
+            ) { Icon(Icons.Default.Add, null) }
+        }
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                currencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code, fontWeight = FontWeight.Bold) }, modifier = Modifier.weight(1f)) }
+                currencies.forEach { code ->
+                    FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code, fontWeight = FontWeight.Bold) }, modifier = Modifier.weight(1f))
+                }
             }
             Spacer(Modifier.height(10.dp))
             Card(Modifier.fillMaxWidth()) {
@@ -114,7 +148,7 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
             onDismissRequest = { deleting = null },
             title = { Text("حذف العملية") },
             text = { Text("سيتم حذف العملية نهائيًا.") },
-            confirmButton = { TextButton(onClick = { vm.deleteTransaction(transaction.id); deleting = null }) { Text("حذف", color = MaterialTheme.colorScheme.error) } },
+            confirmButton = { TextButton(onClick = { scope.launch { vm.deleteTransaction(transaction.id); deleting = null } }) { Text("حذف", color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }
         )
     }
@@ -127,6 +161,19 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
             onTransfer = { newPersonId, reason -> vm.transferTransactionAndWait(transaction.id, newPersonId, reason) }
         )
     }
+    if (showEditPerson) CustodyPersonEditDialog(vm, person, onDismiss = { showEditPerson = false }, onSaved = { showEditPerson = false })
+    if (showDeletePerson) AlertDialog(
+        onDismissRequest = { showDeletePerson = false },
+        title = { Text("حذف الشخص وعملياته") },
+        text = { Text("سيتم حذف بيانات الشخص وحساباته وجميع عملياته ومرفقاتها نهائيًا. هل تريد المتابعة؟") },
+        confirmButton = {
+            TextButton(onClick = {
+                showDeletePerson = false
+                scope.launch { runCatching { vm.deletePersonAndWait(person.id) }.onSuccess { onBack() } }
+            }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onClick = { showDeletePerson = false }) { Text("إلغاء") } }
+    )
 }
 
 @Composable
@@ -155,14 +202,14 @@ private fun CustodyTransferDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("نقل العملية") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("العملية الحالية: ${money(transaction.amountMinor)} ${transaction.currencyCode} — ${typeLabel(transaction.type)}")
                 Text("الشخص الحالي: ${people.firstOrNull { it.id == currentPersonId }?.name.orEmpty()}")
                 Text("اختر الشخص الجديد", fontWeight = FontWeight.Bold)
-                candidates.forEach { person ->
+                candidates.forEach { p ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = selected == person.id, onClick = { selected = person.id }, enabled = !saving)
-                        Text(person.name)
+                        RadioButton(selected = selected == p.id, onClick = { selected = p.id }, enabled = !saving)
+                        Text(p.name)
                     }
                 }
                 OutlinedTextField(reason, { reason = it; error = null }, Modifier.fillMaxWidth(), label = { Text("سبب النقل") }, minLines = 2, enabled = !saving)
