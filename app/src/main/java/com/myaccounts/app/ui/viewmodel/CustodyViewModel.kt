@@ -45,6 +45,8 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     suspend fun addTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = repo.addTransaction(id, currency, type, personId, amount, description, date, attachments)
     suspend fun updateTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = repo.updateTransaction(id, currency, type, personId, amount, description, date, newAttachments, deleted)
     fun deleteTransaction(id: Long) = viewModelScope.launch { repo.deleteTransaction(id) }
+    suspend fun closeCustodyAndWait(id: Long, yerActualMinor: Long, sarActualMinor: Long, usdActualMinor: Long, notes: String) = repo.closeCustody(id, yerActualMinor, sarActualMinor, usdActualMinor, notes)
+    fun reopenCustody(id: Long) = viewModelScope.launch { repo.reopenCustody(id) }
     fun deleteAttachment(a: CustodyTransactionAttachmentEntity) = viewModelScope.launch { CustodyAttachmentStore(getApplication()).delete(a) }
     fun archive(id: Long) = viewModelScope.launch { repo.archive(id) }
     fun restore(id: Long) = viewModelScope.launch { dao.restoreCustody(id) }
