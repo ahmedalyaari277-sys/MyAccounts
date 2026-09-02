@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -65,6 +68,17 @@ private fun typeLabel(type: String, owner: Boolean, personName: String = ""): St
 private fun custodyStatus(v: Long, owner: Boolean) = when { v > 0 -> if (owner) "متبقي لديه" else "لديه"; v < 0 -> if (owner) "عجز" else "مستحق له"; else -> "متوازن" }
 private fun debtStatus(v: Long, positive: String, negative: String) = when { v > 0 -> positive; v < 0 -> negative; else -> "متوازن" }
 private fun balanceColor(v: Long) = if (v > 0) Due else if (v < 0) Owed else androidx.compose.ui.graphics.Color.Unspecified
+
+@Composable
+private fun Modifier.keepFocusedFieldVisible(): Modifier {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return this
+        .bringIntoViewRequester(bringIntoViewRequester)
+        .onFocusEvent { state ->
+            if (state.isFocused) scope.launch { bringIntoViewRequester.bringIntoView() }
+        }
+}
 
 @Composable
 fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, onBack: () -> Unit, dialogWidth: Float = .92f) {
@@ -189,11 +203,11 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(amount, { amount = it; error = null }, Modifier.weight(1.35f), label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = !saving, isError = error != null, trailingIcon = { CalculatorButton(onClick = calc::open) })
+                    OutlinedTextField(amount, { amount = it; error = null }, Modifier.weight(1.35f).keepFocusedFieldVisible(), label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = !saving, isError = error != null, trailingIcon = { CalculatorButton(onClick = calc::open) })
                     OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, Modifier.weight(1f), label = { Text("التاريخ") }, readOnly = true, singleLine = true, enabled = !saving, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "اختيار التاريخ") } })
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
+                OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
                 Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyLedgerCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
                 Text("نوع العملية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
