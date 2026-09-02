@@ -43,6 +43,7 @@ class CustodyTransferDataInstrumentedTest {
                 type = CustodyTransactionType.RECEIVED_FROM_ORG,
                 personId = null,
                 amountMinor = 125000L,
+                categoryName = "اختبار",
                 description = "اختبار نقل",
                 date = System.currentTimeMillis()
             )
