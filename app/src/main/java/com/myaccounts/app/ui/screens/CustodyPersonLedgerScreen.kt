@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +42,19 @@ private fun typeLabel(type: String): String = when (type) {
     CustodyTransactionType.PERSON_LOAN_TO_OWNER -> "تسليف لحامل العهدة"
     CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> "سداد تسليف للشخص"
     else -> type
+}
+
+@Composable
+private fun Modifier.keepFocusedFieldVisible() : Modifier {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return this
+        .bringIntoViewRequester(bringIntoViewRequester)
+        .onFocusEvent { state ->
+            if (state.isFocused) {
+                scope.launch { bringIntoViewRequester.bringIntoView() }
+            }
+        }
 }
 
 @Composable
@@ -172,8 +188,8 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
                 scope.launch { runCatching { vm.deletePersonAndWait(person.id) }.onSuccess { onBack() } }
             }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
         },
-        dismissButton = { TextButton(onClick = { showDeletePerson = false }) { Text("إلغاء") } }
-    )
+        dismissButton = { TextButton(onClick = { showDeletePerson = false }) { Text("إلغاء") }
+    })
 }
 
 @Composable
@@ -202,7 +218,7 @@ private fun CustodyTransferDialog(
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("نقل العملية") },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("العملية الحالية: ${money(transaction.amountMinor)} ${transaction.currencyCode} — ${typeLabel(transaction.type)}")
                 Text("الشخص الحالي: ${people.firstOrNull { it.id == currentPersonId }?.name.orEmpty()}")
                 Text("اختر الشخص الجديد", fontWeight = FontWeight.Bold)
@@ -212,7 +228,7 @@ private fun CustodyTransferDialog(
                         Text(p.name)
                     }
                 }
-                OutlinedTextField(reason, { reason = it; error = null }, Modifier.fillMaxWidth(), label = { Text("سبب النقل") }, minLines = 2, enabled = !saving)
+                OutlinedTextField(reason, { reason = it; error = null }, Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "سبب النقل" }, label = { Text("سبب النقل") }, minLines = 2, enabled = !saving)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
