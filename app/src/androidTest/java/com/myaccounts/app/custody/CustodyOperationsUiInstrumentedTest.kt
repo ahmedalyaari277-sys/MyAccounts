@@ -66,8 +66,9 @@ class CustodyOperationsUiInstrumentedTest {
         clickClickable(By.text(custodyName), "Open owner operations")
         assertTrue(device.wait(Until.hasObject(By.text("عمليات $custodyName")), 10_000))
         assertTrue(device.wait(Until.hasObject(By.text("YER")), 5_000))
-        clickAction("مرتجع للجهة")
+        clickClickable(By.desc("إضافة عملية"), "Add owner ledger operation")
         waitForOperationDialog(false)
+        clickAction("مرتجع للجهة")
         setField("المبلغ", "1000")
         clickSaveOperation()
         val custody = db.custodyDao().getCustodyByExternalId(externalId)!!
@@ -91,7 +92,7 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Person did not appear in the custody UI after save", device.wait(Until.hasObject(By.text("اختبار شخص واجهة")), 10_000))
         val custody = db.custodyDao().getCustodyByExternalId(externalId)!!
         val person = waitForPerson(custody.id, "اختبار شخص واجهة")
-        clickClickable(first(By.descContains("إضافة عملية سريعة"), By.text("اختبار شخص واجهة")) ?: error("Person card not found"), "Person quick/card action")
+        clickClickable(By.desc("إضافة عملية سريعة لـ اختبار شخص واجهة"), "Person quick operation")
         waitForOperationDialog(false)
         setField("المبلغ", "250")
         setField("التفاصيل", "صرف واجهة")
