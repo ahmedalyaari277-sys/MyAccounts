@@ -17,7 +17,7 @@ typealias FontWeight = ComposeFontWeight
 fun Modifier.horizontalScroll(
     state: ScrollState,
     reverseScrolling: Boolean = false
-): Modifier = foundationHorizontalScroll(this, state, reverseScrolling = reverseScrolling)
+): Modifier = this.foundationHorizontalScroll(state, reverseScrolling)
 
 fun CustodyViewModel.addTransaction(
     id: Long,
