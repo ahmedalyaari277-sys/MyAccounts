@@ -201,31 +201,52 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
     DisposableEffect(calc, transaction?.id) { calc.setResultConsumer { amount = it; error = null }; onDispose { calc.setResultConsumer(null) } }
     val availableTypes = if (owner) listOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.RETURNED_TO_ORG, CustodyTransactionType.ORG_LOAN_FROM_OWNER, CustodyTransactionType.ORG_LOAN_REPAYMENT) else listOf(CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.PERSON_LOAN_TO_OWNER, CustodyTransactionType.OWNER_REPAY_PERSON_LOAN)
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Card(Modifier.fillMaxWidth(dialogWidth).imePadding(), shape = MaterialTheme.shapes.large) {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(amount, { amount = it; error = null }, Modifier.weight(1.35f).keepFocusedFieldVisible(), label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = !saving, isError = error != null, trailingIcon = { CalculatorButton(onClick = calc::open) })
-                    OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, Modifier.weight(1f), label = { Text("التاريخ") }, readOnly = true, singleLine = true, enabled = !saving, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "اختيار التاريخ") } })
+        Card(
+            Modifier
+                .fillMaxWidth(dialogWidth)
+                .fillMaxHeight(0.9f)
+                .imePadding(),
+            shape = MaterialTheme.shapes.large
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(if (transaction == null) "إضافة عملية" else "تعديل العملية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(amount, { amount = it; error = null }, Modifier.weight(1.35f).keepFocusedFieldVisible(), label = { Text("المبلغ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = !saving, isError = error != null, trailingIcon = { CalculatorButton(onClick = calc::open) })
+                        OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, Modifier.weight(1f), label = { Text("التاريخ") }, readOnly = true, singleLine = true, enabled = !saving, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "اختيار التاريخ") } })
+                    }
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    OutlinedTextField(categoryName, { categoryName = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "بند العهدة" }, label = { Text("بند العهدة") }, singleLine = true, enabled = !saving)
+                    OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
+                    Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyLedgerCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
+                    Text("نوع العملية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) { availableTypes.forEach { kind -> FilterChip(selected = type == kind, onClick = { if (!saving) type = kind }, label = { Text(typeLabel(kind, owner)) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = typeLabel(kind, owner) }) } }
+                    if (transaction != null && visibleExisting.isNotEmpty()) {
+                        Text("المرفقات الحالية: ${visibleExisting.size}", fontWeight = FontWeight.Bold)
+                        visibleExisting.forEach { a -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AttachFile, null); Text(a.fileName, Modifier.weight(1f), maxLines = 1); IconButton(enabled = !saving, onClick = { deletedAttachments = deletedAttachments + a }) { Icon(Icons.Default.Delete, "حذف المرفق") } } }
+                    }
+                    TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
                 }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                OutlinedTextField(categoryName, { categoryName = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "بند العهدة" }, label = { Text("بند العهدة") }, singleLine = true, enabled = !saving)
-                OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
-                Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyLedgerCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
-                Text("نوع العملية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) { availableTypes.forEach { kind -> FilterChip(selected = type == kind, onClick = { if (!saving) type = kind }, label = { Text(typeLabel(kind, owner)) }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = typeLabel(kind, owner) }) } }
-                if (transaction != null && visibleExisting.isNotEmpty()) {
-                    Text("المرفقات الحالية: ${visibleExisting.size}", fontWeight = FontWeight.Bold)
-                    visibleExisting.forEach { a -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AttachFile, null); Text(a.fileName, Modifier.weight(1f), maxLines = 1); IconButton(enabled = !saving, onClick = { deletedAttachments = deletedAttachments + a }) { Icon(Icons.Default.Delete, "حذف المرفق") } } }
-                }
-                TransactionAttachmentPicker(selectedAttachments = attachments, onAttachmentsChanged = { if (!saving) attachments = it })
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .imePadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(enabled = !saving, onClick = {
                         val parsed = parseAmount(amount)
                         if (parsed == null || parsed <= 0L) { error = "أدخل مبلغًا صحيحًا أكبر من صفر."; return@Button }
                         saving = true; error = null
-                        val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }
+                        val selected = attachments.map { CustodyAttachmentStorage.SelectedAttachment(it.uri, it.fileName, it.mimeType) }
                         scope.launch {
                             runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, parsed, categoryName.trim(), details.trim(), date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, parsed, categoryName.trim(), details.trim(), date, selected, deletedAttachments) }
                                 .onSuccess { keyboard?.hide(); calc.close(); saving = false; onFinished() }
