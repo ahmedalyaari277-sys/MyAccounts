@@ -92,7 +92,7 @@ class CustodyOperationsUiInstrumentedTest {
         assertTrue("Person did not appear in the custody UI after save", device.wait(Until.hasObject(By.text("اختبار شخص واجهة")), 10_000))
         val custody = db.custodyDao().getCustodyByExternalId(externalId)!!
         val person = waitForPerson(custody.id, "اختبار شخص واجهة")
-        clickClickable(By.desc("إضافة عملية سريعة لـ اختبار شخص واجهة"), "Person quick operation")
+        clickPersonQuickAction("اختبار شخص واجهة")
         waitForOperationDialog(false)
         setField("المبلغ", "250")
         setField("التفاصيل", "صرف واجهة")
@@ -169,6 +169,19 @@ class CustodyOperationsUiInstrumentedTest {
     }
     private fun hideKeyboard() {
         if (device.findObject(By.focused(true))?.className == "android.widget.EditText") { device.pressBack(); device.waitForIdle() }
+    }
+    private fun clickPersonQuickAction(personName: String) {
+        val personLabel = device.wait(Until.findObject(By.text(personName)), 10_000) ?: error("Person '$personName' not found")
+        var node: UiObject2? = personLabel
+        repeat(6) {
+            val current = node ?: return@repeat
+            current.findObject(By.desc("إضافة عملية سريعة"))?.let {
+                clickClickable(it, "Person quick action")
+                return
+            }
+            node = runCatching { current.parent }.getOrNull()
+        }
+        error("Person quick action not found for '$personName'")
     }
     private fun clickAction(text: String) { clickClickable(first(By.text(text), By.desc(text)) ?: error("Action '$text' not found"), text) }
     private fun waitForText(text: String) { assertTrue("Text '$text' not found", device.wait(Until.hasObject(By.text(text)), 10_000)) }
