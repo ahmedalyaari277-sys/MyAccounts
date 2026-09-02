@@ -82,7 +82,7 @@ class CustodyOperationsUiInstrumentedTest {
     @Test
     fun custodyPersonCardQuickOperationLedgerEditDeleteAndCurrencyChangeWorkEndToEnd() = runBlocking {
         openCustodyDetail()
-        clickAction("إضافة شخص")
+        clickAction("إضافة طرف")
         waitForPersonDialog()
         setField("الاسم", "اختبار شخص واجهة")
         setField("الهاتف", "777000000")
@@ -154,7 +154,7 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun waitForPersonDialog() {
-        assertTrue(device.wait(Until.hasObject(By.text("إضافة شخص")), 10_000))
+        assertTrue(device.wait(Until.hasObject(By.text("إضافة طرف")), 10_000))
         assertTrue(device.wait(Until.hasObject(By.desc("الاسم")), 5_000))
         assertTrue(device.wait(Until.hasObject(By.desc("الهاتف")), 5_000))
     }
@@ -176,7 +176,8 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun clickSaveOperation() {
         hideKeyboard()
-        clickClickable(By.text("حفظ"), "Save operation")
+        val save = first(By.desc("حفظ العملية"), By.text("حفظ"), By.desc("حفظ")) ?: error("Save operation not found")
+        clickClickable(save, "Save operation")
         assertTrue("Operation dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 5_000) || device.wait(Until.gone(By.text("تعديل العملية")), 10_000))
     }
 
