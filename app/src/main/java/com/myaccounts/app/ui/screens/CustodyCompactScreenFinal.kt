@@ -86,6 +86,12 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
                 title = { Text(current.name, fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = {
+                    if (!current.isClosed) {
+                        IconButton(
+                            onClick = { addPerson = true },
+                            modifier = Modifier.semantics { contentDescription = "إضافة طرف" }
+                        ) { Icon(Icons.Default.Add, contentDescription = "إضافة طرف") }
+                    }
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         if (!current.isClosed) DropdownMenuItem(text = { Text("إغلاق وتسوية العهدة") }, onClick = { menu = false; settlement = true })
@@ -193,7 +199,7 @@ private fun FinalAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEn
             OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 3, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = name.isNotBlank() && !saving, onClick = { saving = true; scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(), partyType = partyType)) }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ الشخص" } } }, modifier = Modifier.weight(1f)) { Text("حفظ") }
+                Button(enabled = name.isNotBlank() && !saving, onClick = { saving = true; scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(), partyType = partyType)) }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ الشخص" } } }, modifier = Modifier.weight(1f).semantics { contentDescription = "حفظ الشخص" }) { Text("حفظ") }
                 OutlinedButton(enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("إلغاء") }
             }
         } }
