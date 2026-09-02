@@ -109,12 +109,14 @@ class BackupRestoreInstrumentedTest {
         db.execSQL("UPDATE transactions SET description=? WHERE id=?", arrayOf("بيانات الهاتف المعدلة", 930101L))
         device = UiDevice.getInstance(instrumentation)
         val ui = device!!
-        ui.pressHome()
-        instrumentation.targetContext.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        assertTrue("MyAccounts did not become visible", ui.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
+        instrumentation.targetContext.startActivity(
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        )
+        assertTrue("MyAccounts gateway did not become visible", ui.wait(Until.hasObject(By.text("العُهَد")), 15_000))
         clickFresh(ui, By.text("دفتر الحسابات"), "Accounts gateway button")
+        assertTrue("Accounts home did not become visible", ui.wait(Until.hasObject(By.desc("النسخ الاحتياطي والاستعادة")), 10_000))
         clickFresh(ui, By.desc("النسخ الاحتياطي والاستعادة"), "Backup/restore button")
-        assertTrue("Backup restore screen did not open", ui.wait(Until.hasObject(By.text("استعادة نسخة احتياطية")), 10_000))
+        assertTrue("Backup restore screen did not open", ui.wait(Until.hasObject(By.text("النسخ الاحتياطي والمزامنة")), 10_000))
         clickFresh(ui, By.text("استعادة نسخة احتياطية"), "Restore backup button")
         assertTrue("Android system file picker did not open", ui.wait(Until.hasObject(By.pkg("com.google.android.documentsui")), 10_000))
         selectBackupFromDocumentsUi(ui, backupFileName)
