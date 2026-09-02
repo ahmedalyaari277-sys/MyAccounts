@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +46,19 @@ private val finalCurrencies = listOf("YER", "SAR", "USD")
 private fun finalMoney(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun finalParse(v: String): Long? = runCatching { BigDecimal(v.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
 private fun finalStatus(v: Long, positive: String, negative: String) = when { v > 0 -> positive; v < 0 -> negative; else -> "متوازن" }
+
+@Composable
+private fun Modifier.keepFocusedFieldVisible(): Modifier {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return this
+        .bringIntoViewRequester(bringIntoViewRequester)
+        .onFocusEvent { state ->
+            if (state.isFocused) {
+                scope.launch { bringIntoViewRequester.bringIntoView() }
+            }
+        }
+}
 
 @Composable
 fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () -> Unit, onPerson: (Long) -> Unit, onOwner: () -> Unit) {
@@ -158,11 +174,11 @@ private fun FinalAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEn
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Card(Modifier.fillMaxWidth(.95f).imePadding().navigationBarsPadding()) { Column(Modifier.fillMaxWidth().heightIn(max = 650.dp).verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("إضافة شخص", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            OutlinedTextField(value = name, onValueChange = { name = it; error = null }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(value = name, onValueChange = { name = it; error = null }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true, enabled = !saving)
             existing.filter { name.isNotBlank() && it.name.contains(name.trim(), true) }.take(4).forEach { p -> TextButton(enabled = !saving, onClick = { name = p.name; phone = p.phone; address = p.address; notes = p.notes }) { Text(p.name) } }
-            OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, enabled = !saving)
-            OutlinedTextField(value = address, onValueChange = { address = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "العنوان" }, label = { Text("العنوان") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 3, enabled = !saving)
+            OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, enabled = !saving)
+            OutlinedTextField(value = address, onValueChange = { address = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "العنوان" }, label = { Text("العنوان") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 3, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = name.isNotBlank() && !saving, onClick = { saving = true; scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())) }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ الشخص" } } }, modifier = Modifier.weight(1f)) { Text("حفظ") }
@@ -188,7 +204,7 @@ private fun FinalSettlementDialog(vm: CustodyViewModel, custody: CustodyEntity, 
             FinalSettlementCurrency("YER", books[0], yer, { yer = it }, !saving)
             FinalSettlementCurrency("SAR", books[1], sar, { sar = it }, !saving)
             FinalSettlementCurrency("USD", books[2], usd, { usd = it }, !saving)
-            OutlinedTextField(value = notes, onValueChange = { notes = it; error = null }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "ملاحظات التسوية" }, label = { Text("الملاحظات / سبب العجز أو الفائض") }, minLines = 3, enabled = !saving)
+            OutlinedTextField(value = notes, onValueChange = { notes = it; error = null }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "ملاحظات التسوية" }, label = { Text("الملاحظات / سبب العجز أو الفائض") }, minLines = 3, enabled = !saving)
             if (!actuals.all { it != null }) Text("أدخل الموجود الفعلي للعملات الثلاث.", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
             if (orgDebts.any { it != 0L }) Text("لا يمكن الإغلاق قبل تسوية ذمة حامل العهدة مع الجهة.", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
             if (hasDifference && notes.trim().isBlank()) Text("اكتب سبب العجز أو الفائض في الملاحظات.", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
@@ -207,7 +223,7 @@ private fun FinalSettlementCurrency(code: String, book: Long, actualText: String
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(when (code) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; else -> "دولار أمريكي" }, fontWeight = FontWeight.Bold); Text(code, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
         AutoSettlement("الرصيد الدفتري", finalMoney(kotlin.math.abs(book)), if (book >= 0) "متبقي" else "عجز")
-        OutlinedTextField(value = actualText, onValueChange = onActual, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "الموجود الفعلي $code" }, label = { Text("الموجود الفعلي") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = enabled)
+        OutlinedTextField(value = actualText, onValueChange = onActual, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الموجود الفعلي $code" }, label = { Text("الموجود الفعلي") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = enabled)
         if (actual != null) { AutoSettlement("الفرق", finalMoney(kotlin.math.abs(diff ?: 0L)), when { diff!! > 0 -> "فائض"; diff < 0 -> "عجز"; else -> "متوازن" }); AutoSettlement("العجز", finalMoney(deficit), if (deficit > 0) "يحتاج سببًا" else "لا يوجد"); AutoSettlement("الفائض", finalMoney(surplus), if (surplus > 0) "موجود" else "لا يوجد") }
     } }
 }
