@@ -2,15 +2,31 @@ package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
+
+@Composable
+private fun Modifier.keepFocusedFieldVisible(): Modifier {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return this
+        .bringIntoViewRequester(bringIntoViewRequester)
+        .onFocusEvent { state ->
+            if (state.isFocused) {
+                scope.launch { bringIntoViewRequester.bringIntoView() }
+            }
+        }
+}
 
 @Composable
 fun CustodyPersonEditDialog(vm: CustodyViewModel, person: CustodyPersonEntity, onDismiss: () -> Unit, onSaved: () -> Unit) {
@@ -23,10 +39,10 @@ fun CustodyPersonEditDialog(vm: CustodyViewModel, person: CustodyPersonEntity, o
     val scope = rememberCoroutineScope()
     AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات الشخص") }, text = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("الاسم") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
+            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الاسم") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = {
@@ -46,10 +62,10 @@ fun CustodyOwnerEditDialog(vm: CustodyViewModel, custody: CustodyEntity, onDismi
     val scope = rememberCoroutineScope()
     AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات حامل العهدة") }, text = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("اسم حامل العهدة") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
+            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("اسم حامل العهدة") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الملاحظات") }, minLines = 2, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = {
@@ -69,10 +85,10 @@ fun CustodyDataEditDialog(vm: CustodyViewModel, custody: CustodyEntity, onDismis
     val scope = rememberCoroutineScope()
     AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات العهدة والجهة") }, text = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth(), label = { Text("اسم الجهة") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth(), label = { Text("هاتف الجهة") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth(), label = { Text("عنوان الجهة") }, singleLine = true, enabled = !saving)
-            OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات الجهة") }, minLines = 2, enabled = !saving)
+            OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("اسم الجهة") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("هاتف الجهة") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("عنوان الجهة") }, singleLine = true, enabled = !saving)
+            OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("ملاحظات الجهة") }, minLines = 2, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { Button(enabled = organization.isNotBlank() && !saving, onClick = {
