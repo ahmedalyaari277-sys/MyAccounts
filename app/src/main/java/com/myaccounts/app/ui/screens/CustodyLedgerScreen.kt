@@ -127,7 +127,7 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
                     SummaryBalance("العهدة", custodyBalance, custodyStatus(custodyBalance, owner))
                     if (owner) {
                         SummaryBalance("ذمة الجهة", orgDebt, debtStatus(orgDebt, "مستحق له", "مستحق عليه"))
-                        SummaryBalance("ذمم الأشخاص", peopleDebt, debtStatus(peopleDebt, "له على الأشخاص", "عليه للأشخاص"))
+                        SummaryBalance("ذمم الأطراف", peopleDebt, debtStatus(peopleDebt, "له على الأطراف", "عليه للأشخاص"))
                     } else SummaryBalance("الذمة", peopleDebt, debtStatus(peopleDebt, "مستحق له", "مستحق عليه"))
                 }
             }
@@ -151,6 +151,7 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
                                     Text(SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(t.transactionDate)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text("${money(t.amountMinor)} $selectedCurrency", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                if (t.categoryName.isNotBlank()) Text("بند: ${t.categoryName}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                                 if (t.description.isNotBlank()) Text(t.description, style = MaterialTheme.typography.bodySmall)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                     if (attachCount > 0) Icon(Icons.Default.AttachFile, "المرفقات")
@@ -188,6 +189,7 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
     var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }
     var type by remember(transaction?.id) { mutableStateOf(transaction?.type ?: initialType) }
     var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { money(it.amountMinor) } ?: "") }
+    var categoryName by remember(transaction?.id) { mutableStateOf(transaction?.categoryName ?: "") }
     var details by remember(transaction?.id) { mutableStateOf(transaction?.description ?: "") }
     var date by remember(transaction?.id) { mutableStateOf(transaction?.transactionDate ?: System.currentTimeMillis()) }
     var saving by remember(transaction?.id) { mutableStateOf(false) }
@@ -207,6 +209,7 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
                     OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, Modifier.weight(1f), label = { Text("التاريخ") }, readOnly = true, singleLine = true, enabled = !saving, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "اختيار التاريخ") } })
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                OutlinedTextField(categoryName, { categoryName = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "بند العهدة" }, label = { Text("بند العهدة") }, singleLine = true, enabled = !saving)
                 OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
                 Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { custodyLedgerCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }) } }
@@ -224,7 +227,7 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
                         saving = true; error = null
                         val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }
                         scope.launch {
-                            runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, parsed, details.trim(), date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, parsed, details.trim(), date, selected, deletedAttachments) }
+                            runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, parsed, categoryName.trim(), details.trim(), date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, parsed, categoryName.trim(), details.trim(), date, selected, deletedAttachments) }
                                 .onSuccess { keyboard?.hide(); calc.close(); saving = false; onFinished() }
                                 .onFailure { saving = false; error = it.message ?: "تعذر حفظ العملية" }
                         }

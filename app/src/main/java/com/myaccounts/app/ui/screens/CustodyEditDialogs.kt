@@ -31,14 +31,20 @@ private fun Modifier.keepFocusedFieldVisible(): Modifier {
 @Composable
 fun CustodyPersonEditDialog(vm: CustodyViewModel, person: CustodyPersonEntity, onDismiss: () -> Unit, onSaved: () -> Unit) {
     var name by remember { mutableStateOf(person.name) }
+    var partyType by remember { mutableStateOf(person.partyType) }
     var phone by remember { mutableStateOf(person.phone) }
     var address by remember { mutableStateOf(person.address) }
     var notes by remember { mutableStateOf(person.notes) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات الشخص") }, text = {
+    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("تعديل بيانات الطرف") }, text = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("نوع الطرف", fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(selected = partyType == "PERSON", onClick = { partyType = "PERSON" }, label = { Text("شخص") })
+                FilterChip(selected = partyType == "ENTITY", onClick = { partyType = "ENTITY" }, label = { Text("جهة") })
+            }
             OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الاسم") }, singleLine = true, enabled = !saving)
             OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("الهاتف") }, singleLine = true, enabled = !saving)
             OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible(), label = { Text("العنوان") }, singleLine = true, enabled = !saving)
@@ -47,7 +53,7 @@ fun CustodyPersonEditDialog(vm: CustodyViewModel, person: CustodyPersonEntity, o
         }
     }, confirmButton = { Button(enabled = name.isNotBlank() && !saving, onClick = {
         saving = true
-        scope.launch { runCatching { vm.updatePersonAndWait(person.copy(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())) }.onSuccess { saving = false; onSaved() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ التعديل" } }
+        scope.launch { runCatching { vm.updatePersonAndWait(person.copy(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(), partyType = partyType)) }.onSuccess { saving = false; onSaved() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ التعديل" } }
     }) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") } }, dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } })
 }
 

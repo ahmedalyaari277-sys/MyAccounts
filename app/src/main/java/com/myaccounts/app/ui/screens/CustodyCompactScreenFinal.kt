@@ -103,10 +103,10 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
             item { FinalOwnerCard(current, accounts, transactions, people, !current.isClosed, onOwner) { quickOwner = true; quickPerson = null } }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("الأشخاص", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("الأطراف", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.semantics { contentDescription = "ترتيب الأشخاص" }) { Icon(Icons.Default.Sort, null) }
-                        TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة شخص" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة") }
+                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
+                        TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة") }
                     }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         DropdownMenuItem(text = { Text("أحدث عملية") }, onClick = { latestFirst = true; sortMenu = false })
@@ -114,9 +114,20 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
                     }
                 }
             }
-            item { OutlinedTextField(value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بحث في الأشخاص" }, label = { Text("بحث في الأشخاص") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true) }
+            item { OutlinedTextField(value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "بحث في الأطراف" }, label = { Text("بحث في الأطراف") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true) }
+            item {
+                val categories = transactions.map { it.categoryName.trim() }.filter { it.isNotBlank() }.distinct().sorted()
+                if (categories.isNotEmpty()) {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("بنود العهدة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            categories.forEach { category -> SuggestionChip(onClick = {}, label = { Text(category) }) }
+                        }
+                    }
+                }
+            }
             items(shown, key = { it.id }) { person -> FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) { quickOwner = false; quickPerson = person.id } }
-            if (shown.isEmpty()) item { Text(if (search.isBlank()) "لا يوجد أشخاص في هذه العهدة" else "لا توجد نتائج مطابقة", Modifier.padding(10.dp)) }
+            if (shown.isEmpty()) item { Text(if (search.isBlank()) "لا يوجد أطراف في هذه العهدة" else "لا توجد نتائج مطابقة", Modifier.padding(10.dp)) }
         }
     }
 
@@ -148,8 +159,8 @@ private fun FinalOwnerCard(custody: CustodyEntity, accounts: List<CustodyAccount
                 Column(Modifier.weight(1f)) { Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text("حامل العهدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             HorizontalDivider()
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text("العملة", Modifier.weight(.8f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("العهدة", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("ذمة الجهة", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("ذمم الأشخاص", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
-            finalCurrencies.forEach { code -> val s = CustodyFinancialSummary.ownerDisplay(transactions, accounts, people, code); Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { Text(code, Modifier.weight(.8f), fontWeight = FontWeight.Bold); FinalMetric(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز"), Modifier.weight(1.2f)); FinalMetric(finalMoney(kotlin.math.abs(s.organizationDebtMinor)), finalStatus(s.organizationDebtMinor, "مستحق له", "مستحق عليه"), Modifier.weight(1.2f)); FinalMetric(finalMoney(kotlin.math.abs(s.peopleDebtMinor)), finalStatus(s.peopleDebtMinor, "له على الأشخاص", "عليه للأشخاص"), Modifier.weight(1.3f)) } }
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text("العملة", Modifier.weight(.8f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("العهدة", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("ذمة الجهة", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("ذمم الأطراف", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
+            finalCurrencies.forEach { code -> val s = CustodyFinancialSummary.ownerDisplay(transactions, accounts, people, code); Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { Text(code, Modifier.weight(.8f), fontWeight = FontWeight.Bold); FinalMetric(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز"), Modifier.weight(1.2f)); FinalMetric(finalMoney(kotlin.math.abs(s.organizationDebtMinor)), finalStatus(s.organizationDebtMinor, "مستحق له", "مستحق عليه"), Modifier.weight(1.2f)); FinalMetric(finalMoney(kotlin.math.abs(s.peopleDebtMinor)), finalStatus(s.peopleDebtMinor, "له على الأطراف", "عليه للأشخاص"), Modifier.weight(1.3f)) } }
         }
     }
 }
@@ -158,7 +169,8 @@ private fun FinalOwnerCard(custody: CustodyEntity, accounts: List<CustodyAccount
 private fun FinalPersonCard(person: CustodyPersonEntity, transactions: List<CustodyTransactionEntity>, enabled: Boolean, onClick: () -> Unit, onQuick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.size(40.dp).semantics { contentDescription = "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, null) }; Column(Modifier.weight(1f)) { Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.size(40.dp).semantics { contentDescription = "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, null) }; Column(Modifier.weight(1f)) { Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text(if (person.partyType == "ENTITY") "جهة" else "شخص", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text("العملة", Modifier.weight(.9f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("العهدة", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("الذمة", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
             finalCurrencies.forEach { code -> val balance = CustodyFinancialSummary.personCustodyBalance(transactions, person.id, code); val debt = CustodyFinancialSummary.personDebt(transactions, person.id, code); Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { Text(code, Modifier.weight(.9f), fontWeight = FontWeight.Bold); FinalMetric(finalMoney(kotlin.math.abs(balance)), finalStatus(balance, "لديه", "مستحق له"), Modifier.weight(1.3f)); FinalMetric(finalMoney(kotlin.math.abs(debt)), finalStatus(debt, "مستحق له", "مستحق عليه"), Modifier.weight(1.3f)) } }
@@ -170,10 +182,10 @@ private fun FinalPersonCard(person: CustodyPersonEntity, transactions: List<Cust
 
 @Composable
 private fun FinalAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit) {
-    var name by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var address by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }; var saving by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }; val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf("") }; var partyType by remember { mutableStateOf("PERSON") }; var phone by remember { mutableStateOf("") }; var address by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }; var saving by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }; val scope = rememberCoroutineScope()
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Card(Modifier.fillMaxWidth(.95f).imePadding().navigationBarsPadding()) { Column(Modifier.fillMaxWidth().heightIn(max = 650.dp).verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("إضافة شخص", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("إضافة طرف", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = name, onValueChange = { name = it; error = null }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الاسم" }, label = { Text("الاسم") }, singleLine = true, enabled = !saving)
             existing.filter { name.isNotBlank() && it.name.contains(name.trim(), true) }.take(4).forEach { p -> TextButton(enabled = !saving, onClick = { name = p.name; phone = p.phone; address = p.address; notes = p.notes }) { Text(p.name) } }
             OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الهاتف" }, label = { Text("الهاتف") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, enabled = !saving)
@@ -181,7 +193,7 @@ private fun FinalAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEn
             OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الملاحظات" }, label = { Text("الملاحظات") }, minLines = 3, enabled = !saving)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = name.isNotBlank() && !saving, onClick = { saving = true; scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim())) }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ الشخص" } } }, modifier = Modifier.weight(1f)) { Text("حفظ") }
+                Button(enabled = name.isNotBlank() && !saving, onClick = { saving = true; scope.launch { runCatching { onSave(CustodyPersonEntity(custodyId = custodyId, name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(), partyType = partyType)) }.onSuccess { saving = false; onDismiss() }.onFailure { saving = false; error = it.message ?: "تعذر حفظ الشخص" } } }, modifier = Modifier.weight(1f)) { Text("حفظ") }
                 OutlinedButton(enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("إلغاء") }
             }
         } }
@@ -200,7 +212,7 @@ private fun FinalSettlementDialog(vm: CustodyViewModel, custody: CustodyEntity, 
     Dialog(onDismissRequest = { if (!saving) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Card(Modifier.fillMaxWidth(.96f).imePadding().navigationBarsPadding()) { Column(Modifier.fillMaxWidth().heightIn(max = 700.dp).verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Text("إغلاق وتسوية العهدة", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("أدخل الموجود الفعلي فقط. الرصيد الدفتري والفرق والعجز والفائض وحالة التسوية تظهر تلقائيًا. ذمم الأشخاص لا تمنع إغلاق العهدة.", style = MaterialTheme.typography.bodySmall)
+            Text("أدخل الموجود الفعلي فقط. الرصيد الدفتري والفرق والعجز والفائض وحالة التسوية تظهر تلقائيًا. ذمم الأطراف لا تمنع إغلاق العهدة.", style = MaterialTheme.typography.bodySmall)
             FinalSettlementCurrency("YER", books[0], yer, { yer = it }, !saving)
             FinalSettlementCurrency("SAR", books[1], sar, { sar = it }, !saving)
             FinalSettlementCurrency("USD", books[2], usd, { usd = it }, !saving)
