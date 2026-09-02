@@ -246,7 +246,7 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
                         val parsed = parseAmount(amount)
                         if (parsed == null || parsed <= 0L) { error = "أدخل مبلغًا صحيحًا أكبر من صفر."; return@Button }
                         saving = true; error = null
-                        val selected = attachments.map { CustodyAttachmentStorage.SelectedAttachment(it.uri, it.fileName, it.mimeType) }
+                        val selected = attachments.map { CustodyAttachmentStorage.Selected(it.uri, it.fileName, it.mimeType) }
                         scope.launch {
                             runCatching { if (transaction == null) vm.addTransactionAndWait(custodyId, currency, type, personId, parsed, categoryName.trim(), details.trim(), date, selected) else vm.updateTransactionAndWait(transaction.id, currency, type, personId, parsed, categoryName.trim(), details.trim(), date, selected, deletedAttachments) }
                                 .onSuccess { keyboard?.hide(); calc.close(); saving = false; onFinished() }
