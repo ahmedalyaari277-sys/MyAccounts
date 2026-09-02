@@ -91,12 +91,16 @@ class ExcelImportExportInstrumentedTest {
         val import = ExcelDataManager.import(context, excelUri!!)
         assertTrue("Import failed: ${import.exceptionOrNull()}", import.isSuccess)
         assertEquals(1, import.getOrNull()?.peopleAdded)
-        assertEquals(1, import.getOrNull()?.accountsAdded)
+        assertEquals(3, import.getOrNull()?.accountsAdded)
         assertEquals(1, import.getOrNull()?.transactionsAdded)
 
         assertEquals(1, countPeopleByExternalId("P-EXCEL-001"))
         assertEquals(1, countPeopleByExternalId("P-ARCHIVED-001"))
         assertEquals(1, countTransactionsByExternalId("T-EXCEL-001"))
+        db.query("SELECT COUNT(*) FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId='P-EXCEL-001')").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(3, c.getInt(0))
+        }
         db.query("SELECT balanceMinor FROM currency_accounts WHERE personId=(SELECT id FROM people WHERE externalId='P-EXCEL-001') AND currencyCode='YER'").use { c ->
             assertTrue(c.moveToFirst())
             assertEquals(123450L, c.getLong(0))

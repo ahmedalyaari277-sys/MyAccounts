@@ -157,5 +157,13 @@ class BackupRestoreInstrumentedTest {
     private fun waitForDocumentsUiToSettle(ui: UiDevice) { ui.waitForIdle(); Thread.sleep(300) }
     private fun firstMatchingSelector(ui: UiDevice, vararg selectors: BySelector): UiObject2? = selectors.firstNotNullOfOrNull { ui.findObject(it) }
     private fun clickFresh(ui: UiDevice, selector: BySelector, label: String) { val object2 = ui.wait(Until.findObject(selector), 10_000) ?: error("$label was not found"); clickFresh(ui, object2, label) }
-    private fun clickFresh(ui: UiDevice, object2: UiObject2, label: String) { if (!object2.isClickable) error("$label was not clickable"); object2.click(); ui.waitForIdle() }
+    private fun clickFresh(ui: UiDevice, object2: UiObject2, label: String) {
+        var node: UiObject2? = object2
+        repeat(8) {
+            val current = node ?: return@repeat
+            if (current.isClickable) { current.click(); ui.waitForIdle(); return }
+            node = runCatching { current.parent }.getOrNull()
+        }
+        error("$label clickable ancestor not found")
+    }
 }
