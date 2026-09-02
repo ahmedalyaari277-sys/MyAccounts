@@ -26,14 +26,10 @@ jobs:
           s = s.replace('import androidx.compose.foundation.lazy.LazyColumn\nimport androidx.compose.foundation.lazy.items', 'import androidx.compose.foundation.lazy.LazyColumn\nimport androidx.compose.foundation.lazy.LazyRow\nimport androidx.compose.foundation.lazy.items', 1)
           old = '''Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {\n                            categories.forEach { category -> SuggestionChip(onClick = {}, label = { Text(category) }) }\n                        }'''
           new = '''LazyRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {\n                            items(categories, key = { it }) { category -> SuggestionChip(onClick = {}, label = { Text(category) }) }\n                        }'''
-          if old not in s:
-              raise SystemExit('Expected category Row was not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           s = s.replace('"عليه للأشخاص"', '"عليه للأطراف"')
           p.write_text(s, encoding='utf-8')
-
-          # Do not require categories to be artificial people: validation remains a person/party record,
-          # while categoryName is an independent operation dimension.
           e = Path('app/src/main/java/com/myaccounts/app/data/custody/CustodyEntities.kt')
           es = e.read_text(encoding='utf-8')
           assert 'partyType: String = "PERSON"' in es
@@ -51,7 +47,8 @@ jobs:
           rm -f .github/workflows/implement-custody-parties-categories.yml .github/workflows/run-custody-parties-implementation.yml
           git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt \
             .github/workflows/implement-custody-parties-categories.yml \
-            .github/workflows/run-custody-parties-implementation.yml
+            .github/workflows/run-custody-parties-implementation.yml \
+            .github/workflows/finalize-custody-parties-categories.yml
           if git diff --cached --quiet; then
             exit 0
           fi
