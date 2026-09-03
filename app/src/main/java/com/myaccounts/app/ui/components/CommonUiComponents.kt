@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -27,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,22 +49,22 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.myaccounts.app.ui.theme.Due
 import com.myaccounts.app.ui.theme.Error
 import com.myaccounts.app.ui.theme.Info
 import com.myaccounts.app.ui.theme.Neutral
 import com.myaccounts.app.ui.theme.Owed
-import com.myaccounts.app.ui.theme.Primary
+import com.myaccounts.app.ui.theme.Secondary
 import com.myaccounts.app.ui.theme.Success
 import com.myaccounts.app.ui.theme.Warning
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
     navigationIconDescription: String = "رجوع",
-    actions: @Composable () -> Unit = {}
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
         title = { Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -177,7 +180,9 @@ fun BalanceAmount(
         BalanceStatus.Neutral -> Neutral
     }
     Column(modifier = modifier) {
-        if (label != null) Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (label != null) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
     }
 }
@@ -209,7 +214,7 @@ fun SummaryCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, com.myaccounts.app.ui.theme.Secondary.copy(alpha = 0.45f)),
+        border = BorderStroke(1.dp, Secondary.copy(alpha = 0.45f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -231,7 +236,9 @@ fun InformationCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            content()
+        }
     }
 }
 
@@ -273,7 +280,7 @@ fun EmptyState(
     action: (@Composable () -> Unit)? = null
 ) {
     val icon = when (type) {
-        EmptyStateType.People -> Icons.Default.Info
+        EmptyStateType.People -> Icons.Default.People
         EmptyStateType.Transactions -> Icons.Default.ReceiptLong
         EmptyStateType.Custody -> Icons.Default.AccountBalanceWallet
         EmptyStateType.Reports -> Icons.Default.Assessment
@@ -329,7 +336,10 @@ fun ConfirmationDialog(
         title = { Text(title, style = MaterialTheme.typography.titleLarge) },
         text = { Text(message, style = MaterialTheme.typography.bodyLarge) },
         confirmButton = {
-            TextButton(onClick = onConfirm, colors = if (danger) ButtonDefaults.textButtonColors(contentColor = Due) else ButtonDefaults.textButtonColors()) {
+            TextButton(
+                onClick = onConfirm,
+                colors = if (danger) ButtonDefaults.textButtonColors(contentColor = Due) else ButtonDefaults.textButtonColors()
+            ) {
                 Text(confirmText, style = MaterialTheme.typography.labelLarge)
             }
         },
@@ -344,7 +354,7 @@ fun AttachmentSection(
 ) {
     InformationCard {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.width(1.dp))
+        Spacer(Modifier.height(1.dp))
         content()
     }
 }
