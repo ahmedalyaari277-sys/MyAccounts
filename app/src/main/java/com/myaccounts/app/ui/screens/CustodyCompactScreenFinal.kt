@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +37,9 @@ import com.myaccounts.app.data.custody.CustodyFinancialSummary
 import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyTransactionEntity
 import com.myaccounts.app.data.custody.CustodyTransactionType
+import com.myaccounts.app.ui.theme.Due
+import com.myaccounts.app.ui.theme.Neutral
+import com.myaccounts.app.ui.theme.Owed
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -46,6 +50,16 @@ private val finalCurrencies = listOf("YER", "SAR", "USD")
 private fun finalMoney(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun finalParse(v: String): Long? = runCatching { BigDecimal(v.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
 private fun finalStatus(v: Long, positive: String, negative: String) = when { v > 0 -> positive; v < 0 -> negative; else -> "متوازن" }
+private fun finalCurrencyName(code: String): String = when (code) {
+    "YER" -> "الريال اليمني"
+    "SAR" -> "الريال السعودي"
+    else -> "الدولار الأمريكي"
+}
+private fun finalStatusColor(status: String): Color = when (status) {
+    "عجز", "مستحق عليه", "عليه للأشخاص" -> Due
+    "متبقي لديه", "لديه", "مستحق له", "له على الأطراف" -> Owed
+    else -> Neutral
+}
 
 @Composable
 private fun Modifier.keepFocusedFieldVisible(): Modifier {
@@ -165,26 +179,100 @@ private fun FinalOwnerCard(custody: CustodyEntity, accounts: List<CustodyAccount
                 Column(Modifier.weight(1f)) { Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text("حامل العهدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             HorizontalDivider()
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text("العملة", Modifier.weight(.8f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("العهدة", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("ذمة الجهة", Modifier.weight(1.2f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("ذمم الأطراف", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
-            finalCurrencies.forEach { code -> val s = CustodyFinancialSummary.ownerDisplay(transactions, accounts, people, code); Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { Text(code, Modifier.weight(.8f), fontWeight = FontWeight.Bold); FinalMetric(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز"), Modifier.weight(1.2f)); FinalMetric(finalMoney(kotlin.math.abs(s.organizationDebtMinor)), finalStatus(s.organizationDebtMinor, "مستحق له", "مستحق عليه"), Modifier.weight(1.2f)); FinalMetric(finalMoney(kotlin.math.abs(s.peopleDebtMinor)), finalStatus(s.peopleDebtMinor, "له على الأطراف", "عليه للأشخاص"), Modifier.weight(1.3f)) } }
+            CompactCurrencyHeader(finalCurrencies)
+            finalCurrencies.forEach { code ->
+                val s = CustodyFinancialSummary.ownerDisplay(transactions, accounts, people, code)
+                CompactMetricRow(
+                    label = "العهدة",
+                    cells = listOf(
+                        if (code == "YER") CompactMetricData(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز")) else null,
+                        if (code == "SAR") CompactMetricData(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز")) else null,
+                        if (code == "USD") CompactMetricData(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز")) else null
+                    ),
+                    visibleOnlyForCurrency = code
+                )
+            }
+            CompactOwnerRows(transactions, accounts, people)
         }
     }
+}
+
+private data class CompactMetricData(val value: String, val status: String)
+
+@Composable
+private fun CompactCurrencyHeader(currencies: List<String>) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.width(70.dp))
+        currencies.forEach { code ->
+            Text(
+                finalCurrencyName(code),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactMetricRow(label: String, cells: List<CompactMetricData?>, visibleOnlyForCurrency: String? = null) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.width(70.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        cells.forEach { cell ->
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (cell != null) FinalMetric(cell.value, cell.status, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactOwnerRows(custodyTransactions: List<CustodyTransactionEntity>, accounts: List<CustodyAccountEntity>, people: List<CustodyPersonEntity>) {
+    val summaries = finalCurrencies.map { code -> CustodyFinancialSummary.ownerDisplay(custodyTransactions, accounts, people, code) }
+    val organization = summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.organizationDebtMinor)), finalStatus(it.organizationDebtMinor, "مستحق له", "مستحق عليه")) }
+    val parties = summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.peopleDebtMinor)), finalStatus(it.peopleDebtMinor, "له على الأطراف", "عليه للأشخاص")) }
+    CompactMetricRow("ذمة الجهة", organization)
+    CompactMetricRow("ذمم الأطراف", parties)
 }
 
 @Composable
 private fun FinalPersonCard(person: CustodyPersonEntity, transactions: List<CustodyTransactionEntity>, enabled: Boolean, onClick: () -> Unit, onQuick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.size(40.dp).semantics { contentDescription = "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, null) }; Column(Modifier.weight(1f)) { Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text(if (person.partyType == "ENTITY") "جهة" else "شخص", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.size(40.dp).semantics { contentDescription = "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, null) }
+                Column(Modifier.weight(1f)) {
+                    Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(if (person.partyType == "ENTITY") "جهة" else "شخص", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             HorizontalDivider()
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text("العملة", Modifier.weight(.9f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("العهدة", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold); Text("الذمة", Modifier.weight(1.3f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) }
-            finalCurrencies.forEach { code -> val balance = CustodyFinancialSummary.personCustodyBalance(transactions, person.id, code); val debt = CustodyFinancialSummary.personDebt(transactions, person.id, code); Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) { Text(code, Modifier.weight(.9f), fontWeight = FontWeight.Bold); FinalMetric(finalMoney(kotlin.math.abs(balance)), finalStatus(balance, "لديه", "مستحق له"), Modifier.weight(1.3f)); FinalMetric(finalMoney(kotlin.math.abs(debt)), finalStatus(debt, "مستحق له", "مستحق عليه"), Modifier.weight(1.3f)) } }
+            CompactCurrencyHeader(finalCurrencies)
+            val custodyCells = finalCurrencies.map { code ->
+                val balance = CustodyFinancialSummary.personCustodyBalance(transactions, person.id, code)
+                CompactMetricData(finalMoney(kotlin.math.abs(balance)), finalStatus(balance, "لديه", "مستحق له"))
+            }
+            val debtCells = finalCurrencies.map { code ->
+                val debt = CustodyFinancialSummary.personDebt(transactions, person.id, code)
+                CompactMetricData(finalMoney(kotlin.math.abs(debt)), finalStatus(debt, "مستحق له", "مستحق عليه"))
+            }
+            CompactMetricRow("العهدة", custodyCells)
+            CompactMetricRow("الذمة", debtCells)
         }
     }
 }
 
-@Composable private fun FinalMetric(value: String, status: String, modifier: Modifier) { Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) { Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(status, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) } }
+@Composable
+private fun FinalMetric(value: String, status: String, modifier: Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = finalStatusColor(status), maxLines = 1)
+        Spacer(Modifier.width(3.dp))
+        Text(status, fontSize = 9.sp, fontWeight = FontWeight.Medium, color = finalStatusColor(status), maxLines = 1)
+    }
+}
 
 @Composable
 private fun FinalAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit) {
@@ -239,7 +327,7 @@ private fun FinalSettlementDialog(vm: CustodyViewModel, custody: CustodyEntity, 
 private fun FinalSettlementCurrency(code: String, book: Long, actualText: String, onActual: (String) -> Unit, enabled: Boolean) {
     val actual = finalParse(actualText); val diff = actual?.minus(book); val deficit = if (diff != null) maxOf(-diff, 0L) else 0L; val surplus = if (diff != null) maxOf(diff, 0L) else 0L
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(when (code) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; else -> "دولار أمريكي" }, fontWeight = FontWeight.Bold); Text(code, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(finalCurrencyName(code), fontWeight = FontWeight.Bold); Text(code, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
         AutoSettlement("الرصيد الدفتري", finalMoney(kotlin.math.abs(book)), if (book >= 0) "متبقي" else "عجز")
         OutlinedTextField(value = actualText, onValueChange = onActual, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "الموجود الفعلي $code" }, label = { Text("الموجود الفعلي") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, enabled = enabled)
         if (actual != null) { AutoSettlement("الفرق", finalMoney(kotlin.math.abs(diff ?: 0L)), when { diff!! > 0 -> "فائض"; diff < 0 -> "عجز"; else -> "متوازن" }); AutoSettlement("العجز", finalMoney(deficit), if (deficit > 0) "يحتاج سببًا" else "لا يوجد"); AutoSettlement("الفائض", finalMoney(surplus), if (surplus > 0) "موجود" else "لا يوجد") }
