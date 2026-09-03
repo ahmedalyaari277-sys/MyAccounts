@@ -3,9 +3,7 @@ package com.myaccounts.app.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,9 +44,12 @@ fun CalculatorOverlay(
                 fontWeight = FontWeight.Bold
             )
 
-            // Keep the calculator keypad LTR so its visual arrangement matches
-            // the physical KK-402: operators are on the user's right.
+            // The keypad is explicitly LTR so that its visual order is stable
+            // inside the Arabic RTL app: the operator column is on the user's right.
+            // Only button positions are changed; all existing callbacks are preserved.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                // KK-402-style top function row, using the calculator's existing
+                // non-arithmetic actions without changing what any action does.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     TextButton(onClick = onClear, modifier = Modifier.weight(1f)) { Text("مسح") }
                     TextButton(onClick = onBackspace, modifier = Modifier.weight(1f)) { Text("حذف") }
@@ -56,23 +57,16 @@ fun CalculatorOverlay(
                         TextButton(onClick = it, enabled = result.isNotBlank(), modifier = Modifier.weight(1f)) {
                             Text("استخدام النتيجة")
                         }
-                    } ?: Spacer(Modifier.weight(1f))
+                    }
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("إغلاق") }
                 }
 
+                // Physical calculator number order, with the arithmetic operator
+                // in the rightmost column from the user's point of view.
                 calculatorRow(listOf("7", "8", "9", "÷"), onKey)
                 calculatorRow(listOf("4", "5", "6", "×"), onKey)
-
-                // The KK-402 places + in a tall right-hand key spanning
-                // the 1-2-3 row and the 0-.-= row.
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Column(Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        calculatorRow(listOf("1", "2", "3"), onKey)
-                        calculatorRow(listOf("0", ".", "="), onKey)
-                    }
-                    calculatorKey("−", onKey, Modifier.weight(1f))
-                    calculatorKey("+", onKey, Modifier.weight(1f).height(102.dp))
-                }
+                calculatorRow(listOf("1", "2", "3", "−"), onKey)
+                calculatorRow(listOf("0", ".", "=", "+"), onKey)
             }
         }
     }
