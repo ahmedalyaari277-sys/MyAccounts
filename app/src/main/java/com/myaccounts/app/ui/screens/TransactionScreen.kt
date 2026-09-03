@@ -6,13 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Delete
@@ -24,7 +22,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,6 +47,7 @@ import com.myaccounts.app.ui.components.BalanceAmount
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.CurrencyChip
 import com.myaccounts.app.ui.components.EmptyState
+import com.myaccounts.app.ui.components.EmptyStateType
 import com.myaccounts.app.ui.components.StatusChip
 import com.myaccounts.app.ui.theme.Due
 import com.myaccounts.app.ui.theme.Neutral
@@ -132,9 +130,9 @@ fun TransactionScreen(
 
             if (transactions.isEmpty()) {
                 EmptyState(
+                    type = EmptyStateType.Transactions,
                     title = "لا توجد عمليات حتى الآن",
-                    message = "أضف أول عملية لهذا الحساب باستخدام زر إضافة عملية.",
-                    icon = Icons.Default.Add,
+                    description = "أضف أول عملية لهذا الحساب باستخدام زر إضافة عملية.",
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 )
             } else {
