@@ -115,6 +115,8 @@ class BackupRestoreInstrumentedTest {
         ui.pressHome()
         instrumentation.targetContext.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         assertTrue("MyAccounts did not become visible", ui.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
+        clickFresh(ui, By.text("دفتر الحسابات"), "Accounts gateway button")
+        assertTrue("Accounts home did not open", ui.wait(Until.findObject(By.desc("المزيد من الخيارات")), 10_000) != null)
         clickFresh(ui, By.desc("المزيد من الخيارات"), "More options button")
         clickFresh(ui, By.text("النسخ الاحتياطي والاستعادة"), "Backup/restore menu item")
         assertTrue("Backup restore screen did not open", ui.wait(Until.hasObject(By.text("استعادة نسخة احتياطية")), 10_000))
