@@ -47,30 +47,17 @@ class BackupRestoreInstrumentedTest {
         db.execSQL("DELETE FROM transactions")
         db.execSQL("DELETE FROM currency_accounts")
         db.execSQL("DELETE FROM people")
-
-        db.execSQL(
-            "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)",
-            arrayOf(910001L, "اختبار الاستعادة", "0500000000", "عنوان الاختبار", "ملاحظة الاختبار", 1000L, 1, null, "P-M03-RESTORE-001")
-        )
-        db.execSQL(
-            "INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",
-            arrayOf(920001L, 910001L, "YER", 125000L, 1001L, 1002L)
-        )
-        db.execSQL(
-            "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,externalId) VALUES (?,?,?,?,?,?,?,?)",
-            arrayOf(930001L, 920001L, "RECEIVABLE", 125000L, "عملية أصلية", 1003L, 1004L, "T-M03-RESTORE-001")
-        )
-
+        db.execSQL("INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)", arrayOf(910001L, "اختبار الاستعادة", "0500000000", "عنوان الاختبار", "ملاحظة الاختبار", 1000L, 1, null, "P-M03-RESTORE-001"))
+        db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)", arrayOf(920001L, 910001L, "YER", 125000L, 1001L, 1002L))
+        db.execSQL("INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,externalId) VALUES (?,?,?,?,?,?,?,?)", arrayOf(930001L, 920001L, "RECEIVABLE", 125000L, "عملية أصلية", 1003L, 1004L, "T-M03-RESTORE-001"))
         backupUri = createBackupUri("m03_restore_${System.currentTimeMillis()}.myaccounts")
         val createResult = DatabaseBackupManager.createBackup(context, backupUri!!)
         assertTrue("Backup creation failed: ${createResult.exceptionOrNull()}", createResult.isSuccess)
         publishBackupUri(backupUri!!)
         assertTrue("Backup file is empty", backupSize(backupUri!!) > 0L)
-
         db.execSQL("UPDATE people SET name=? WHERE id=?", arrayOf("بيانات معدلة", 910001L))
         db.execSQL("UPDATE currency_accounts SET balanceMinor=? WHERE id=?", arrayOf(999L, 920001L))
         db.execSQL("UPDATE transactions SET description=? WHERE id=?", arrayOf("بيانات معدلة", 930001L))
-
         val restoreResult = DatabaseBackupManager.restoreBackup(context, backupUri!!)
         assertTrue("Restore failed: ${restoreResult.exceptionOrNull()}", restoreResult.isSuccess)
         assertRestoredData(db)
@@ -83,31 +70,18 @@ class BackupRestoreInstrumentedTest {
         db.execSQL("DELETE FROM transactions")
         db.execSQL("DELETE FROM currency_accounts")
         db.execSQL("DELETE FROM people")
-
-        db.execSQL(
-            "INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)",
-            arrayOf(910101L, "اختبار الهاتف", "0511111111", "عنوان الهاتف", "ملاحظة الهاتف", 2000L, 1, null, "P-M03-PHONE-001")
-        )
-        db.execSQL(
-            "INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)",
-            arrayOf(920101L, 910101L, "YER", 275000L, 2001L, 2002L)
-        )
-        db.execSQL(
-            "INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,externalId) VALUES (?,?,?,?,?,?,?,?)",
-            arrayOf(930101L, 920101L, "RECEIVABLE", 275000L, "عملية الهاتف الأصلية", 2003L, 2004L, "T-M03-PHONE-001")
-        )
-
+        db.execSQL("INSERT INTO people (id,name,phone,address,notes,createdAt,isActive,archivedAt,externalId) VALUES (?,?,?,?,?,?,?,?,?)", arrayOf(910101L, "اختبار الهاتف", "0511111111", "عنوان الهاتف", "ملاحظة الهاتف", 2000L, 1, null, "P-M03-PHONE-001"))
+        db.execSQL("INSERT INTO currency_accounts (id,personId,currencyCode,balanceMinor,createdAt,updatedAt) VALUES (?,?,?,?,?,?)", arrayOf(920101L, 910101L, "YER", 275000L, 2001L, 2002L))
+        db.execSQL("INSERT INTO transactions (id,accountId,type,amountMinor,description,transactionDate,createdAt,externalId) VALUES (?,?,?,?,?,?,?,?)", arrayOf(930101L, 920101L, "RECEIVABLE", 275000L, "عملية الهاتف الأصلية", 2003L, 2004L, "T-M03-PHONE-001"))
         backupUri = createBackupUri("m03_phone_restore_${System.currentTimeMillis()}.myaccounts")
         val createResult = DatabaseBackupManager.createBackup(context, backupUri!!)
         assertTrue("Backup creation failed: ${createResult.exceptionOrNull()}", createResult.isSuccess)
         publishBackupUri(backupUri!!)
         assertTrue("Backup file is empty", backupSize(backupUri!!) > 0L)
         val backupFileName = queryDisplayName(backupUri!!)
-
         db.execSQL("UPDATE people SET name=? WHERE id=?", arrayOf("بيانات الهاتف المعدلة", 910101L))
         db.execSQL("UPDATE currency_accounts SET balanceMinor=? WHERE id=?", arrayOf(999L, 920101L))
         db.execSQL("UPDATE transactions SET description=? WHERE id=?", arrayOf("بيانات الهاتف المعدلة", 930101L))
-
         device = UiDevice.getInstance(instrumentation)
         val ui = device!!
         ui.pressHome()
@@ -116,7 +90,7 @@ class BackupRestoreInstrumentedTest {
         clickFresh(ui, By.text("دفتر الحسابات"), "Accounts gateway button")
         assertTrue("Accounts home did not open", ui.wait(Until.findObject(By.desc("المزيد من الخيارات")), 10_000) != null)
         clickFresh(ui, By.desc("المزيد من الخيارات"), "More options button")
-        clickFresh(ui, By.text("النسخ الاحتياطي والاستعادة"), "Backup/restore menu item")
+        clickFresh(ui, By.desc("فتح النسخ الاحتياطي والاستعادة"), "Backup/restore menu item")
         assertTrue("Backup restore screen did not open", ui.wait(Until.hasObject(By.text("استعادة نسخة احتياطية")), 10_000))
         clickFresh(ui, By.text("استعادة نسخة احتياطية"), "Restore backup button")
         assertTrue("Android system file picker did not open", ui.wait(Until.hasObject(By.pkg("com.google.android.documentsui")), 10_000))
@@ -127,15 +101,7 @@ class BackupRestoreInstrumentedTest {
         assertRestoredData(db, 910101L, 920101L, 930101L, "اختبار الهاتف", 275000L, "عملية الهاتف الأصلية")
     }
 
-    private fun assertRestoredData(
-        db: androidx.sqlite.db.SupportSQLiteDatabase,
-        personId: Long = 910001L,
-        accountId: Long = 920001L,
-        transactionId: Long = 930001L,
-        expectedPersonName: String = "اختبار الاستعادة",
-        expectedBalance: Long = 125000L,
-        expectedDescription: String = "عملية أصلية"
-    ) {
+    private fun assertRestoredData(db: androidx.sqlite.db.SupportSQLiteDatabase, personId: Long = 910001L, accountId: Long = 920001L, transactionId: Long = 930001L, expectedPersonName: String = "اختبار الاستعادة", expectedBalance: Long = 125000L, expectedDescription: String = "عملية أصلية") {
         db.query("SELECT name,phone,address,notes,isActive,archivedAt FROM people WHERE id=$personId").use { c ->
             assertTrue("Restored person not found", c.moveToFirst())
             assertEquals(expectedPersonName, c.getString(0))
@@ -168,42 +134,28 @@ class BackupRestoreInstrumentedTest {
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/MyAccounts")
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
-        return context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            ?: error("Could not create MediaStore backup URI")
+        return context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("Could not create MediaStore backup URI")
     }
 
     private fun publishBackupUri(uri: Uri) {
         context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
     }
 
-    private fun backupSize(uri: Uri): Long = context.contentResolver.query(uri, arrayOf(MediaStore.Downloads.SIZE), null, null, null)?.use { c ->
-        if (c.moveToFirst()) c.getLong(0) else 0L
-    } ?: 0L
+    private fun backupSize(uri: Uri): Long = context.contentResolver.query(uri, arrayOf(MediaStore.Downloads.SIZE), null, null, null)?.use { c -> if (c.moveToFirst()) c.getLong(0) else 0L } ?: 0L
 
-    private fun queryDisplayName(uri: Uri): String = context.contentResolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { c ->
-        if (c.moveToFirst()) c.getString(0) else error("Could not read backup display name")
-    } ?: error("Could not read backup display name")
+    private fun queryDisplayName(uri: Uri): String = context.contentResolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else error("Could not read backup display name") } ?: error("Could not read backup display name")
 
     private fun selectBackupFromDocumentsUi(ui: UiDevice, fileName: String) {
         ui.waitForIdle()
-        firstMatchingSelector(ui, By.desc("Show roots"), By.desc("Show roots drawer"), By.res("com.google.android.documentsui:id/toolbar_nav_button"))?.let {
-            clickFresh(ui, it, "DocumentsUI roots button")
-        }
-        firstMatchingSelector(ui, By.text("Downloads"), By.textContains("Downloads"))?.let {
-            clickFresh(ui, it, "Downloads root")
-            waitForDocumentsUiToSettle(ui)
-        }
-        firstMatchingSelector(ui, By.text("MyAccounts"), By.textContains("MyAccounts"))?.let {
-            clickFresh(ui, it, "MyAccounts folder")
-            waitForDocumentsUiToSettle(ui)
-        }
+        firstMatchingSelector(ui, By.desc("Show roots"), By.desc("Show roots drawer"), By.res("com.google.android.documentsui:id/toolbar_nav_button"))?.let { clickFresh(ui, it, "DocumentsUI roots button") }
+        firstMatchingSelector(ui, By.text("Downloads"), By.textContains("Downloads"))?.let { clickFresh(ui, it, "Downloads root"); waitForDocumentsUiToSettle(ui) }
+        firstMatchingSelector(ui, By.text("MyAccounts"), By.textContains("MyAccounts"))?.let { clickFresh(ui, it, "MyAccounts folder"); waitForDocumentsUiToSettle(ui) }
         var fileSelector = firstMatchingSelector(ui, By.text(fileName), By.textContains(fileName))
         if (fileSelector == null) {
             firstMatchingSelector(ui, By.desc("Search"), By.res("com.google.android.documentsui:id/option_menu_search"))?.let {
                 clickFresh(ui, it, "DocumentsUI search button")
                 waitForDocumentsUiToSettle(ui)
-                val searchField = ui.wait(Until.findObject(By.res("com.google.android.documentsui:id/toolbar_search")), 3_000)
-                    ?: ui.findObject(By.clazz("android.widget.EditText"))
+                val searchField = ui.wait(Until.findObject(By.res("com.google.android.documentsui:id/toolbar_search")), 3_000) ?: ui.findObject(By.clazz("android.widget.EditText"))
                 if (searchField != null) {
                     searchField.text = fileName
                     waitForDocumentsUiToSettle(ui)
