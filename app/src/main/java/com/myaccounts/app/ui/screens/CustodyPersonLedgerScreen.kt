@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.custody.*
+import com.myaccounts.app.ui.theme.Owed
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -89,32 +90,19 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
                 actions = {
                     IconButton(onClick = { showPersonMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
                     DropdownMenu(expanded = showPersonMenu, onDismissRequest = { showPersonMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("تعديل بيانات الشخص") },
-                            onClick = { showPersonMenu = false; showEditPerson = true }
-                        )
-                        if (!current.isClosed) {
-                            DropdownMenuItem(
-                                text = { Text("حذف الشخص وعملياته") },
-                                onClick = { showPersonMenu = false; showDeletePerson = true }
-                            )
-                        }
+                        DropdownMenuItem(text = { Text("تعديل بيانات الشخص") }, onClick = { showPersonMenu = false; showEditPerson = true })
+                        if (!current.isClosed) DropdownMenuItem(text = { Text("حذف الشخص وعملياته") }, onClick = { showPersonMenu = false; showDeletePerson = true })
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { if (!current.isClosed) showAdd = true },
-                modifier = Modifier.semantics { contentDescription = "إضافة عملية" }
-            ) { Icon(Icons.Default.Add, null) }
+            FloatingActionButton(onClick = { if (!current.isClosed) showAdd = true }, modifier = Modifier.semantics { contentDescription = "إضافة عملية" }) { Icon(Icons.Default.Add, null) }
         }
     ) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                currencies.forEach { code ->
-                    FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code, fontWeight = FontWeight.Bold) }, modifier = Modifier.weight(1f))
-                }
+                currencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code, fontWeight = FontWeight.Bold) }, modifier = Modifier.weight(1f)) }
             }
             Spacer(Modifier.height(10.dp))
             Card(Modifier.fillMaxWidth()) {
@@ -156,31 +144,24 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
         }
     }
 
-    if (showAdd) {
-        CustodyLedgerOperationDialog(vm, custodyId, personId, false, currency, CustodyTransactionType.PAID_TO_PERSON, null, onDismiss = { showAdd = false }, onFinished = { showAdd = false })
-    }
-    editing?.let { transaction ->
-        CustodyLedgerOperationDialog(vm, custodyId, personId, false, transaction.currencyCode, transaction.type, transaction, onDismiss = { editing = null }, onFinished = { editing = null })
-    }
+    if (showAdd) CustodyLedgerOperationDialog(vm, custodyId, personId, false, currency, CustodyTransactionType.PAID_TO_PERSON, null, onDismiss = { showAdd = false }, onFinished = { showAdd = false })
+    editing?.let { transaction -> CustodyLedgerOperationDialog(vm, custodyId, personId, false, transaction.currencyCode, transaction.type, transaction, onDismiss = { editing = null }, onFinished = { editing = null }) }
     deleting?.let { transaction ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("حذف العملية") },
-            text = { Text("سيتم حذف العملية نهائيًا.") },
-            confirmButton = { TextButton(onClick = { scope.launch { vm.deleteTransaction(transaction.id); deleting = null } }) { Text("حذف", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } }
-        )
+        AlertDialog(onDismissRequest = { deleting = null }, title = { Text("حذف العملية") }, text = { Text("سيتم حذف العملية نهائيًا.") }, confirmButton = { TextButton(onClick = { scope.launch { vm.deleteTransaction(transaction.id); deleting = null } }) { Text("حذف", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("إلغاء") } })
     }
     transferring?.let { transaction ->
-        CustodyTransferDialog(
-            transaction = transaction,
-            currentPersonId = personId,
-            people = people,
-            onDismiss = { transferring = null },
-            onTransfer = { newPersonId, reason -> vm.transferTransactionAndWait(transaction.id, newPersonId, reason) }
-        )
+        CustodyTransferDialog(transaction, personId, people, onDismiss = { transferring = null }) { newPersonId, reason -> vm.transferTransactionAndWait(transaction.id, newPersonId, reason) }
     }
     if (showEditPerson) CustodyPersonEditDialog(vm, person, onDismiss = { showEditPerson = false }, onSaved = { showEditPerson = false })
+    if (showDeletePerson) {
+        AlertDialog(
+            onDismissRequest = { showDeletePerson = false },
+            title = { Text("حذف الشخص") },
+            text = { Text("سيتم حذف الشخص وعملياته من هذه العهدة نهائيًا.") },
+            confirmButton = { TextButton(onClick = { scope.launch { vm.deletePersonAndWait(person.id); showDeletePerson = false; onBack() } }) { Text("حذف", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { showDeletePerson = false }) { Text("إلغاء") } }
+        )
+    }
 }
 
 @Composable
@@ -200,13 +181,7 @@ private fun SummaryRow(title: String, value: Long, status: String) {
 }
 
 @Composable
-private fun CustodyTransferDialog(
-    transaction: CustodyTransactionEntity,
-    currentPersonId: Long,
-    people: List<CustodyPersonEntity>,
-    onDismiss: () -> Unit,
-    onTransfer: suspend (Long, String) -> Unit
-) {
+private fun CustodyTransferDialog(transaction: CustodyTransactionEntity, currentPersonId: Long, people: List<CustodyPersonEntity>, onDismiss: () -> Unit, onTransfer: suspend (Long, String) -> Unit) {
     var selectedPersonId by remember { mutableStateOf<Long?>(null) }
     var reason by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
