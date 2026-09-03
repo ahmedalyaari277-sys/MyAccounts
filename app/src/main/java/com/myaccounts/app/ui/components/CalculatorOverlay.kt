@@ -19,6 +19,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalLayoutDirection
 
+/** The calculator keypad order is fixed independently from the app's Arabic RTL direction. */
+internal val calculatorKeypadRows = listOf(
+    listOf("7", "8", "9", "÷"),
+    listOf("4", "5", "6", "×"),
+    listOf("1", "2", "3", "−"),
+    listOf("0", ".", "+"),
+    listOf("=")
+)
+
 /** Small, screen-local calculator overlay. It never writes to the database. */
 @Composable
 fun CalculatorOverlay(
@@ -47,9 +56,9 @@ fun CalculatorOverlay(
             // Keep the keypad in the conventional calculator direction/order,
             // independently of the application's Arabic RTL layout.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                calculatorRow(listOf("7", "8", "9", "÷"), onKey)
-                calculatorRow(listOf("4", "5", "6", "×"), onKey)
-                calculatorRow(listOf("1", "2", "3", "−"), onKey)
+                calculatorRow(calculatorKeypadRows[0], onKey)
+                calculatorRow(calculatorKeypadRows[1], onKey)
+                calculatorRow(calculatorKeypadRows[2], onKey)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     calculatorKey("0", onKey, Modifier.weight(2f))
                     calculatorKey(".", onKey, Modifier.weight(1f))
