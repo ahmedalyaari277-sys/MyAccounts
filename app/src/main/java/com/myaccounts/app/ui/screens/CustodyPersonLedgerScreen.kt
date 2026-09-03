@@ -81,7 +81,7 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(person.name, fontWeight = FontWeight.Bold) },
+                title = { Text("عمليات ${person.name}", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
                 actions = {
                     IconButton(onClick = { showPersonMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
@@ -178,70 +178,4 @@ fun CustodyPersonLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: L
         )
     }
     if (showEditPerson) CustodyPersonEditDialog(vm, person, onDismiss = { showEditPerson = false }, onSaved = { showEditPerson = false })
-    if (showDeletePerson) AlertDialog(
-        onDismissRequest = { showDeletePerson = false },
-        title = { Text("حذف الشخص وعملياته") },
-        text = { Text("سيتم حذف بيانات الشخص وحساباته وجميع عملياته ومرفقاتها نهائيًا. هل تريد المتابعة؟") },
-        confirmButton = {
-            TextButton(onClick = {
-                showDeletePerson = false
-                scope.launch { runCatching { vm.deletePersonAndWait(person.id) }.onSuccess { onBack() } }
-            }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
-        },
-        dismissButton = { TextButton(onClick = { showDeletePerson = false }) { Text("إلغاء") }
-    })
-}
-
-@Composable
-private fun SummaryRow(title: String, value: Long, status: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(title, fontWeight = FontWeight.Medium)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Text(money(value), fontWeight = FontWeight.Bold); Text(status, style = MaterialTheme.typography.bodySmall) }
-    }
-}
-
-@Composable
-private fun CustodyTransferDialog(
-    transaction: CustodyTransactionEntity,
-    currentPersonId: Long,
-    people: List<CustodyPersonEntity>,
-    onDismiss: () -> Unit,
-    onTransfer: suspend (Long, String) -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var selected by remember { mutableStateOf<Long?>(null) }
-    var reason by remember { mutableStateOf("") }
-    var saving by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val candidates = people.filter { it.id != currentPersonId && !it.isArchived }
-    AlertDialog(
-        onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text("نقل العملية") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("العملية الحالية: ${money(transaction.amountMinor)} ${transaction.currencyCode} — ${typeLabel(transaction.type)}")
-                Text("الشخص الحالي: ${people.firstOrNull { it.id == currentPersonId }?.name.orEmpty()}")
-                Text("اختر الشخص الجديد", fontWeight = FontWeight.Bold)
-                candidates.forEach { p ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = selected == p.id, onClick = { selected = p.id }, enabled = !saving)
-                        Text(p.name)
-                    }
-                }
-                OutlinedTextField(reason, { reason = it; error = null }, Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "سبب النقل" }, label = { Text("سبب النقل") }, minLines = 2, enabled = !saving)
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            Button(enabled = selected != null && reason.trim().isNotBlank() && !saving, onClick = {
-                saving = true
-                scope.launch {
-                    runCatching { onTransfer(selected!!, reason.trim()) }
-                        .onSuccess { saving = false; onDismiss() }
-                        .onFailure { saving = false; error = it.message ?: "تعذر نقل العملية" }
-                }
-            }) { Text(if (saving) "جارٍ النقل…" else "نقل العملية") }
-        },
-        dismissButton = { TextButton(enabled = !saving, onClick = onDismiss) { Text("إلغاء") } }
-    )
 }
