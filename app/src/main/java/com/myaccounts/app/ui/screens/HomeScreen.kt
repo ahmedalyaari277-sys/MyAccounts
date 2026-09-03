@@ -158,6 +158,7 @@ fun HomeScreen(
                                 }
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { contentDescription = "فتح النسخ الاحتياطي والاستعادة" },
                                 text = { Text("النسخ الاحتياطي والاستعادة") },
                                 leadingIcon = { Icon(Icons.Default.Backup, contentDescription = null) },
                                 onClick = {
