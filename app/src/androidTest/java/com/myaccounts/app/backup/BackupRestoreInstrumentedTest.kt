@@ -16,8 +16,6 @@ import com.myaccounts.app.MainActivity
 import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.util.DatabaseBackupManager
 import kotlinx.coroutines.runBlocking
-import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -222,14 +220,10 @@ class BackupRestoreInstrumentedTest {
     }
 
     private fun clickFresh(ui: UiDevice, selector: BySelector, description: String) {
-        var object2 = ui.wait(Until.findObject(selector), 7_000) ?: error("$description was not found")
-        var depth = 0
-        while (!object2.isClickable && depth < 5) {
-            object2 = object2.parent ?: break
-            depth++
-        }
-        if (!object2.isClickable) error("$description was found but no clickable parent was available")
-        object2.click()
+        val object2 = ui.wait(Until.findObject(selector), 7_000) ?: error("$description was not found")
+        val bounds = object2.visibleBounds
+        if (bounds.isEmpty) error("$description was found but is not visible")
+        ui.click(bounds.centerX(), bounds.centerY())
         ui.waitForIdle()
     }
 
