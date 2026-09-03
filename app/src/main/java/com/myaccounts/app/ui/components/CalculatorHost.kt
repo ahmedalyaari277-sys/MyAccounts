@@ -16,16 +16,18 @@ fun CalculatorHost(
     onUseResult: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
-    // While the calculator is open, the phone/system Back action behaves like
-    // the calculator's own "إغلاق" button: close the calculator first instead
-    // of navigating away from the current data-entry screen.
-    BackHandler(enabled = controller.isOpen) {
-        controller.close()
-    }
-
     Box(Modifier.fillMaxSize()) {
         content()
+
         if (controller.isOpen) {
+            // Register this handler after the underlying screen has been
+            // composed so it has priority over any BackHandler declared by
+            // the current data-entry screen. While the calculator is open,
+            // phone/system Back must behave exactly like calculator Close.
+            BackHandler {
+                controller.close()
+            }
+
             Box(
                 modifier = Modifier.fillMaxSize().imePadding(),
                 contentAlignment = Alignment.BottomCenter
