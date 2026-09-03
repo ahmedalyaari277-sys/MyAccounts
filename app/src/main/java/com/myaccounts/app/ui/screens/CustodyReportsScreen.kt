@@ -142,14 +142,12 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                 SummaryCard(title = "مركز تقارير العُهَد") {
                     Text("التقارير مستقلة عن دفتر الحسابات وتقرأ من بيانات العهد فقط.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        reportModeButton("أصحاب العُهَد", reportMode == 0) { reportMode = 0; personId = null }
-                        reportModeButton("الأرصدة", reportMode == 1) { reportMode = 1 }
-                        reportModeButton("العمليات", reportMode == 2) { reportMode = 2 }
+                        reportModeButton("أصحاب العُهَد", reportMode == 0, Modifier.weight(1f)) { reportMode = 0; personId = null }
+                        reportModeButton("الأرصدة", reportMode == 1, Modifier.weight(1f)) { reportMode = 1 }
+                        reportModeButton("العمليات", reportMode == 2, Modifier.weight(1f)) { reportMode = 2 }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        reportCurrencies.forEach { code ->
-                            SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy)
-                        }
+                        reportCurrencies.forEach { code -> SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy) }
                     }
                     Text("العملة الحالية: ${currencyName(currency)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -211,8 +209,8 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun reportModeButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    if (selected) PrimaryButton(label, onClick, Modifier.weight(1f)) else SecondaryButton(label, onClick, Modifier.weight(1f))
+private fun reportModeButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    if (selected) PrimaryButton(label, onClick, modifier) else SecondaryButton(label, onClick, modifier)
 }
 
 @Composable
@@ -260,9 +258,7 @@ private fun CustodyReportContent(
         InformationCard {
             Text("نوع الحركة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                reportTypes.take(3).forEach { (code, label) ->
-                    SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy)
-                }
+                reportTypes.take(3).forEach { (code, label) -> SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy) }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 reportTypes.drop(3).forEach { (code, label) -> SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy) }
