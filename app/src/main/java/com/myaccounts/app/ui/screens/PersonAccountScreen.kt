@@ -6,39 +6,40 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.ui.components.AppTopBar
+import com.myaccounts.app.ui.components.BalanceAmount
+import com.myaccounts.app.ui.components.BalanceStatus
+import com.myaccounts.app.ui.components.DangerButton
+import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.components.PrimaryButton
+import com.myaccounts.app.ui.components.SecondaryButton
+import com.myaccounts.app.ui.components.SummaryCard
+import com.myaccounts.app.ui.components.StatusChip
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
+import java.math.BigDecimal
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonAccountScreen(
     personWithAccounts: PersonWithAccounts,
@@ -52,28 +53,15 @@ fun PersonAccountScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showReportTypeDialog by remember { mutableStateOf(false) }
     val person = personWithAccounts.person
-    val initialAccount = personWithAccounts.accounts.firstOrNull()
+    val accounts = personWithAccounts.accounts
+    val initialAccount = accounts.firstOrNull()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = person.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                ),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع")
-                    }
-                },
+            AppTopBar(
+                title = person.name,
+                onBack = onBack,
                 actions = {
                     IconButton(onClick = { showEditDialog = true }) {
                         Icon(Icons.Default.Edit, contentDescription = "تعديل")
@@ -93,86 +81,88 @@ fun PersonAccountScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                shape = MaterialTheme.shapes.large
-            ) {
-                Column(Modifier.padding(18.dp)) {
+            SummaryCard(title = "بيانات الشخص") {
+                Text(
+                    person.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (person.phone.isNotBlank()) {
                     Text(
-                        person.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        "الهاتف: ${person.phone}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (person.phone.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "الهاتف: ${person.phone}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (person.address.isNotBlank()) {
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            "العنوان: ${person.address}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (person.notes.isNotBlank()) {
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            "الملاحظات: ${person.notes}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                if (person.address.isNotBlank()) {
+                    Text(
+                        "العنوان: ${person.address}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (person.notes.isNotBlank()) {
+                    Text(
+                        "الملاحظات: ${person.notes}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (accounts.isNotEmpty()) {
+                SummaryCard(title = "ملخص الأرصدة") {
+                    accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->
+                        BalanceAmount(
+                            amount = formatBalance(account.balanceMinor),
+                            status = balanceStatus(account.balanceMinor),
+                            label = account.currencyCode,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "الحسابات",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    "الحساب والحركات",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    TextButton(onClick = { onReportClick("ALL") }) {
-                        Text(
-                            "إصدار التقرير الكامل",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusChip("${accounts.size} عملات")
                     IconButton(onClick = { showReportTypeDialog = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "المزيد")
+                        Icon(Icons.Default.MoreVert, contentDescription = "التقارير")
                     }
                 }
             }
 
             if (initialAccount != null) {
-                Spacer(Modifier.height(4.dp))
                 TransactionScreen(
                     accountId = initialAccount.id,
                     currencyCode = initialAccount.currencyCode,
-                    accounts = personWithAccounts.accounts,
+                    accounts = accounts,
                     onBack = {},
                     transactionViewModel = transactionViewModel,
                     embedded = true,
                     modifier = Modifier.weight(1f),
                     personName = person.name
                 )
+            } else {
+                InformationCard(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "لا توجد حسابات عملات لهذا الشخص.",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
             }
         }
     }
@@ -188,33 +178,34 @@ fun PersonAccountScreen(
                 )
             },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         "اختر نوع التقرير الذي تريد إصداره:",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(10.dp))
                     TextButton(
                         onClick = { showReportTypeDialog = false; onReportClick("ALL") },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("جميع العملات") }
+                    ) { Text("جميع العملات", style = MaterialTheme.typography.labelLarge) }
                     TextButton(
                         onClick = { showReportTypeDialog = false; onReportClick("YER") },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("الريال اليمني") }
+                    ) { Text("الريال اليمني", style = MaterialTheme.typography.labelLarge) }
                     TextButton(
                         onClick = { showReportTypeDialog = false; onReportClick("SAR") },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("الريال السعودي") }
+                    ) { Text("الريال السعودي", style = MaterialTheme.typography.labelLarge) }
                     TextButton(
                         onClick = { showReportTypeDialog = false; onReportClick("USD") },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("الدولار الأمريكي") }
+                    ) { Text("الدولار الأمريكي", style = MaterialTheme.typography.labelLarge) }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showReportTypeDialog = false }) { Text("إغلاق") }
+                TextButton(onClick = { showReportTypeDialog = false }) {
+                    Text("إغلاق", style = MaterialTheme.typography.labelLarge)
+                }
             }
         )
     }
@@ -225,7 +216,7 @@ fun PersonAccountScreen(
             person.phone,
             person.address,
             person.notes,
-            { showEditDialog = false }
+            onDismiss = { showEditDialog = false }
         ) { name, phone, address, notes ->
             onUpdatePerson(name, phone, address, notes)
             showEditDialog = false
@@ -245,13 +236,21 @@ fun PersonAccountScreen(
             text = {
                 Text(
                     "هل أنت متأكد من أرشفة هذا الشخص؟ سيتم إخفاؤه من القائمة الرئيسية مع الاحتفاظ بسجله المالي.",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             confirmButton = {
-                Button(onClick = { showDeleteDialog = false; onDeletePerson() }) { Text("أرشفة") }
+                DangerButton(
+                    text = "أرشفة",
+                    onClick = { showDeleteDialog = false; onDeletePerson() }
+                )
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("إلغاء") } }
+            dismissButton = {
+                SecondaryButton(
+                    text = "إلغاء",
+                    onClick = { showDeleteDialog = false }
+                )
+            }
         )
     }
 }
@@ -270,6 +269,7 @@ private fun EditPersonDialog(
     var editedAddress by remember { mutableStateOf(address) }
     var editedNotes by remember { mutableStateOf(notes) }
     var nameError by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -280,11 +280,11 @@ private fun EditPersonDialog(
             )
         },
         text = {
-            Column {
-                OutlinedTextField(
-                    editedName,
-                    { editedName = it; nameError = false },
-                    Modifier.fillMaxWidth(),
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = editedName,
+                    onValueChange = { editedName = it; nameError = false },
+                    modifier = Modifier.fillMaxWidth(),
                     label = { Text("الاسم") },
                     singleLine = true,
                     isError = nameError,
@@ -297,28 +297,25 @@ private fun EditPersonDialog(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    editedPhone,
-                    { editedPhone = it },
-                    Modifier.fillMaxWidth(),
+                androidx.compose.material3.OutlinedTextField(
+                    value = editedPhone,
+                    onValueChange = { editedPhone = it },
+                    modifier = Modifier.fillMaxWidth(),
                     label = { Text("الهاتف") },
                     singleLine = true,
                     shape = MaterialTheme.shapes.small
                 )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    editedAddress,
-                    { editedAddress = it },
-                    Modifier.fillMaxWidth(),
+                androidx.compose.material3.OutlinedTextField(
+                    value = editedAddress,
+                    onValueChange = { editedAddress = it },
+                    modifier = Modifier.fillMaxWidth(),
                     label = { Text("العنوان") },
                     shape = MaterialTheme.shapes.small
                 )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    editedNotes,
-                    { editedNotes = it },
-                    Modifier.fillMaxWidth(),
+                androidx.compose.material3.OutlinedTextField(
+                    value = editedNotes,
+                    onValueChange = { editedNotes = it },
+                    modifier = Modifier.fillMaxWidth(),
                     label = { Text("الملاحظات") },
                     minLines = 2,
                     shape = MaterialTheme.shapes.small
@@ -326,11 +323,42 @@ private fun EditPersonDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                if (editedName.isBlank()) nameError = true
-                else onSave(editedName.trim(), editedPhone.trim(), editedAddress.trim(), editedNotes.trim())
-            }) { Text("حفظ") }
+            PrimaryButton(
+                text = "حفظ",
+                onClick = {
+                    if (editedName.isBlank()) {
+                        nameError = true
+                    } else {
+                        onSave(
+                            editedName.trim(),
+                            editedPhone.trim(),
+                            editedAddress.trim(),
+                            editedNotes.trim()
+                        )
+                    }
+                }
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+        dismissButton = {
+            SecondaryButton(text = "إلغاء", onClick = onDismiss)
+        }
     )
+}
+
+private fun currencyOrder(code: String): Int = when (code) {
+    "YER" -> 0
+    "SAR" -> 1
+    "USD" -> 2
+    else -> 3
+}
+
+private fun balanceStatus(balanceMinor: Long): BalanceStatus = when {
+    balanceMinor > 0L -> BalanceStatus.Due
+    balanceMinor < 0L -> BalanceStatus.Owed
+    else -> BalanceStatus.Neutral
+}
+
+private fun formatBalance(balanceMinor: Long): String {
+    val amount = BigDecimal(balanceMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
+    return if (balanceMinor > 0L) "+$amount" else amount
 }
