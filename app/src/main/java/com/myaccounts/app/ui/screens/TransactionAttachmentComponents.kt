@@ -25,11 +25,11 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
-import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -46,6 +47,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.myaccounts.app.data.local.TransactionAttachmentEntity
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.AttachmentSection
+import com.myaccounts.app.ui.components.ErrorMessage
+import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.io.File
 
@@ -59,9 +63,7 @@ fun TransactionAttachmentPicker(
     var cameraFile by remember { mutableStateOf<File?>(null) }
     var showCameraPermissionDialog by remember { mutableStateOf(false) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         security.clearExternalActivityPending()
         val file = cameraFile
         cameraFile = null
@@ -79,35 +81,31 @@ fun TransactionAttachmentPicker(
         }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            createAndLaunchCamera(
-                context = context,
-                onFileCreated = { file ->
-                    cameraFile = file
-                    try {
-                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                        security.markExternalActivityPending()
-                        cameraLauncher.launch(uri)
-                    } catch (_: Throwable) {
-                        security.clearExternalActivityPending()
-                        cameraFile = null
-                        file.delete()
-                        showCameraPermissionDialog = true
-                    }
-                },
-                onFailure = { showCameraPermissionDialog = true }
-            )
-        } else {
-            showCameraPermissionDialog = true
-        }
+    val launchCamera = {
+        createAndLaunchCamera(
+            context = context,
+            onFileCreated = { file ->
+                cameraFile = file
+                try {
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    security.markExternalActivityPending()
+                    cameraLauncher.launch(uri)
+                } catch (_: Throwable) {
+                    security.clearExternalActivityPending()
+                    cameraFile = null
+                    file.delete()
+                    showCameraPermissionDialog = true
+                }
+            },
+            onFailure = { showCameraPermissionDialog = true }
+        )
     }
 
-    val documentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) launchCamera() else showCameraPermissionDialog = true
+    }
+
+    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         security.clearExternalActivityPending()
         if (uris.isNotEmpty()) {
             val current = selectedAttachments.toMutableList()
@@ -125,72 +123,47 @@ fun TransactionAttachmentPicker(
     if (showCameraPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showCameraPermissionDialog = false },
-            title = { Text("صلاحية الكاميرا") },
-            text = { Text("لا يمكن التقاط صورة دون السماح للتطبيق باستخدام الكاميرا. يمكنك السماح بها من إعدادات التطبيق.") },
+            title = { Text("صلاحية الكاميرا", style = MaterialTheme.typography.titleLarge) },
+            text = { Text("لا يمكن التقاط صورة دون السماح للتطبيق باستخدام الكاميرا. يمكنك السماح بها من إعدادات التطبيق.", style = MaterialTheme.typography.bodyLarge) },
             confirmButton = {
                 TextButton(onClick = {
                     showCameraPermissionDialog = false
                     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") })
-                }) { Text("فتح الإعدادات") }
+                }) { Text("فتح الإعدادات", style = MaterialTheme.typography.labelLarge) }
             },
-            dismissButton = { TextButton(onClick = { showCameraPermissionDialog = false }) { Text("إلغاء") } }
+            dismissButton = { TextButton(onClick = { showCameraPermissionDialog = false }) { Text("إلغاء", style = MaterialTheme.typography.labelLarge) } }
         )
     }
 
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = {
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                        createAndLaunchCamera(
-                            context = context,
-                            onFileCreated = { file ->
-                                cameraFile = file
-                                try {
-                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                                    security.markExternalActivityPending()
-                                    cameraLauncher.launch(uri)
-                                } catch (_: Throwable) {
-                                    security.clearExternalActivityPending()
-                                    cameraFile = null
-                                    file.delete()
-                                    showCameraPermissionDialog = true
-                                }
-                            },
-                            onFailure = { showCameraPermissionDialog = true }
-                        )
-                    } else {
-                        permissionLauncher.launch(Manifest.permission.CAMERA)
-                    }
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) launchCamera()
+                    else permissionLauncher.launch(Manifest.permission.CAMERA)
                 },
-                modifier = Modifier
-                    .semantics { contentDescription = "الكاميرا" }
-                    .padding(2.dp)
+                modifier = Modifier.semantics { contentDescription = "الكاميرا" }
             ) {
                 Icon(Icons.Default.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
-
             IconButton(
                 onClick = {
                     security.markExternalActivityPending()
                     documentLauncher.launch(arrayOf("*/*"))
                 },
-                modifier = Modifier
-                    .semantics { contentDescription = if (selectedAttachments.isEmpty()) "إرفاق ملف" else "إرفاق ملف آخر" }
-                    .padding(2.dp)
+                modifier = Modifier.semantics { contentDescription = if (selectedAttachments.isEmpty()) "إرفاق ملف" else "إرفاق ملف آخر" }
             ) {
                 Icon(Icons.Default.AttachFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
-
             if (selectedAttachments.isNotEmpty()) {
                 Text(
                     "${selectedAttachments.size} مرفق",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 10.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -198,23 +171,30 @@ fun TransactionAttachmentPicker(
         if (selectedAttachments.isNotEmpty()) {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 itemsIndexed(items = selectedAttachments, key = { index, attachment -> "${attachment.uri}-$index" }) { index, attachment ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    InformationCard {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(modifier = Modifier.weight(1f)) {
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description,
-                                    contentDescription = null
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
-                                Text(text = attachment.fileName, modifier = Modifier.padding(start = 8.dp), maxLines = 2)
+                                Text(
+                                    text = attachment.fileName,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    maxLines = 2,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                             IconButton(onClick = { onAttachmentsChanged(selectedAttachments.filterIndexed { i, _ -> i != index }) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "إزالة المرفق")
+                                Icon(Icons.Default.Delete, contentDescription = "إزالة المرفق", tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -255,19 +235,37 @@ fun TransactionAttachmentsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("مرفقات العملية") },
+        title = { Text("مرفقات العملية", style = MaterialTheme.typography.titleLarge) },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (attachments.isEmpty()) {
-                    Text("لا توجد مرفقات لهذه العملية.")
+                    AttachmentSection(title = "المرفقات") {
+                        Text("لا توجد مرفقات لهذه العملية.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         itemsIndexed(items = attachments, key = { _, attachment -> attachment.id }) { _, attachment ->
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Row(modifier = Modifier.weight(1f)) {
-                                        Icon(if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description, contentDescription = null)
-                                        Text(attachment.fileName, modifier = Modifier.padding(start = 8.dp), maxLines = 2)
+                            InformationCard {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            if (attachment.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            attachment.fileName,
+                                            modifier = Modifier.padding(start = 8.dp),
+                                            maxLines = 2,
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
                                     }
                                     IconButton(onClick = {
                                         try {
@@ -294,16 +292,16 @@ fun TransactionAttachmentsDialog(
                                             errorMessage = "تعذر فتح المرفق."
                                         }
                                     }) { Icon(Icons.Default.OpenInNew, contentDescription = "فتح المرفق") }
-                                    IconButton(onClick = { onDelete(attachment) }) { Icon(Icons.Default.Delete, contentDescription = "حذف المرفق") }
+                                    IconButton(onClick = { onDelete(attachment) }) { Icon(Icons.Default.Delete, contentDescription = "حذف المرفق", tint = MaterialTheme.colorScheme.error) }
                                 }
                             }
                         }
                     }
                 }
-                errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
+                errorMessage?.let { ErrorMessage(it) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق", style = MaterialTheme.typography.labelLarge) } }
     )
 }
 
