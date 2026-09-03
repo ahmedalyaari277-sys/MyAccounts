@@ -12,9 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalLayoutDirection
 
 /** Small, screen-local calculator overlay. It never writes to the database. */
 @Composable
@@ -41,16 +44,20 @@ fun CalculatorOverlay(
                 fontWeight = FontWeight.Bold
             )
 
-            calculatorRow(listOf("1", "2", "3", "÷"), onKey)
-            calculatorRow(listOf("4", "5", "6", "×"), onKey)
-            calculatorRow(listOf("7", "8", "9", "−"), onKey)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                calculatorKey("0", onKey, Modifier.weight(2f))
-                calculatorKey(".", onKey, Modifier.weight(1f))
-                calculatorKey("+", onKey, Modifier.weight(1f))
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                calculatorKey("=", onKey, Modifier.weight(1f))
+            // Keep the keypad in the conventional calculator direction/order,
+            // independently of the application's Arabic RTL layout.
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                calculatorRow(listOf("7", "8", "9", "÷"), onKey)
+                calculatorRow(listOf("4", "5", "6", "×"), onKey)
+                calculatorRow(listOf("1", "2", "3", "−"), onKey)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    calculatorKey("0", onKey, Modifier.weight(2f))
+                    calculatorKey(".", onKey, Modifier.weight(1f))
+                    calculatorKey("+", onKey, Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    calculatorKey("=", onKey, Modifier.weight(1f))
+                }
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
