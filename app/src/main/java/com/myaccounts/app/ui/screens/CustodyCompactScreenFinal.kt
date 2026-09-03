@@ -172,6 +172,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
 
 @Composable
 private fun FinalOwnerCard(custody: CustodyEntity, accounts: List<CustodyAccountEntity>, transactions: List<CustodyTransactionEntity>, people: List<CustodyPersonEntity>, enabled: Boolean, onClick: () -> Unit, onQuick: () -> Unit) {
+    val summaries = finalCurrencies.map { code -> CustodyFinancialSummary.ownerDisplay(transactions, accounts, people, code) }
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -180,19 +181,9 @@ private fun FinalOwnerCard(custody: CustodyEntity, accounts: List<CustodyAccount
             }
             HorizontalDivider()
             CompactCurrencyHeader(finalCurrencies)
-            finalCurrencies.forEach { code ->
-                val s = CustodyFinancialSummary.ownerDisplay(transactions, accounts, people, code)
-                CompactMetricRow(
-                    label = "العهدة",
-                    cells = listOf(
-                        if (code == "YER") CompactMetricData(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز")) else null,
-                        if (code == "SAR") CompactMetricData(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز")) else null,
-                        if (code == "USD") CompactMetricData(finalMoney(kotlin.math.abs(s.custodyMinor)), finalStatus(s.custodyMinor, "متبقي لديه", "عجز")) else null
-                    ),
-                    visibleOnlyForCurrency = code
-                )
-            }
-            CompactOwnerRows(transactions, accounts, people)
+            CompactMetricRow("العهدة", summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.custodyMinor)), finalStatus(it.custodyMinor, "متبقي لديه", "عجز")) })
+            CompactMetricRow("ذمة الجهة", summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.organizationDebtMinor)), finalStatus(it.organizationDebtMinor, "مستحق له", "مستحق عليه")) })
+            CompactMetricRow("ذمم الأطراف", summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.peopleDebtMinor)), finalStatus(it.peopleDebtMinor, "له على الأطراف", "عليه للأشخاص")) })
         }
     }
 }
@@ -217,24 +208,15 @@ private fun CompactCurrencyHeader(currencies: List<String>) {
 }
 
 @Composable
-private fun CompactMetricRow(label: String, cells: List<CompactMetricData?>, visibleOnlyForCurrency: String? = null) {
+private fun CompactMetricRow(label: String, cells: List<CompactMetricData>) {
     Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.width(70.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Text(label, modifier = Modifier.width(70.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
         cells.forEach { cell ->
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                if (cell != null) FinalMetric(cell.value, cell.status, Modifier.fillMaxWidth())
+                FinalMetric(cell.value, cell.status, Modifier.fillMaxWidth())
             }
         }
     }
-}
-
-@Composable
-private fun CompactOwnerRows(custodyTransactions: List<CustodyTransactionEntity>, accounts: List<CustodyAccountEntity>, people: List<CustodyPersonEntity>) {
-    val summaries = finalCurrencies.map { code -> CustodyFinancialSummary.ownerDisplay(custodyTransactions, accounts, people, code) }
-    val organization = summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.organizationDebtMinor)), finalStatus(it.organizationDebtMinor, "مستحق له", "مستحق عليه")) }
-    val parties = summaries.map { CompactMetricData(finalMoney(kotlin.math.abs(it.peopleDebtMinor)), finalStatus(it.peopleDebtMinor, "له على الأطراف", "عليه للأشخاص")) }
-    CompactMetricRow("ذمة الجهة", organization)
-    CompactMetricRow("ذمم الأطراف", parties)
 }
 
 @Composable
