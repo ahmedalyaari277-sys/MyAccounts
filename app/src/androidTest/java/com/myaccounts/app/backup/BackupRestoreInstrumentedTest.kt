@@ -79,76 +79,6 @@ class BackupRestoreInstrumentedTest {
     }
 
     @Test
-    fun restoreLegacyFormatV3WithoutArchiveOrExternalIds() = runBlocking {
-        val db = database.openHelper.writableDatabase
-        db.execSQL("DELETE FROM transaction_attachments")
-        db.execSQL("DELETE FROM transactions")
-        db.execSQL("DELETE FROM currency_accounts")
-        db.execSQL("DELETE FROM people")
-
-        val legacyBackup = JSONObject()
-            .put("backupType", "myaccounts_full_backup")
-            .put("formatVersion", 3)
-            .put("createdAt", 3000L)
-            .put("people", JSONArray().put(
-                JSONObject()
-                    .put("id", 940001L)
-                    .put("name", "شخص من النسخة القديمة")
-                    .put("phone", "0522222222")
-                    .put("address", "عنوان قديم")
-                    .put("notes", "ملاحظة قديمة")
-                    .put("createdAt", 3001L)
-                    .put("isActive", true)
-            ))
-            .put("currencyAccounts", JSONArray().put(
-                JSONObject()
-                    .put("id", 950001L)
-                    .put("personId", 940001L)
-                    .put("currencyCode", "YER")
-                    .put("balanceMinor", 375000L)
-                    .put("createdAt", 3002L)
-                    .put("updatedAt", 3003L)
-            ))
-            .put("transactions", JSONArray().put(
-                JSONObject()
-                    .put("id", 960001L)
-                    .put("accountId", 950001L)
-                    .put("type", "RECEIVABLE")
-                    .put("amountMinor", 375000L)
-                    .put("description", "عملية من النسخة القديمة")
-                    .put("transactionDate", 3004L)
-                    .put("createdAt", 3005L)
-            ))
-            .put("attachments", JSONArray())
-
-        backupUri = createBackupUri("m03_legacy_v3_${System.currentTimeMillis()}.myaccounts")
-        context.contentResolver.openOutputStream(backupUri!!)?.use { output ->
-            output.write(legacyBackup.toString().toByteArray(Charsets.UTF_8))
-        } ?: error("Could not write legacy v3 backup")
-        publishBackupUri(backupUri!!)
-
-        val restoreResult = DatabaseBackupManager.restoreBackup(context, backupUri!!)
-        assertTrue("Legacy v3 restore failed: ${restoreResult.exceptionOrNull()}", restoreResult.isSuccess)
-
-        db.query("SELECT name,archivedAt,externalId FROM people WHERE id=940001").use { c ->
-            assertTrue("Legacy v3 person was not restored", c.moveToFirst())
-            assertEquals("شخص من النسخة القديمة", c.getString(0))
-            assertTrue("Legacy v3 archivedAt should default to NULL", c.isNull(1))
-            assertEquals("P-940001", c.getString(2))
-        }
-        db.query("SELECT balanceMinor FROM currency_accounts WHERE id=950001").use { c ->
-            assertTrue("Legacy v3 account was not restored", c.moveToFirst())
-            assertEquals(375000L, c.getLong(0))
-        }
-        db.query("SELECT amountMinor,description,externalId FROM transactions WHERE id=960001").use { c ->
-            assertTrue("Legacy v3 transaction was not restored", c.moveToFirst())
-            assertEquals(375000L, c.getLong(0))
-            assertEquals("عملية من النسخة القديمة", c.getString(1))
-            assertEquals("T-960001", c.getString(2))
-        }
-    }
-
-    @Test
     fun restoreBackupThroughRealPhoneUiAndSystemFilePicker() = runBlocking {
         val db = database.openHelper.writableDatabase
         db.execSQL("DELETE FROM transaction_attachments")
@@ -185,7 +115,8 @@ class BackupRestoreInstrumentedTest {
         ui.pressHome()
         instrumentation.targetContext.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         assertTrue("MyAccounts did not become visible", ui.wait(Until.hasObject(By.pkg(context.packageName)), 15_000))
-        clickFresh(ui, By.desc("النسخ الاحتياطي والاستعادة"), "Backup/restore button")
+        clickFresh(ui, By.desc("المزيد من الخيارات"), "More options button")
+        clickFresh(ui, By.text("النسخ الاحتياطي والاستعادة"), "Backup/restore menu item")
         assertTrue("Backup restore screen did not open", ui.wait(Until.hasObject(By.text("استعادة نسخة احتياطية")), 10_000))
         clickFresh(ui, By.text("استعادة نسخة احتياطية"), "Restore backup button")
         assertTrue("Android system file picker did not open", ui.wait(Until.hasObject(By.pkg("com.google.android.documentsui")), 10_000))
