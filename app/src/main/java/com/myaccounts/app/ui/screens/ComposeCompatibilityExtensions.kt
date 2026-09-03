@@ -13,4 +13,4 @@ import androidx.compose.ui.focus.focusRequester as foundationFocusRequester
  */
 fun Modifier.horizontalScroll(state: ScrollState): Modifier = foundationHorizontalScroll(this, state)
 
-fun Modifier.focusRequester(requester: FocusRequester): Modifier = foundationFocusRequester(this, requester)
+fun Modifier.focusRequester(requester: FocusRequester): Modifier = foundationFocusRequester(requester)
