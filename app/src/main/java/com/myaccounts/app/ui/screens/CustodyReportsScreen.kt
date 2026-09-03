@@ -24,14 +24,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import com.myaccounts.app.data.custody.CustodyBalanceRules
+import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyTransactionEntity
 import com.myaccounts.app.data.custody.CustodyTransactionType
-import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.BalanceAmount
 import com.myaccounts.app.ui.components.BalanceStatus
@@ -72,6 +72,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var currency by remember { mutableStateOf("ALL") }
+    var reportMode by remember { mutableStateOf(0) }
     var type by remember { mutableStateOf("ALL") }
     var personId by remember { mutableStateOf<Long?>(null) }
     var period by remember { mutableStateOf(0) }
@@ -86,8 +87,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         return date >= start && date < end
     }
 
-    fun filteredTransactions(transactions: List<CustodyTransactionEntity>): List<CustodyTransactionEntity> = transactions
-        .asSequence()
+    fun filteredTransactions(transactions: List<CustodyTransactionEntity>): List<CustodyTransactionEntity> = transactions.asSequence()
         .filter { currency == "ALL" || it.currencyCode == currency }
         .filter { type == "ALL" || it.type == type }
         .filter { personId == null || it.personId == personId }
@@ -133,10 +133,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
-        topBar = { AppTopBar(title = "تقارير العُهَد", onBack = onBack) },
-        snackbarHost = { SnackbarHost(snackbar) }
-    ) { padding ->
+    Scaffold(topBar = { AppTopBar(title = "تقارير العُهَد", onBack = onBack) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -144,6 +141,11 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
             item {
                 SummaryCard(title = "مركز تقارير العُهَد") {
                     Text("التقارير مستقلة عن دفتر الحسابات وتقرأ من بيانات العهد فقط.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        reportModeButton("أصحاب العُهَد", reportMode == 0) { reportMode = 0; personId = null }
+                        reportModeButton("الأرصدة", reportMode == 1) { reportMode = 1 }
+                        reportModeButton("العمليات", reportMode == 2) { reportMode = 2 }
+                    }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         reportCurrencies.forEach { code ->
                             SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy)
@@ -158,12 +160,12 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                 val transactions by vm.transactions(custody.id).collectAsState(initial = emptyList())
                 val filtered = filteredTransactions(transactions)
                 val currencies = if (currency == "ALL") listOf("YER", "SAR", "USD") else listOf(currency)
-
-                itemContent(
+                CustodyReportContent(
                     custody = custody,
                     people = people,
                     filtered = filtered,
                     currencies = currencies,
+                    mode = reportMode,
                     currentType = type,
                     currentPersonId = personId,
                     period = period,
@@ -197,33 +199,29 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                 )
             }
 
-            if (custodies.isEmpty()) {
-                item {
-                    EmptyState(
-                        type = EmptyStateType.Custody,
-                        title = "لا توجد عُهَد",
-                        description = "لا توجد بيانات عهد متاحة لإصدار التقارير."
-                    )
-                }
+            if (custodies.isEmpty()) item {
+                EmptyState(EmptyStateType.Custody, "لا توجد عُهَد", "لا توجد بيانات عهد متاحة لإصدار التقارير.")
             }
         }
     }
 
     message?.let { text ->
-        AlertDialog(
-            onDismissRequest = { message = null },
-            text = { Text(text, style = MaterialTheme.typography.bodyLarge) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
-        )
+        AlertDialog(onDismissRequest = { message = null }, text = { Text(text, style = MaterialTheme.typography.bodyLarge) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } })
     }
 }
 
 @Composable
-private fun itemContent(
+private fun reportModeButton(label: String, selected: Boolean, onClick: () -> Unit) {
+    if (selected) PrimaryButton(label, onClick, Modifier.weight(1f)) else SecondaryButton(label, onClick, Modifier.weight(1f))
+}
+
+@Composable
+private fun CustodyReportContent(
     custody: CustodyEntity,
     people: List<CustodyPersonEntity>,
     filtered: List<CustodyTransactionEntity>,
     currencies: List<String>,
+    mode: Int,
     currentType: String,
     currentPersonId: Long?,
     period: Int,
@@ -240,7 +238,13 @@ private fun itemContent(
 ) {
     SummaryCard(title = custody.name) {
         Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodyLarge)
-        Text("عدد الأشخاص: ${people.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (mode == 0) {
+            Text("عدد الأشخاص: ${people.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            currencies.forEach { code ->
+                val balanceValue = filtered.filter { it.currencyCode == code }.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }
+                InformationCard { BalanceAmount("${currencyName(code)} — ${balance(balanceValue)}", balanceStatus(balanceValue)) }
+            }
+        }
 
         InformationCard {
             Text("الفترة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -250,11 +254,7 @@ private fun itemContent(
                 SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy)
                 SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy)
             }
-            Text(
-                when (period) { 1 -> "اليوم"; 2 -> "هذا الأسبوع"; 3 -> "هذا الشهر"; else -> "كل الحساب" },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            StatusChip(when (period) { 1 -> "اليوم"; 2 -> "هذا الأسبوع"; 3 -> "هذا الشهر"; else -> "كل الحساب" })
         }
 
         InformationCard {
@@ -265,9 +265,7 @@ private fun itemContent(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                reportTypes.drop(3).forEach { (code, label) ->
-                    SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy)
-                }
+                reportTypes.drop(3).forEach { (code, label) -> SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy) }
             }
             StatusChip(typeName(currentType))
         }
@@ -276,42 +274,9 @@ private fun itemContent(
             Text("الشخص / الطرف", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy)
-                people.take(3).forEach { person ->
-                    SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy)
-                }
+                people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) }
             }
-            if (people.size > 3) Text("يمكن تطبيق تقرير شخص محدد من شاشة عمليات الشخص.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            currentPersonId?.let { id ->
-                people.firstOrNull { it.id == id }?.let { StatusChip(it.name) }
-            }
-        }
-
-        SummaryCard(title = "الملخص المالي") {
-            currencies.forEach { code ->
-                val rows = filtered.filter { it.currencyCode == code }
-                val received = rows.filter { it.type == CustodyTransactionType.RECEIVED_FROM_ORG }.sumOf { it.amountMinor }
-                val paid = rows.filter { it.type == CustodyTransactionType.PAID_TO_PERSON }.sumOf { it.amountMinor }
-                val returnedFromPerson = rows.filter { it.type == CustodyTransactionType.RETURNED_FROM_PERSON }.sumOf { it.amountMinor }
-                val returnedToOrg = rows.filter { it.type == CustodyTransactionType.RETURNED_TO_ORG }.sumOf { it.amountMinor }
-                val balanceValue = rows.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }
-                InformationCard {
-                    Text(currencyName(code), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        BalanceAmount("استلام ${amount(received)}", BalanceStatus.Owed, Modifier.weight(1f))
-                        BalanceAmount("صرف ${amount(paid)}", BalanceStatus.Due, Modifier.weight(1f))
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        BalanceAmount("مرتجع أشخاص ${amount(returnedFromPerson)}", BalanceStatus.Owed, Modifier.weight(1f))
-                        BalanceAmount("مرتجع جهة ${amount(returnedToOrg)}", BalanceStatus.Neutral, Modifier.weight(1f))
-                    }
-                    BalanceAmount(
-                        balance(balanceValue),
-                        if (balanceValue > 0L) BalanceStatus.Due else if (balanceValue < 0L) BalanceStatus.Owed else BalanceStatus.Neutral,
-                        label = "الرصيد النهائي"
-                    )
-                }
-            }
-            Text("عدد العمليات: ${filtered.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            currentPersonId?.let { id -> people.firstOrNull { it.id == id }?.let { StatusChip(it.name) } }
         }
 
         InformationCard {
@@ -327,12 +292,32 @@ private fun itemContent(
         }
 
         if (filtered.isEmpty()) {
-            EmptyState(
-                type = EmptyStateType.Reports,
-                title = "لا توجد عمليات ضمن الفلاتر",
-                description = "غيّر العملة أو الفترة أو نوع الحركة أو الشخص."
-            )
-        } else {
+            EmptyState(EmptyStateType.Reports, "لا توجد عمليات ضمن الفلاتر", "غيّر العملة أو الفترة أو نوع الحركة أو الشخص.")
+        } else if (mode == 1) {
+            SummaryCard(title = "الملخص المالي") {
+                currencies.forEach { code ->
+                    val rows = filtered.filter { it.currencyCode == code }
+                    val received = rows.filter { it.type == CustodyTransactionType.RECEIVED_FROM_ORG }.sumOf { it.amountMinor }
+                    val paid = rows.filter { it.type == CustodyTransactionType.PAID_TO_PERSON }.sumOf { it.amountMinor }
+                    val returnedFromPerson = rows.filter { it.type == CustodyTransactionType.RETURNED_FROM_PERSON }.sumOf { it.amountMinor }
+                    val returnedToOrg = rows.filter { it.type == CustodyTransactionType.RETURNED_TO_ORG }.sumOf { it.amountMinor }
+                    val balanceValue = rows.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }
+                    InformationCard {
+                        Text(currencyName(code), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            BalanceAmount("استلام ${amount(received)}", BalanceStatus.Owed, Modifier.weight(1f))
+                            BalanceAmount("صرف ${amount(paid)}", BalanceStatus.Due, Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            BalanceAmount("مرتجع أشخاص ${amount(returnedFromPerson)}", BalanceStatus.Owed, Modifier.weight(1f))
+                            BalanceAmount("مرتجع جهة ${amount(returnedToOrg)}", BalanceStatus.Neutral, Modifier.weight(1f))
+                        }
+                        BalanceAmount(balance(balanceValue), if (balanceValue > 0L) BalanceStatus.Due else if (balanceValue < 0L) BalanceStatus.Owed else BalanceStatus.Neutral, label = "الرصيد النهائي")
+                    }
+                }
+                Text("عدد العمليات: ${filtered.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else if (mode == 2) {
             Text("تفاصيل العمليات", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             filtered.forEach { transaction ->
                 val personName = transaction.personId?.let { id -> people.firstOrNull { it.id == id }?.name }
@@ -351,6 +336,7 @@ private fun itemContent(
 
 private fun amount(value: Long): String = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun balance(value: Long): String = when { value > 0L -> "عليه ${amount(value)}"; value < 0L -> "له ${amount(-value)}"; else -> "متوازن 0" }
+private fun balanceStatus(value: Long): BalanceStatus = when { value > 0L -> BalanceStatus.Due; value < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
 private fun currencyName(value: String): String = when (value) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; "ALL" -> "جميع العملات"; else -> value }
 private fun formatDateTime(value: Long): String = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("ar")).format(Date(value))
 private fun dayStart(value: Long): Long = java.util.Calendar.getInstance().apply { timeInMillis = value; set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
