@@ -1,6 +1,5 @@
 package com.myaccounts.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,15 +11,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
@@ -34,12 +35,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +53,13 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.ui.components.AppTopBar
+import com.myaccounts.app.ui.components.BalanceAmount
+import com.myaccounts.app.ui.components.BalanceStatus
+import com.myaccounts.app.ui.components.EmptyState
+import com.myaccounts.app.ui.components.EmptyStateType
+import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.components.SearchField
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 
@@ -78,6 +83,7 @@ fun HomeScreen(
     var quickTransactionPersonId by remember { mutableStateOf<Long?>(null) }
     var sortOrder by remember { mutableStateOf(PersonSortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
 
     val filteredList = personsList.filter { item ->
         item.person.name.contains(searchQuery, ignoreCase = true) ||
@@ -96,49 +102,78 @@ fun HomeScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("دفتر الحسابات", style = MaterialTheme.typography.titleLarge) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                ),
+            AppTopBar(
+                title = "حساباتي",
                 actions = {
-                    TextButton(onClick = onReportsClick) { Text("التقارير", fontWeight = FontWeight.Bold) }
-                    IconButton(onClick = { showSortMenu = true }) {
-                        Icon(Icons.Default.Sort, contentDescription = "ترتيب الأشخاص")
-                    }
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("حسب أحدث عملية") },
-                            onClick = {
-                                sortOrder = PersonSortOrder.LATEST_TRANSACTION
-                                showSortMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("حسب الأبجدية") },
-                            onClick = {
-                                sortOrder = PersonSortOrder.ALPHABETICAL
-                                showSortMenu = false
-                            }
-                        )
-                    }
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "الإعدادات")
-                    }
                     IconButton(
-                        onClick = onBackupRestoreClick,
-                        modifier = Modifier.semantics {
-                            contentDescription = "النسخ الاحتياطي والاستعادة"
-                        }
+                        onClick = onReportsClick,
+                        modifier = Modifier.semantics { contentDescription = "التقارير" }
                     ) {
-                        Icon(Icons.Default.Backup, contentDescription = null)
+                        Icon(Icons.Default.Assessment, contentDescription = null)
                     }
-                    IconButton(onClick = onArchiveClick) {
-                        Icon(Icons.Default.Archive, contentDescription = "الأرشيف")
+                    Box {
+                        IconButton(
+                            onClick = { showSortMenu = true },
+                            modifier = Modifier.semantics { contentDescription = "ترتيب الأشخاص" }
+                        ) {
+                            Icon(Icons.Default.Sort, contentDescription = null)
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("حسب أحدث عملية") },
+                                onClick = {
+                                    sortOrder = PersonSortOrder.LATEST_TRANSACTION
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("حسب الأبجدية") },
+                                onClick = {
+                                    sortOrder = PersonSortOrder.ALPHABETICAL
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(
+                            onClick = { showMoreMenu = true },
+                            modifier = Modifier.semantics { contentDescription = "المزيد من الخيارات" }
+                        ) {
+                            Icon(Icons.Default.MoreVert, contentDescription = null)
+                        }
+                        DropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismissRequest = { showMoreMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("الإعدادات") },
+                                leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onSettingsClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("النسخ الاحتياطي والاستعادة") },
+                                leadingIcon = { Icon(Icons.Default.Backup, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onBackupRestoreClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("الأرشيف") },
+                                leadingIcon = { Icon(Icons.Default.Archive, contentDescription = null) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    onArchiveClick()
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -147,7 +182,6 @@ fun HomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             Column(
@@ -155,50 +189,23 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp)
             ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("بحث بالاسم أو الهاتف أو العنوان أو الملاحظات") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "بحث") },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium
+                SearchField(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    placeholder = "بحث بالاسم أو الهاتف أو العنوان أو الملاحظات"
                 )
                 Spacer(Modifier.height(16.dp))
 
                 if (displayedList.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.height(48.dp).width(48.dp)
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Text(
-                                if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            if (searchQuery.isBlank()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "اضغط (+) لإضافة أول شخص",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
+                    EmptyState(
+                        type = EmptyStateType.People,
+                        title = if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث",
+                        description = if (searchQuery.isBlank()) "اضغط (+) لإضافة أول شخص" else "جرّب تعديل عبارة البحث"
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(displayedList, key = { it.person.id }) { item ->
                             PersonCard(
@@ -214,15 +221,17 @@ fun HomeScreen(
                 }
             }
 
-            Box(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
-                }
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(56.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = MaterialTheme.shapes.large
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "إضافة شخص")
             }
         }
     }
@@ -273,83 +282,94 @@ private fun PersonCard(
     onClick: () -> Unit,
     onQuickTransaction: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = MaterialTheme.shapes.medium
+    InformationCard(
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onQuickTransaction) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "إضافة عملية سريعة",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        personWithAccounts.person.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (personWithAccounts.person.phone.isNotBlank()) {
-                        Text(
-                            personWithAccounts.person.phone,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-            if (personWithAccounts.person.address.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "العنوان: ${personWithAccounts.person.address}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onQuickTransaction) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "إضافة عملية سريعة",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                CurrencyLabel("ريال يمني", personWithAccounts.balance("YER"))
-                CurrencyLabel("ريال سعودي", personWithAccounts.balance("SAR"))
-                CurrencyLabel("دولار", personWithAccounts.balance("USD"))
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    personWithAccounts.person.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (personWithAccounts.person.phone.isNotBlank()) {
+                    Text(
+                        personWithAccounts.person.phone,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.Default.Person,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        if (personWithAccounts.person.address.isNotBlank()) {
+            Text(
+                "العنوان: ${personWithAccounts.person.address}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CurrencyBalance(
+                modifier = Modifier.weight(1f),
+                currency = "ريال يمني",
+                balance = personWithAccounts.balance("YER")
+            )
+            CurrencyBalance(
+                modifier = Modifier.weight(1f),
+                currency = "ريال سعودي",
+                balance = personWithAccounts.balance("SAR")
+            )
+            CurrencyBalance(
+                modifier = Modifier.weight(1f),
+                currency = "دولار",
+                balance = personWithAccounts.balance("USD")
+            )
         }
     }
 }
 
+@Composable
+private fun CurrencyBalance(
+    currency: String,
+    balance: Long,
+    modifier: Modifier = Modifier
+) {
+    val status = when {
+        balance > 0L -> BalanceStatus.Due
+        balance < 0L -> BalanceStatus.Owed
+        else -> BalanceStatus.Neutral
+    }
+    BalanceAmount(
+        amount = formatBalance(balance),
+        status = status,
+        label = currency,
+        modifier = modifier
+    )
+}
+
 private fun PersonWithAccounts.balance(currencyCode: String): Long =
     accounts.firstOrNull { it.currencyCode == currencyCode }?.balanceMinor ?: 0L
-
-@Composable
-private fun CurrencyLabel(currency: String, balance: Long) {
-    val balanceColor = when {
-        balance > 0L -> MaterialTheme.colorScheme.error
-        balance < 0L -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            currency,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            formatBalance(balance),
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = balanceColor
-        )
-    }
-}
 
 private fun formatBalance(balance: Long): String = when {
     balance > 0L -> "عليه ${formatAmount(balance)}"
@@ -370,12 +390,13 @@ private fun AddPersonDialog(
     var address by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("إضافة شخص جديد", fontWeight = FontWeight.Bold) },
+        title = { Text("إضافة شخص جديد", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column {
-                OutlinedTextField(
+                androidx.compose.material3.OutlinedTextField(
                     name,
                     { name = it; nameError = false },
                     Modifier.fillMaxWidth(),
@@ -384,21 +405,56 @@ private fun AddPersonDialog(
                     isError = nameError,
                     shape = MaterialTheme.shapes.small
                 )
-                if (nameError) Text("اسم الشخص مطلوب", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("رقم الهاتف") }, singleLine = true, shape = MaterialTheme.shapes.small)
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("العنوان") }, minLines = 2, shape = MaterialTheme.shapes.small)
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, shape = MaterialTheme.shapes.small)
+                if (nameError) {
+                    Text(
+                        "اسم الشخص مطلوب",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    phone,
+                    { phone = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("رقم الهاتف") },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small
+                )
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    address,
+                    { address = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("العنوان") },
+                    minLines = 2,
+                    shape = MaterialTheme.shapes.small
+                )
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    notes,
+                    { notes = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("الملاحظات") },
+                    minLines = 2,
+                    shape = MaterialTheme.shapes.small
+                )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                if (name.isBlank()) nameError = true
-                else onSave(name.trim(), phone.trim(), address.trim(), notes.trim())
-            }) { Text("حفظ") }
+            Button(
+                onClick = {
+                    if (name.isBlank()) nameError = true
+                    else onSave(name.trim(), phone.trim(), address.trim(), notes.trim())
+                }
+            ) {
+                Text("حفظ", style = MaterialTheme.typography.labelLarge)
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("إلغاء", style = MaterialTheme.typography.labelLarge)
+            }
+        }
     )
 }
