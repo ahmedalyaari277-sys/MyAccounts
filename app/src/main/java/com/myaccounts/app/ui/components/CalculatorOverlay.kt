@@ -46,9 +46,8 @@ fun CalculatorOverlay(
                 fontWeight = FontWeight.Bold
             )
 
-            // Match the physical KK-402 calculator's visual keypad direction:
-            // operators are on the user's right when holding the Arabic RTL app.
-            // Only positions are changed; each existing callback remains untouched.
+            // Keep the calculator keypad LTR so its visual arrangement matches
+            // the physical KK-402: operators are on the user's right.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     TextButton(onClick = onClear, modifier = Modifier.weight(1f)) { Text("مسح") }
@@ -64,16 +63,15 @@ fun CalculatorOverlay(
                 calculatorRow(listOf("7", "8", "9", "÷"), onKey)
                 calculatorRow(listOf("4", "5", "6", "×"), onKey)
 
+                // The KK-402 places + in a tall right-hand key spanning
+                // the 1-2-3 row and the 0-.-= row.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    calculatorRowInRow(listOf("1", "2", "3"), onKey)
+                    Column(Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        calculatorRow(listOf("1", "2", "3"), onKey)
+                        calculatorRow(listOf("0", ".", "="), onKey)
+                    }
                     calculatorKey("−", onKey, Modifier.weight(1f))
-                }
-
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    calculatorKey("0", onKey, Modifier.weight(1f))
-                    calculatorKey(".", onKey, Modifier.weight(1f))
-                    calculatorKey("=", onKey, Modifier.weight(1f))
-                    calculatorKey("+", onKey, Modifier.weight(1f).height(104.dp))
+                    calculatorKey("+", onKey, Modifier.weight(1f).height(102.dp))
                 }
             }
         }
@@ -85,11 +83,6 @@ private fun calculatorRow(keys: List<String>, onKey: (String) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         keys.forEach { key -> calculatorKey(key, onKey, Modifier.weight(1f)) }
     }
-}
-
-@Composable
-private fun calculatorRowInRow(keys: List<String>, onKey: (String) -> Unit) {
-    keys.forEach { key -> calculatorKey(key, onKey, Modifier.weight(1f)) }
 }
 
 @Composable
