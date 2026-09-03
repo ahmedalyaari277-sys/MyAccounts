@@ -272,6 +272,52 @@ fun TransactionCard(
 }
 
 @Composable
+fun CustodyOperationCard(
+    operationType: String,
+    amount: String,
+    currency: String,
+    date: String? = null,
+    description: String? = null,
+    tone: CustodyOperationTone = CustodyOperationTone.Neutral,
+    modifier: Modifier = Modifier,
+    actions: @Composable () -> Unit = {}
+) {
+    val accent = when (tone) {
+        CustodyOperationTone.ReceiveFromOrganization -> Info
+        CustodyOperationTone.PayToPerson -> Due
+        CustodyOperationTone.ReturnFromPerson -> Owed
+        CustodyOperationTone.ReturnToOrganization -> Neutral
+        CustodyOperationTone.Neutral -> MaterialTheme.colorScheme.outline
+    }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(operationType, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                StatusChip(text = currency, color = accent)
+            }
+            Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
+            if (!description.isNullOrBlank()) Text(description, style = MaterialTheme.typography.bodyLarge)
+            if (!date.isNullOrBlank()) Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions() }
+        }
+    }
+}
+
+enum class CustodyOperationTone {
+    ReceiveFromOrganization,
+    PayToPerson,
+    ReturnFromPerson,
+    ReturnToOrganization,
+    Neutral
+}
+
+@Composable
 fun EmptyState(
     type: EmptyStateType,
     title: String,
