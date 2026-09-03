@@ -1,7 +1,6 @@
 package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,13 +55,7 @@ import java.util.Date
 import java.util.Locale
 
 private val reportCurrencies = listOf("ALL", "YER", "SAR", "USD")
-private val reportTypes = listOf(
-    "ALL" to "كل العمليات",
-    CustodyTransactionType.RECEIVED_FROM_ORG to "استلام من الجهة",
-    CustodyTransactionType.PAID_TO_PERSON to "صرف للشخص",
-    CustodyTransactionType.RETURNED_FROM_PERSON to "مرتجع من الشخص",
-    CustodyTransactionType.RETURNED_TO_ORG to "مرتجع للجهة"
-)
+private val reportTypes = listOf("ALL" to "كل العمليات", CustodyTransactionType.RECEIVED_FROM_ORG to "استلام من الجهة", CustodyTransactionType.PAID_TO_PERSON to "صرف للشخص", CustodyTransactionType.RETURNED_FROM_PERSON to "مرتجع من الشخص", CustodyTransactionType.RETURNED_TO_ORG to "مرتجع للجهة")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +84,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         .filter { currency == "ALL" || it.currencyCode == currency }
         .filter { type == "ALL" || it.type == type }
         .filter { personId == null || it.personId == personId }
-        .filter(::inPeriod)
+        .filter { inPeriod(it.transactionDate) }
         .sortedByDescending { it.transactionDate }
         .toList()
 
@@ -110,10 +103,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         busy = true
         scope.launch(Dispatchers.IO) {
             val result = if (pdf) CustodyReportExporter.exportPdf(context, custody, transactions, currency) else CustodyReportExporter.exportExcel(context, custody, transactions, currency)
-            withContext(Dispatchers.Main) {
-                message = result.fold({ it }, { it.message ?: "تعذر إنشاء التقرير." })
-                busy = false
-            }
+            withContext(Dispatchers.Main) { message = result.fold({ it }, { it.message ?: "تعذر إنشاء التقرير." }); busy = false }
         }
     }
 
@@ -123,21 +113,13 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         val mime = if (pdf) "application/pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         val prefix = "MyAccounts_تقرير_عهدة_${safeFileName(custody.name)}"
         scope.launch(Dispatchers.IO) {
-            val result = ReportShareUtil.shareGeneratedReport(context, prefix, mime) {
-                if (pdf) CustodyReportExporter.exportPdf(context, custody, transactions, currency) else CustodyReportExporter.exportExcel(context, custody, transactions, currency)
-            }
-            withContext(Dispatchers.Main) {
-                message = result.fold({ "تم فتح خيارات مشاركة التقرير." }, { it.message ?: "تعذر مشاركة التقرير." })
-                busy = false
-            }
+            val result = ReportShareUtil.shareGeneratedReport(context, prefix, mime) { if (pdf) CustodyReportExporter.exportPdf(context, custody, transactions, currency) else CustodyReportExporter.exportExcel(context, custody, transactions, currency) }
+            withContext(Dispatchers.Main) { message = result.fold({ "تم فتح خيارات مشاركة التقرير." }, { it.message ?: "تعذر مشاركة التقرير." }); busy = false }
         }
     }
 
     Scaffold(topBar = { AppTopBar(title = "تقارير العُهَد", onBack = onBack) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 SummaryCard(title = "مركز تقارير العُهَد") {
                     Text("التقارير مستقلة عن دفتر الحسابات وتقرأ من بيانات العهد فقط.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -146,150 +128,65 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                         reportModeButton("الأرصدة", reportMode == 1, Modifier.weight(1f)) { reportMode = 1 }
                         reportModeButton("العمليات", reportMode == 2, Modifier.weight(1f)) { reportMode = 2 }
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        reportCurrencies.forEach { code -> SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy) }
-                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy) } }
                     Text("العملة الحالية: ${currencyName(currency)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
             items(custodies, key = { it.id }) { custody ->
                 val people by vm.persons(custody.id).collectAsState(initial = emptyList())
                 val transactions by vm.transactions(custody.id).collectAsState(initial = emptyList())
                 val filtered = filteredTransactions(transactions)
                 val currencies = if (currency == "ALL") listOf("YER", "SAR", "USD") else listOf(currency)
-                CustodyReportContent(
-                    custody = custody,
-                    people = people,
-                    filtered = filtered,
-                    currencies = currencies,
-                    mode = reportMode,
-                    currentType = type,
-                    currentPersonId = personId,
-                    period = period,
-                    busy = busy,
-                    onType = { type = it },
-                    onPerson = { personId = it },
-                    onPeriod = {
-                        period = it
-                        when (it) {
-                            0 -> { startDate = null; endDate = null }
-                            1 -> { startDate = dayStart(System.currentTimeMillis()); endDate = dayEnd(System.currentTimeMillis()) }
-                            2 -> {
-                                val now = dayStart(System.currentTimeMillis())
-                                val cal = java.util.Calendar.getInstance().apply { timeInMillis = now; set(java.util.Calendar.DAY_OF_WEEK, firstDayOfWeek) }
-                                startDate = cal.timeInMillis
-                                endDate = addDays(startDate!!, 7)
-                            }
-                            3 -> {
-                                val now = java.util.Calendar.getInstance().apply { timeInMillis = dayStart(System.currentTimeMillis()); set(java.util.Calendar.DAY_OF_MONTH, 1) }
-                                startDate = now.timeInMillis
-                                endDate = java.util.Calendar.getInstance().apply { timeInMillis = now.timeInMillis; add(java.util.Calendar.MONTH, 1) }.timeInMillis
-                            }
-                        }
-                    },
-                    onExportPdf = { export(custody, filtered, true) },
-                    onExportExcel = { export(custody, filtered, false) },
-                    onSharePdf = { share(custody, filtered, true) },
-                    onShareExcel = { share(custody, filtered, false) },
-                    toneFor = ::toneFor,
-                    typeName = ::typeName
-                )
+                CustodyReportContent(custody, people, filtered, currencies, reportMode, type, personId, period, busy, { type = it }, { personId = it }, { selected ->
+                    period = selected
+                    when (selected) {
+                        0 -> { startDate = null; endDate = null }
+                        1 -> { startDate = dayStart(System.currentTimeMillis()); endDate = dayEnd(System.currentTimeMillis()) }
+                        2 -> { val now = dayStart(System.currentTimeMillis()); val cal = java.util.Calendar.getInstance().apply { timeInMillis = now; set(java.util.Calendar.DAY_OF_WEEK, firstDayOfWeek) }; startDate = cal.timeInMillis; endDate = addDays(startDate!!, 7) }
+                        3 -> { val now = java.util.Calendar.getInstance().apply { timeInMillis = dayStart(System.currentTimeMillis()); set(java.util.Calendar.DAY_OF_MONTH, 1) }; startDate = now.timeInMillis; endDate = java.util.Calendar.getInstance().apply { timeInMillis = now.timeInMillis; add(java.util.Calendar.MONTH, 1) }.timeInMillis }
+                    }
+                }, { export(custody, filtered, true) }, { export(custody, filtered, false) }, { share(custody, filtered, true) }, { share(custody, filtered, false) }, ::toneFor, ::typeName)
             }
-
-            if (custodies.isEmpty()) item {
-                EmptyState(EmptyStateType.Custody, "لا توجد عُهَد", "لا توجد بيانات عهد متاحة لإصدار التقارير.")
-            }
+            if (custodies.isEmpty()) item { EmptyState(EmptyStateType.Custody, "لا توجد عُهَد", "لا توجد بيانات عهد متاحة لإصدار التقارير.") }
         }
     }
-
-    message?.let { text ->
-        AlertDialog(onDismissRequest = { message = null }, text = { Text(text, style = MaterialTheme.typography.bodyLarge) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } })
-    }
+    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, text = { Text(text, style = MaterialTheme.typography.bodyLarge) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }) }
 }
 
 @Composable
-private fun reportModeButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    if (selected) PrimaryButton(label, onClick, modifier) else SecondaryButton(label, onClick, modifier)
-}
+private fun reportModeButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) { if (selected) PrimaryButton(label, onClick, modifier) else SecondaryButton(label, onClick, modifier) }
 
 @Composable
-private fun CustodyReportContent(
-    custody: CustodyEntity,
-    people: List<CustodyPersonEntity>,
-    filtered: List<CustodyTransactionEntity>,
-    currencies: List<String>,
-    mode: Int,
-    currentType: String,
-    currentPersonId: Long?,
-    period: Int,
-    busy: Boolean,
-    onType: (String) -> Unit,
-    onPerson: (Long?) -> Unit,
-    onPeriod: (Int) -> Unit,
-    onExportPdf: () -> Unit,
-    onExportExcel: () -> Unit,
-    onSharePdf: () -> Unit,
-    onShareExcel: () -> Unit,
-    toneFor: (String) -> CustodyOperationTone,
-    typeName: (String) -> String
-) {
+private fun CustodyReportContent(custody: CustodyEntity, people: List<CustodyPersonEntity>, filtered: List<CustodyTransactionEntity>, currencies: List<String>, mode: Int, currentType: String, currentPersonId: Long?, period: Int, busy: Boolean, onType: (String) -> Unit, onPerson: (Long?) -> Unit, onPeriod: (Int) -> Unit, onExportPdf: () -> Unit, onExportExcel: () -> Unit, onSharePdf: () -> Unit, onShareExcel: () -> Unit, toneFor: (String) -> CustodyOperationTone, typeName: (String) -> String) {
     SummaryCard(title = custody.name) {
         Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodyLarge)
         if (mode == 0) {
             Text("عدد الأشخاص: ${people.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            currencies.forEach { code ->
-                val balanceValue = filtered.filter { it.currencyCode == code }.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }
-                InformationCard { BalanceAmount("${currencyName(code)} — ${balance(balanceValue)}", balanceStatus(balanceValue)) }
-            }
+            currencies.forEach { code -> val balanceValue = filtered.filter { it.currencyCode == code }.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }; InformationCard { BalanceAmount("${currencyName(code)} — ${balance(balanceValue)}", balanceStatus(balanceValue)) } }
         }
-
         InformationCard {
             Text("الفترة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("كل الحساب", { onPeriod(0) }, Modifier.weight(1f), enabled = !busy)
-                SecondaryButton("اليوم", { onPeriod(1) }, Modifier.weight(1f), enabled = !busy)
-                SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy)
-                SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy)
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("كل الحساب", { onPeriod(0) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("اليوم", { onPeriod(1) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy) }
             StatusChip(when (period) { 1 -> "اليوم"; 2 -> "هذا الأسبوع"; 3 -> "هذا الشهر"; else -> "كل الحساب" })
         }
-
         InformationCard {
             Text("نوع الحركة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                reportTypes.take(3).forEach { (code, label) -> SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy) }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                reportTypes.drop(3).forEach { (code, label) -> SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy) }
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach { (code, label) -> SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy) } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach { (code, label) -> SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy) } }
             StatusChip(typeName(currentType))
         }
-
         InformationCard {
             Text("الشخص / الطرف", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy)
-                people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) }
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy); people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) } }
             currentPersonId?.let { id -> people.firstOrNull { it.id == id }?.let { StatusChip(it.name) } }
         }
-
         InformationCard {
             Text("التصدير والمشاركة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PrimaryButton("PDF", onExportPdf, Modifier.weight(1f), enabled = !busy)
-                PrimaryButton("Excel", onExportExcel, Modifier.weight(1f), enabled = !busy)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("مشاركة PDF", onSharePdf, Modifier.weight(1f), enabled = !busy)
-                SecondaryButton("مشاركة Excel", onShareExcel, Modifier.weight(1f), enabled = !busy)
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { PrimaryButton("PDF", onExportPdf, Modifier.weight(1f), enabled = !busy); PrimaryButton("Excel", onExportExcel, Modifier.weight(1f), enabled = !busy) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("مشاركة PDF", onSharePdf, Modifier.weight(1f), enabled = !busy); SecondaryButton("مشاركة Excel", onShareExcel, Modifier.weight(1f), enabled = !busy) }
         }
-
-        if (filtered.isEmpty()) {
-            EmptyState(EmptyStateType.Reports, "لا توجد عمليات ضمن الفلاتر", "غيّر العملة أو الفترة أو نوع الحركة أو الشخص.")
-        } else if (mode == 1) {
+        if (filtered.isEmpty()) EmptyState(EmptyStateType.Reports, "لا توجد عمليات ضمن الفلاتر", "غيّر العملة أو الفترة أو نوع الحركة أو الشخص.")
+        else if (mode == 1) {
             SummaryCard(title = "الملخص المالي") {
                 currencies.forEach { code ->
                     val rows = filtered.filter { it.currencyCode == code }
@@ -300,14 +197,8 @@ private fun CustodyReportContent(
                     val balanceValue = rows.sumOf { CustodyBalanceRules.ownerDelta(it.type, it.amountMinor) }
                     InformationCard {
                         Text(currencyName(code), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BalanceAmount("استلام ${amount(received)}", BalanceStatus.Owed, Modifier.weight(1f))
-                            BalanceAmount("صرف ${amount(paid)}", BalanceStatus.Due, Modifier.weight(1f))
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BalanceAmount("مرتجع أشخاص ${amount(returnedFromPerson)}", BalanceStatus.Owed, Modifier.weight(1f))
-                            BalanceAmount("مرتجع جهة ${amount(returnedToOrg)}", BalanceStatus.Neutral, Modifier.weight(1f))
-                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { BalanceAmount("استلام ${amount(received)}", BalanceStatus.Owed, Modifier.weight(1f)); BalanceAmount("صرف ${amount(paid)}", BalanceStatus.Due, Modifier.weight(1f)) }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { BalanceAmount("مرتجع أشخاص ${amount(returnedFromPerson)}", BalanceStatus.Owed, Modifier.weight(1f)); BalanceAmount("مرتجع جهة ${amount(returnedToOrg)}", BalanceStatus.Neutral, Modifier.weight(1f)) }
                         BalanceAmount(balance(balanceValue), if (balanceValue > 0L) BalanceStatus.Due else if (balanceValue < 0L) BalanceStatus.Owed else BalanceStatus.Neutral, label = "الرصيد النهائي")
                     }
                 }
@@ -317,14 +208,7 @@ private fun CustodyReportContent(
             Text("تفاصيل العمليات", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             filtered.forEach { transaction ->
                 val personName = transaction.personId?.let { id -> people.firstOrNull { it.id == id }?.name }
-                CustodyOperationCard(
-                    operationType = typeName(transaction.type),
-                    amount = "${amount(transaction.amountMinor)} ${transaction.currencyCode}",
-                    currency = transaction.currencyCode,
-                    date = formatDateTime(transaction.transactionDate),
-                    description = listOfNotNull(personName, transaction.description.ifBlank { null }).joinToString(" — ").ifBlank { null },
-                    tone = toneFor(transaction.type)
-                )
+                CustodyOperationCard(operationType = typeName(transaction.type), amount = "${amount(transaction.amountMinor)} ${transaction.currencyCode}", currency = transaction.currencyCode, date = formatDateTime(transaction.transactionDate), description = listOfNotNull(personName, transaction.description.ifBlank { null }).joinToString(" — ").ifBlank { null }, tone = toneFor(transaction.type))
             }
         }
     }
