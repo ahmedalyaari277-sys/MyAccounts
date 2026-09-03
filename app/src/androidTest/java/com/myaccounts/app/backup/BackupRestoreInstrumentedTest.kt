@@ -222,7 +222,13 @@ class BackupRestoreInstrumentedTest {
     }
 
     private fun clickFresh(ui: UiDevice, selector: BySelector, description: String) {
-        val object2 = ui.wait(Until.findObject(selector), 7_000) ?: error("$description was not found")
+        var object2 = ui.wait(Until.findObject(selector), 7_000) ?: error("$description was not found")
+        var depth = 0
+        while (!object2.isClickable && depth < 5) {
+            object2 = object2.parent ?: break
+            depth++
+        }
+        if (!object2.isClickable) error("$description was found but no clickable parent was available")
         object2.click()
         ui.waitForIdle()
     }
