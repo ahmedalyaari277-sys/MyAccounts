@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
@@ -15,6 +16,13 @@ fun CalculatorHost(
     onUseResult: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    // While the calculator is open, the phone/system Back action behaves like
+    // the calculator's own "إغلاق" button: close the calculator first instead
+    // of navigating away from the current data-entry screen.
+    BackHandler(enabled = controller.isOpen) {
+        controller.close()
+    }
+
     Box(Modifier.fillMaxSize()) {
         content()
         if (controller.isOpen) {
