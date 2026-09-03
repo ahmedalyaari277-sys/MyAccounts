@@ -58,12 +58,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PersonReportScreen(
-    personId: Long,
-    currencyCode: String = "ALL",
-    viewModel: ReportsViewModel,
-    onBack: () -> Unit
-) {
+fun PersonReportScreen(personId: Long, currencyCode: String = "ALL", viewModel: ReportsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -85,31 +80,20 @@ fun PersonReportScreen(
     fun applyCustomRange() {
         val start = selectedStart?.let(::dayStart)
         val end = selectedEnd?.let(::dayStart)?.let { addDays(it, 1) }
-        if (start != null && end != null && end > start) {
-            viewModel.setDateRange(start, end)
-        }
+        if (start != null && end != null && end > start) viewModel.setDateRange(start, end)
     }
 
     suspend fun generateNow(pdf: Boolean): Result<String> {
-        val report = viewModel.getFreshMultiCurrencyPersonReport(
-            personId = personId,
-            startDateMillis = state.startDateMillis,
-            endDateMillisExclusive = state.endDateMillisExclusive
-        )
-        return if (currencyCode == "ALL") {
-            if (pdf) {
-                MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
-            } else {
-                MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
-            }
+        val report = viewModel.getFreshMultiCurrencyPersonReport(personId, state.startDateMillis, state.endDateMillisExclusive)
+        val selectedCurrency = state.selectedCurrencyCode
+        return if (selectedCurrency == "ALL") {
+            if (pdf) MultiCurrencyReportPdfExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
+            else MultiCurrencyReportExcelExporter.exportPersonReport(context, report, state.startDateMillis, state.endDateMillisExclusive)
         } else {
-            val currencyReport = report.reports.firstOrNull { it.currencyCode == currencyCode }
+            val currencyReport = report.reports.firstOrNull { it.currencyCode == selectedCurrency }
                 ?: return Result.failure(IllegalStateException("لا توجد بيانات لهذه العملة."))
-            if (pdf) {
-                PersonReportPdfExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
-            } else {
-                PersonReportExcelExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
-            }
+            if (pdf) PersonReportPdfExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
+            else PersonReportExcelExporter.exportPersonReport(context, currencyReport.summary, currencyReport.transactions, state.startDateMillis, state.endDateMillisExclusive)
         }
     }
 
@@ -119,13 +103,8 @@ fun PersonReportScreen(
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) { generateNow(pdf) }
-                result.fold(
-                    { snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") },
-                    { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") }
-                )
-            } finally {
-                actionBusy = false
-            }
+                result.fold({ snackbar.showSnackbar("تم إنشاء التقرير بنجاح.") }, { snackbar.showSnackbar(it.message ?: "تعذر إنشاء التقرير.") })
+            } finally { actionBusy = false }
         }
     }
 
@@ -141,28 +120,18 @@ fun PersonReportScreen(
                     runCatching { kotlinx.coroutines.runBlocking { generateNow(pdf).getOrThrow() } }
                 }
                 withContext(Dispatchers.Main) {
-                    result.fold(
-                        { snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") },
-                        { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") }
-                    )
+                    result.fold({ snackbar.showSnackbar("تم فتح خيارات مشاركة التقرير.") }, { snackbar.showSnackbar(it.message ?: "تعذر مشاركة التقرير.") })
                 }
-            } finally {
-                withContext(Dispatchers.Main) { actionBusy = false }
-            }
+            } finally { withContext(Dispatchers.Main) { actionBusy = false } }
         }
     }
 
-    Scaffold(
-        topBar = { AppTopBar(title = "تقرير حساب الشخص", onBack = onBack) },
-        snackbarHost = { SnackbarHost(snackbar) }
-    ) { padding ->
+    Scaffold(topBar = { AppTopBar(title = "تقرير حساب الشخص", onBack = onBack) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            state.selectedPersonMultiCurrencyReport?.let { report ->
-                item { PersonHeader(report, state.startDateMillis, state.endDateMillisExclusive) }
-            }
+            state.selectedPersonMultiCurrencyReport?.let { report -> item { PersonHeader(report, state.startDateMillis, state.endDateMillisExclusive) } }
 
             item {
                 InformationCard {
@@ -173,11 +142,7 @@ fun PersonReportScreen(
                         SecondaryButton("SAR", { viewModel.selectCurrency("SAR") }, Modifier.weight(1f), enabled = !actionBusy)
                         SecondaryButton("USD", { viewModel.selectCurrency("USD") }, Modifier.weight(1f), enabled = !actionBusy)
                     }
-                    Text(
-                        "العملة الحالية: ${currencyName(state.selectedCurrencyCode)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("العملة الحالية: ${currencyName(state.selectedCurrencyCode)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -185,26 +150,13 @@ fun PersonReportScreen(
                 InformationCard {
                     Text("الفترة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SecondaryButton("كل الحساب", {
-                            selectedStart = null
-                            selectedEnd = null
-                            viewModel.setAllTime()
-                        }, Modifier.weight(1f), enabled = !actionBusy)
+                        SecondaryButton("كل الحساب", { selectedStart = null; selectedEnd = null; viewModel.setAllTime() }, Modifier.weight(1f), enabled = !actionBusy)
                         SecondaryButton("من: ${selectedStart?.let(::formatDate) ?: "—"}", { showStart = true }, Modifier.weight(1f), enabled = !actionBusy)
                         SecondaryButton("إلى: ${selectedEnd?.let(::formatDate) ?: "—"}", { showEnd = true }, Modifier.weight(1f), enabled = !actionBusy)
                     }
                     if (selectedStart != null && selectedEnd != null) {
-                        Text(
-                            "النطاق: ${formatDate(selectedStart!!)} — ${formatDate(selectedEnd!!)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        PrimaryButton(
-                            "تطبيق الفترة",
-                            { applyCustomRange() },
-                            Modifier.fillMaxWidth(),
-                            enabled = !actionBusy && dayStart(selectedEnd!!) >= dayStart(selectedStart!!)
-                        )
+                        Text("النطاق: ${formatDate(selectedStart!!)} — ${formatDate(selectedEnd!!)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        PrimaryButton("تطبيق الفترة", { applyCustomRange() }, Modifier.fillMaxWidth(), enabled = !actionBusy && dayStart(selectedEnd!!) >= dayStart(selectedStart!!))
                     }
                 }
             }
@@ -224,42 +176,19 @@ fun PersonReportScreen(
             }
 
             if (state.isLoading) {
-                item {
-                    InformationCard { Text("جاري تحميل التقرير...", style = MaterialTheme.typography.bodyLarge) }
-                }
+                item { InformationCard { Text("جاري تحميل التقرير...", style = MaterialTheme.typography.bodyLarge) } }
             } else {
                 val report = state.selectedPersonMultiCurrencyReport
                 if (report == null) {
-                    item {
-                        EmptyState(
-                            type = EmptyStateType.Reports,
-                            title = "لا توجد بيانات للتقرير",
-                            description = "تعذر تحميل بيانات حساب الشخص حالياً."
-                        )
-                    }
+                    item { EmptyState(EmptyStateType.Reports, "لا توجد بيانات للتقرير", "تعذر تحميل بيانات حساب الشخص حالياً.") }
                 } else {
-                    val reports = if (currencyCode == "ALL") report.reports else report.reports.filter { it.currencyCode == currencyCode }
+                    val reports = if (state.selectedCurrencyCode == "ALL") report.reports else report.reports.filter { it.currencyCode == state.selectedCurrencyCode }
                     if (reports.isEmpty()) {
-                        item {
-                            EmptyState(
-                                type = EmptyStateType.Reports,
-                                title = "لا توجد بيانات لهذه العملة",
-                                description = "اختر عملة أخرى أو اعرض جميع العملات."
-                            )
-                        }
+                        item { EmptyState(EmptyStateType.Reports, "لا توجد بيانات لهذه العملة", "اختر عملة أخرى أو اعرض جميع العملات.") }
                     } else {
-                        items(reports, key = { it.currencyCode }) { currencyReport ->
-                            PersonCurrencySummaryCard(currencyReport)
-                        }
+                        items(reports, key = { it.currencyCode }) { currencyReport -> PersonCurrencySummaryCard(currencyReport) }
                         reports.forEach { currencyReport ->
-                            item(key = "transactions-${currencyReport.currencyCode}") {
-                                Text(
-                                    "عمليات ${currencyName(currencyReport.currencyCode)}",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
+                            item(key = "transactions-${currencyReport.currencyCode}") { Text("عمليات ${currencyName(currencyReport.currencyCode)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
                             items(currencyReport.transactions, key = { "${currencyReport.currencyCode}-${it.transactionId}" }) { transaction ->
                                 TransactionCard(
                                     operationType = if (transaction.type == "RECEIVABLE") "عليه" else "له",
@@ -272,47 +201,20 @@ fun PersonReportScreen(
                         }
                     }
                 }
-                state.errorMessage?.let { message ->
-                    item {
-                        InformationCard {
-                            Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                }
+                state.errorMessage?.let { message -> item { InformationCard { Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge) } } }
             }
         }
     }
 
-    if (showStart) {
-        DatePickerDialog(
-            onDismissRequest = { showStart = false },
-            confirmButton = { TextButton(onClick = { showStart = false }) { Text("إغلاق") } }
-        ) {
-            val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = selectedStart)
-            DatePicker(picker)
-            LaunchedEffect(picker.selectedDateMillis) {
-                picker.selectedDateMillis?.let { selected ->
-                    selectedStart = dayStart(selected)
-                    showStart = false
-                }
-            }
-        }
+    if (showStart) DatePickerDialog(onDismissRequest = { showStart = false }, confirmButton = { TextButton(onClick = { showStart = false }) { Text("إغلاق") } }) {
+        val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = selectedStart)
+        DatePicker(picker)
+        LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { selectedStart = dayStart(it); showStart = false } }
     }
-
-    if (showEnd) {
-        DatePickerDialog(
-            onDismissRequest = { showEnd = false },
-            confirmButton = { TextButton(onClick = { showEnd = false }) { Text("إغلاق") } }
-        ) {
-            val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = selectedEnd)
-            DatePicker(picker)
-            LaunchedEffect(picker.selectedDateMillis) {
-                picker.selectedDateMillis?.let { selected ->
-                    selectedEnd = dayStart(selected)
-                    showEnd = false
-                }
-            }
-        }
+    if (showEnd) DatePickerDialog(onDismissRequest = { showEnd = false }, confirmButton = { TextButton(onClick = { showEnd = false }) { Text("إغلاق") } }) {
+        val picker = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = selectedEnd)
+        DatePicker(picker)
+        LaunchedEffect(picker.selectedDateMillis) { picker.selectedDateMillis?.let { selectedEnd = dayStart(it); showEnd = false } }
     }
 }
 
@@ -333,9 +235,9 @@ private fun PersonCurrencySummaryCard(report: PersonCurrencyReport) {
             BalanceAmount("عليه ${amount(report.summary.periodReceivableMinor)}", BalanceStatus.Due, Modifier.weight(1f))
             BalanceAmount("له ${amount(report.summary.periodPayableMinor)}", BalanceStatus.Owed, Modifier.weight(1f))
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            BalanceAmount("الرصيد الافتتاحي: ${balance(report.summary.openingBalanceMinor)}", balanceStatus(report.summary.openingBalanceMinor))
-            BalanceAmount("الرصيد الختامي: ${balance(report.summary.closingBalanceMinor)}", balanceStatus(report.summary.closingBalanceMinor))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BalanceAmount("الرصيد الافتتاحي: ${balance(report.summary.openingBalanceMinor)}", balanceStatus(report.summary.openingBalanceMinor), Modifier.weight(1f))
+            BalanceAmount("الرصيد الختامي: ${balance(report.summary.closingBalanceMinor)}", balanceStatus(report.summary.closingBalanceMinor), Modifier.weight(1f))
         }
         Text("عدد العمليات: ${report.summary.transactionCount}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
