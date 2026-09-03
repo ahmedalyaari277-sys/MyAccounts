@@ -3,8 +3,9 @@ package com.myaccounts.app.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -14,19 +15,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalLayoutDirection
-
-/** The calculator keypad order is fixed independently from the app's Arabic RTL direction. */
-internal val calculatorKeypadRows = listOf(
-    listOf("7", "8", "9", "÷"),
-    listOf("4", "5", "6", "×"),
-    listOf("1", "2", "3", "−"),
-    listOf("0", ".", "+"),
-    listOf("=")
-)
 
 /** Small, screen-local calculator overlay. It never writes to the database. */
 @Composable
@@ -53,19 +45,28 @@ fun CalculatorOverlay(
                 fontWeight = FontWeight.Bold
             )
 
-            // Keep the keypad in the conventional calculator direction/order,
-            // independently of the application's Arabic RTL layout.
+            // The application is Arabic RTL, but the calculator keypad itself is
+            // deliberately LTR. This makes the physical left-to-right calculator
+            // positions unambiguous and prevents Compose RTL mirroring.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                calculatorRow(calculatorKeypadRows[0], onKey)
-                calculatorRow(calculatorKeypadRows[1], onKey)
-                calculatorRow(calculatorKeypadRows[2], onKey)
+                calculatorRow("7", "8", "9", "÷", onKey)
+                calculatorRow("4", "5", "6", "×", onKey)
+                calculatorRow("1", "2", "3", "−", onKey)
+
+                // 0 occupies the first two columns; decimal and plus occupy the
+                // third and fourth columns respectively.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     calculatorKey("0", onKey, Modifier.weight(2f))
                     calculatorKey(".", onKey, Modifier.weight(1f))
                     calculatorKey("+", onKey, Modifier.weight(1f))
                 }
+
+                // Equals is intentionally a separate final row, centered in the
+                // keypad rather than sharing the numeric/operator row.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    calculatorKey("=", onKey, Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
+                    calculatorKey("=", onKey, Modifier.weight(2f))
+                    Spacer(Modifier.weight(1f))
                 }
             }
 
@@ -80,9 +81,18 @@ fun CalculatorOverlay(
 }
 
 @Composable
-private fun calculatorRow(keys: List<String>, onKey: (String) -> Unit) {
+private fun calculatorRow(
+    first: String,
+    second: String,
+    third: String,
+    fourth: String,
+    onKey: (String) -> Unit
+) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        keys.forEach { key -> calculatorKey(key, onKey, Modifier.weight(1f)) }
+        calculatorKey(first, onKey, Modifier.weight(1f))
+        calculatorKey(second, onKey, Modifier.weight(1f))
+        calculatorKey(third, onKey, Modifier.weight(1f))
+        calculatorKey(fourth, onKey, Modifier.weight(1f))
     }
 }
 
