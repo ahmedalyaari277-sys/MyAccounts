@@ -20,6 +20,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
+internal val calculatorKeypadRows = listOf(
+    listOf("7", "8", "9", "÷"),
+    listOf("4", "5", "6", "×"),
+    listOf("1", "2", "3", "−"),
+    listOf("0", ".", "+"),
+    listOf("=")
+)
+
 /** Small, screen-local calculator overlay. It never writes to the database. */
 @Composable
 fun CalculatorOverlay(
