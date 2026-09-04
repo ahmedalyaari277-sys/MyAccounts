@@ -43,8 +43,7 @@ class ExcelImportExportUiInstrumentedTest {
 
     @Test
     fun exportThenImportThroughRealUiAndSystemPickerRestoresOnlyActiveData() {
-        // HomeScreen intentionally exposes the stable accessibility label
-        // "فتح النسخ الاحتياطي والاستعادة" for this menu action.
+        clickByDescription("المزيد من الخيارات")
         clickByDescription("فتح النسخ الاحتياطي والاستعادة")
         waitForText("النسخ الاحتياطي والمزامنة")
         clickByText("تصدير البيانات إلى Excel")
@@ -91,14 +90,8 @@ class ExcelImportExportUiInstrumentedTest {
             device.pressEnter()
         }
         device.waitForIdle()
-        assertTrue(
-            "System picker did not finish saving Excel",
-            device.wait(Until.gone(By.pkg("com.google.android.documentsui")), 10_000)
-        )
-        assertTrue(
-            "MyAccounts activity did not resume after saving Excel",
-            device.wait(Until.hasObject(By.pkg("com.myaccounts.app")), 10_000)
-        )
+        assertTrue("System picker did not finish saving Excel", device.wait(Until.gone(By.pkg("com.google.android.documentsui")), 10_000))
+        assertTrue("MyAccounts activity did not resume after saving Excel", device.wait(Until.hasObject(By.pkg("com.myaccounts.app")), 10_000))
     }
 
     private fun openExportedDocumentThroughSystemPicker(fileName: String) {
