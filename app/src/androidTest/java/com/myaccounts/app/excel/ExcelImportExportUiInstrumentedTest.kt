@@ -43,7 +43,9 @@ class ExcelImportExportUiInstrumentedTest {
 
     @Test
     fun exportThenImportThroughRealUiAndSystemPickerRestoresOnlyActiveData() {
-        clickByDescription("النسخ الاحتياطي والاستعادة")
+        // HomeScreen intentionally exposes the stable accessibility label
+        // "فتح النسخ الاحتياطي والاستعادة" for this menu action.
+        clickByDescription("فتح النسخ الاحتياطي والاستعادة")
         waitForText("النسخ الاحتياطي والمزامنة")
         clickByText("تصدير البيانات إلى Excel")
         saveDocumentThroughSystemPicker(exportFileName)
