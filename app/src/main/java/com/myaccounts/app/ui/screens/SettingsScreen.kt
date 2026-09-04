@@ -53,9 +53,9 @@ fun SettingsScreen(
     var showSetup by remember { mutableStateOf(false) }
     var showDisableConfirmation by remember { mutableStateOf(false) }
     var showAddCurrency by remember { mutableStateOf(false) }
-    var fixedDecimals by remember { mutableStateOf(LocalContext.current.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).getBoolean(KEY_FIXED_DECIMALS, false)) }
-    var defaultCurrency by remember { mutableStateOf(CurrencyCatalog.defaultCode()) }
     val context = LocalContext.current
+    var fixedDecimals by remember { mutableStateOf(context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).getBoolean(KEY_FIXED_DECIMALS, false)) }
+    var defaultCurrency by remember { mutableStateOf(CurrencyCatalog.defaultCode()) }
     val scope = rememberCoroutineScope()
 
     LazyColumn(
@@ -175,7 +175,6 @@ fun SettingsScreen(
             onDismiss = { showAddCurrency = false },
             onAdded = { code, name ->
                 if (CurrencyCatalog.add(code, name)) {
-                    scope.launch { AppDatabase.getInstance(context).ledgerDao().addCurrencyToAllPeople(code.trim().uppercase()) }
                     defaultCurrency = code.trim().uppercase()
                 }
                 showAddCurrency = false
