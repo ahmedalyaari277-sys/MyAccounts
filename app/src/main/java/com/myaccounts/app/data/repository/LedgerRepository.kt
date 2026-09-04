@@ -1,6 +1,7 @@
 package com.myaccounts.app.data.repository
 
 import androidx.room.withTransaction
+import com.myaccounts.app.data.currency.CurrencyCatalog
 import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.PersonEntity
@@ -23,7 +24,7 @@ class LedgerRepository(
     override fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?> = dao.observeCurrencyAccount(accountId)
 
     override suspend fun insertPerson(person: PersonEntity): Long =
-        dao.insertPersonWithCurrencyAccounts(person = person, currencyCodes = DEFAULT_CURRENCIES)
+        dao.insertPersonWithCurrencyAccounts(person = person, currencyCodes = CurrencyCatalog.codes)
 
     override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
 
@@ -58,8 +59,4 @@ class LedgerRepository(
 
     override suspend fun updateCurrencyBalance(accountId: Long, balanceMinor: Long) =
         dao.updateCurrencyBalance(accountId, balanceMinor)
-
-    companion object {
-        val DEFAULT_CURRENCIES = listOf("YER", "SAR", "USD")
-    }
 }
