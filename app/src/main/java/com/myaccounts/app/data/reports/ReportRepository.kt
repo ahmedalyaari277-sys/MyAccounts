@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 class ReportRepository(private val reportDao: ReportDao) {
     companion object {
-        val SUPPORTED_CURRENCIES: List<String> get() = CurrencyCatalog.codes
+        val SUPPORTED_CURRENCIES: List<String> get() = CurrencyCatalog.enabledCodes()
     }
     fun observeCurrencyReportPeople(currencyCode: String, startDateMillis: Long, endDateMillisExclusive: Long): Flow<List<CurrencyReportPersonRow>> = reportDao.observeCurrencyReportPeople(currencyCode, startDateMillis, endDateMillisExclusive)
     suspend fun getCurrencyReportSummary(currencyCode: String, startDateMillis: Long, endDateMillisExclusive: Long): CurrencyReportSummary = reportDao.getCurrencyReportSummary(currencyCode, startDateMillis, endDateMillisExclusive)
