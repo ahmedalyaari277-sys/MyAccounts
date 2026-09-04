@@ -1,9 +1,7 @@
 package com.myaccounts.app.data.currency
 
 import android.content.Context
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.room.withTransaction
 import com.myaccounts.app.data.local.AppDatabase
 import kotlinx.coroutines.CoroutineScope
@@ -23,29 +21,31 @@ object CurrencyCatalog {
     private lateinit var preferences: android.content.SharedPreferences
     private lateinit var applicationContext: Context
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val definitionsState = mutableStateOf(builtIns)
 
-    var definitions: List<Definition> by mutableStateOf(builtIns)
-        private set
-    val codes: List<String> get() = definitions.map { it.code }
+    val definitions: List<Definition>
+        get() = definitionsState.value
+    val codes: List<String>
+        get() = definitionsState.value.map { it.code }
 
     fun initialize(context: Context) {
         if (initialized) return
         applicationContext = context.applicationContext
         preferences = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        definitions = readDefinitions()
+        definitionsState.value = readDefinitions()
         initialized = true
     }
 
-    fun name(code: String): String = definitions.firstOrNull { it.code == code }?.name ?: code
+    fun name(code: String): String = definitionsState.value.firstOrNull { it.code == code }?.name ?: code
     fun defaultCode(): String = if (::preferences.isInitialized) preferences.getString(KEY_DEFAULT, builtIns.first().code) ?: builtIns.first().code else builtIns.first().code
-    fun setDefault(code: String) { if (::preferences.isInitialized && definitions.any { it.code == code }) preferences.edit().putString(KEY_DEFAULT, code).apply() }
+    fun setDefault(code: String) { if (::preferences.isInitialized && definitionsState.value.any { it.code == code }) preferences.edit().putString(KEY_DEFAULT, code).apply() }
 
     fun add(code: String, name: String): Boolean {
         checkInitialized()
         val normalizedCode = code.trim().uppercase()
         val normalizedName = name.trim()
-        if (!normalizedCode.matches(Regex("[A-Z0-9]{3,6}")) || normalizedName.isBlank() || definitions.any { it.code == normalizedCode }) return false
-        definitions = definitions + Definition(normalizedCode, normalizedName)
+        if (!normalizedCode.matches(Regex("[A-Z0-9]{3,6}")) || normalizedName.isBlank() || definitionsState.value.any { it.code == normalizedCode }) return false
+        definitionsState.value = definitionsState.value + Definition(normalizedCode, normalizedName)
         persist()
         ioScope.launch {
             val db = AppDatabase.getInstance(applicationContext)
@@ -67,7 +67,7 @@ object CurrencyCatalog {
     }
 
     private fun persist() {
-        val custom = definitions.filterNot { builtIns.any { builtIn -> builtIn.code == it.code } }
+        val custom = definitionsState.value.filterNot { builtIns.any { builtIn -> builtIn.code == it.code } }
         preferences.edit().putString(KEY_DEFINITIONS, custom.joinToString(SEPARATOR) { "${it.code}:${it.name}" }).apply()
     }
 
