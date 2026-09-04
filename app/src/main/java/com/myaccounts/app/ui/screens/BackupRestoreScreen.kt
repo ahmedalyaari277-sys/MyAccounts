@@ -50,9 +50,7 @@ private const val SYNC_FOLDER_URI = "sync_folder_uri"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupRestoreScreen(
-    onBack: () -> Unit
-) {
+fun BackupRestoreScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val security = remember { AppSecurityManager(context) }
@@ -64,9 +62,7 @@ fun BackupRestoreScreen(
     var lastBackupUri by remember { mutableStateOf(preferences.getString(LAST_BACKUP_URI, null)?.let(Uri::parse)) }
     var syncFolderUri by remember { mutableStateOf(preferences.getString(SYNC_FOLDER_URI, null)?.let(Uri::parse)) }
 
-    val createDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri ->
+    val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) {
             busy = true
             scope.launch(Dispatchers.IO) {
@@ -84,9 +80,7 @@ fun BackupRestoreScreen(
         }
     }
 
-    val syncFolderLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
+    val syncFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             try {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -171,118 +165,49 @@ fun BackupRestoreScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (lastBackupUri != null) {
-            message = "لديك نسخة احتياطية محفوظة ويمكنك مشاركتها أو مزامنتها."
-        }
+        if (lastBackupUri != null) message = "لديك نسخة احتياطية محفوظة ويمكنك مشاركتها أو مزامنتها."
     }
 
-    Scaffold(
-        topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }
-    ) { padding ->
+    Scaffold(topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            SummaryCard(
-                title = "حماية بياناتك",
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "النسخة الاحتياطية الكاملة تحفظ بيانات الأشخاص والحسابات والعمليات والمرفقات الفعلية، بما فيها الصور وملفات PDF والمستندات.",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
-                )
+            SummaryCard(title = "حماية بياناتك", modifier = Modifier.fillMaxWidth()) {
+                Text("النسخة الاحتياطية الكاملة تحفظ بيانات الأشخاص والحسابات والعمليات والمرفقات الفعلية، بما فيها الصور وملفات PDF والمستندات.", style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
             }
 
-            InformationCard(
-                title = "النسخ الاحتياطي",
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "أنشئ ملفًا كاملًا يمكنك الاحتفاظ به أو مشاركته أو مزامنته يدويًا.",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            InformationCard(modifier = Modifier.fillMaxWidth()) {
+                Text("النسخ الاحتياطي", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                Text("أنشئ ملفًا كاملًا يمكنك الاحتفاظ به أو مشاركته أو مزامنته يدويًا.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                PrimaryButton(
-                    text = "إنشاء نسخة احتياطية",
-                    onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
-            InformationCard(
-                title = "المزامنة اليدوية",
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = if (syncFolderUri == null) "اختر مجلدًا للمزامنة، ويمكن أن يكون داخل Google Drive أو أي مساحة تخزين متاحة."
-                    else "تم اختيار مجلد للمزامنة. يمكنك إنشاء نسخة جديدة فيه الآن.",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            InformationCard(modifier = Modifier.fillMaxWidth()) {
+                Text("المزامنة اليدوية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة، ويمكن أن يكون داخل Google Drive أو أي مساحة تخزين متاحة." else "تم اختيار مجلد للمزامنة. يمكنك إنشاء نسخة جديدة فيه الآن.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                SecondaryButton(
-                    text = "اختيار مجلد المزامنة",
-                    onClick = { syncFolderLauncher.launch(null) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                SecondaryButton(
-                    text = "مزامنة الآن",
-                    onClick = { syncNow() },
-                    enabled = !busy && syncFolderUri != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                SecondaryButton(text = "مزامنة الآن", onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth())
             }
 
-            InformationCard(
-                title = "إرسال ومشاركة النسخة",
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("البريد الإلكتروني (اختياري)") },
-                    placeholder = { Text("example@email.com") },
-                    supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
-                )
+            InformationCard(modifier = Modifier.fillMaxWidth()) {
+                Text("إرسال ومشاركة النسخة", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") }, placeholder = { Text("example@email.com") }, supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") })
                 Spacer(Modifier.height(8.dp))
-                SecondaryButton(
-                    text = "إرسال النسخة الاحتياطية بالبريد",
-                    onClick = { sendBackupByEmail() },
-                    enabled = !busy && lastBackupUri != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                SecondaryButton(
-                    text = "مشاركة النسخة الاحتياطية",
-                    onClick = { shareBackup() },
-                    enabled = !busy && lastBackupUri != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                SecondaryButton(text = "مشاركة النسخة الاحتياطية", onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
             }
 
-            InformationCard(
-                title = "استعادة نسخة احتياطية",
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "الاستعادة تستبدل البيانات الحالية بالبيانات الموجودة في النسخة المحددة، بما فيها المرفقات. تأكد من وجود نسخة آمنة قبل المتابعة.",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.error
-                )
+            InformationCard(modifier = Modifier.fillMaxWidth()) {
+                Text("استعادة نسخة احتياطية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                Text("الاستعادة تستبدل البيانات الحالية بالبيانات الموجودة في النسخة المحددة، بما فيها المرفقات. تأكد من وجود نسخة آمنة قبل المتابعة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(8.dp))
-                DangerButton(
-                    text = "استعادة نسخة احتياطية",
-                    onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
             if (busy) {
@@ -304,10 +229,7 @@ fun BackupRestoreScreen(
                     scope.launch(Dispatchers.IO) {
                         val result = DatabaseBackupManager.restoreBackup(context, uri)
                         busy = false
-                        message = result.fold(
-                            onSuccess = { "تمت استعادة النسخة الاحتياطية والمرفقات بنجاح." },
-                            onFailure = { "تعذر استعادة النسخة الاحتياطية: ${it.message ?: "الملف غير صالح"}" }
-                        )
+                        message = result.fold(onSuccess = { "تمت استعادة النسخة الاحتياطية والمرفقات بنجاح." }, onFailure = { "تعذر استعادة النسخة الاحتياطية: ${it.message ?: "الملف غير صالح"}" })
                     }
                 }) { Text("استعادة") }
             },
@@ -316,10 +238,6 @@ fun BackupRestoreScreen(
     }
 
     message?.let { text ->
-        AlertDialog(
-            onDismissRequest = { message = null },
-            text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
-        )
+        AlertDialog(onDismissRequest = { message = null }, text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } })
     }
 }
