@@ -70,6 +70,12 @@ interface LedgerDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCurrencyAccounts(accounts: List<CurrencyAccountEntity>)
 
+    @Query("""
+        INSERT OR IGNORE INTO currency_accounts(personId, currencyCode, balanceMinor, createdAt, updatedAt)
+        SELECT id, :currencyCode, 0, :now, :now FROM people
+    """)
+    suspend fun addCurrencyToAllPeople(currencyCode: String, now: Long = System.currentTimeMillis())
+
     @Query("SELECT * FROM currency_accounts WHERE personId = :personId ORDER BY currencyCode ASC")
     fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>>
 
