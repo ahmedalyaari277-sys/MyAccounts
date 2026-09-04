@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import androidx.navigation.compose.rememberNavController
+import com.myaccounts.app.data.currency.CurrencyCatalog
 import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.components.CalculatorController
 import com.myaccounts.app.ui.components.CalculatorHost
@@ -38,6 +39,7 @@ class MainActivity : FragmentActivity() {
 
         security = AppSecurityManager(applicationContext)
         themePreferences = ThemePreferences(applicationContext)
+        CurrencyCatalog.initialize(applicationContext)
         appearanceMode = themePreferences.getAppearance()
         unlocked = !security.isProtectionEnabled() || security.isSessionUnlocked()
 
@@ -83,10 +85,6 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onDestroy() {
-        // External activities (camera, picker, viewer, etc.) may temporarily
-        // move this activity to the background. Keep the authenticated session
-        // alive in those cases. A real finish ends the session; configuration
-        // changes do not because isFinishing remains false.
         if (isFinishing) {
             security.clearSessionUnlocked()
         }
