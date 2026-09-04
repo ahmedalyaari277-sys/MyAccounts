@@ -24,7 +24,7 @@ class LedgerRepository(
     override fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?> = dao.observeCurrencyAccount(accountId)
 
     override suspend fun insertPerson(person: PersonEntity): Long =
-        dao.insertPersonWithCurrencyAccounts(person = person, currencyCodes = CurrencyCatalog.codes)
+        dao.insertPersonWithCurrencyAccounts(person = person, currencyCodes = CurrencyCatalog.enabledCodes())
 
     override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
 
