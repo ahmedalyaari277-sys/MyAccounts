@@ -92,7 +92,7 @@ fun QuickTransactionScreen(
     val initialAccountCurrency = initialTransaction?.let { transaction -> accounts.firstOrNull { it.id == transaction.accountId }?.currencyCode }
 
     var selectedCurrency by remember(initialTransaction?.id, accounts) {
-        mutableStateOf(initialAccountCurrency ?: accounts.firstOrNull()?.currencyCode ?: CurrencyCatalog.codes.first())
+        mutableStateOf(initialAccountCurrency ?: accounts.firstOrNull()?.currencyCode ?: CurrencyCatalog.enabledCodes().first())
     }
     var selectedType by remember(initialTransaction?.id) { mutableStateOf(initialTransaction?.type ?: TransactionType.RECEIVABLE) }
     var amount by remember(initialTransaction?.id) { mutableStateOf(initialTransaction?.let { formatAmount(it.amountMinor) } ?: "") }
