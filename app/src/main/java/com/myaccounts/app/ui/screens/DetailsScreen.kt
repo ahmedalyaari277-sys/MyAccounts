@@ -29,7 +29,7 @@ fun DetailsScreen(onBack: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text("تطبيق شخصي لإدارة الحسابات والمعاملات المالية بسهولة، مع إمكانية تفعيل العملات التي تحتاجها من الإعدادات.", style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.height(12.dp))
-        Text("العملات المفعلة حاليًا: ${CurrencyCatalog.codes.joinToString("، ")}", style = MaterialTheme.typography.bodyMedium)
+        Text("العملات المفعلة حاليًا: ${CurrencyCatalog.enabledCodes().joinToString("، ")}", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
         Text("يوفر التطبيق:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
