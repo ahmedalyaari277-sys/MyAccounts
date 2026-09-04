@@ -7,15 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -75,32 +69,31 @@ fun ExcelTransferControls() {
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("استيراد وتصدير Excel", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "ملف واحد وSheet واحد. يتم التعامل مع البيانات النشطة فقط، ولا يدخل الأرشيف في الاستيراد أو التصدير.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Button(
-            onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) },
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.FileDownload, contentDescription = null)
-            Spacer(Modifier.height(1.dp))
-            Text("تصدير البيانات إلى Excel")
+    InformationCard(
+        title = "استيراد وتصدير Excel",
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "ملف واحد وSheet واحد. يتم التعامل مع البيانات النشطة فقط، ولا يدخل الأرشيف في الاستيراد أو التصدير.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            PrimaryButton(
+                text = "تصدير البيانات إلى Excel",
+                onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            )
+            SecondaryButton(
+                text = "استيراد البيانات من Excel",
+                onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE, "application/zip")) },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (busy) CircularProgressIndicator()
         }
-        OutlinedButton(
-            onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE, "application/zip")) },
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.FileUpload, contentDescription = null)
-            Spacer(Modifier.height(1.dp))
-            Text("استيراد البيانات من Excel")
-        }
-        if (busy) CircularProgressIndicator()
     }
 
     preview?.let { data ->
@@ -108,16 +101,23 @@ fun ExcelTransferControls() {
             onDismissRequest = { preview = null; pendingImportUri = null },
             title = { Text("مراجعة ملف Excel") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("الأشخاص: ${data.people}")
                     Text("الحسابات: ${data.accounts}")
                     Text("العمليات: ${data.transactions}")
-                    if (data.duplicateTransactions > 0) Text("تكرارات داخل الملف: ${data.duplicateTransactions}", color = MaterialTheme.colorScheme.error)
+                    if (data.duplicateTransactions > 0) {
+                        Text("تكرارات داخل الملف: ${data.duplicateTransactions}", color = MaterialTheme.colorScheme.error)
+                    }
                     if (data.errors.isNotEmpty()) {
                         Text("لا يمكن الاستيراد قبل إصلاح الأخطاء:", color = MaterialTheme.colorScheme.error)
-                        data.errors.take(8).forEach { Text("• $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        data.errors.take(8).forEach {
+                            Text("• $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
                     } else {
-                        Text("سيتم إدخال البيانات في عملية قاعدة بيانات واحدة. البيانات المؤرشفة لن تُستورد.", color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            "سيتم إدخال البيانات في عملية قاعدة بيانات واحدة. البيانات المؤرشفة لن تُستورد.",
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             },
