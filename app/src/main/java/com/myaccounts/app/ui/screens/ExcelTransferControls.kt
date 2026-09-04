@@ -37,64 +37,39 @@ fun ExcelTransferControls() {
     var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(ExcelDataManager.MIME_TYPE)
-    ) { uri ->
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ExcelDataManager.MIME_TYPE)) { uri ->
         if (uri != null) {
             busy = true
             scope.launch(Dispatchers.IO) {
                 val result = ExcelDataManager.exportActive(context, uri)
                 busy = false
                 result.fold(
-                    onSuccess = { summary ->
-                        message = "تم تصدير البيانات النشطة بنجاح.\nالأشخاص: ${summary.people}\nالحسابات: ${summary.accounts}\nالعمليات: ${summary.transactions}\n\nالأرشيف غير مشمول في الملف."
-                    },
+                    onSuccess = { summary -> message = "تم تصدير البيانات النشطة بنجاح.\nالأشخاص: ${summary.people}\nالحسابات: ${summary.accounts}\nالعمليات: ${summary.transactions}\n\nالأرشيف غير مشمول في الملف." },
                     onFailure = { message = "تعذر تصدير Excel: ${it.message ?: "خطأ غير معروف"}" }
                 )
             }
         }
     }
 
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             pendingImportUri = uri
             busy = true
             scope.launch(Dispatchers.IO) {
                 val result = ExcelDataManager.previewImport(context, uri)
                 busy = false
-                result.fold(
-                    onSuccess = { preview = it },
-                    onFailure = { message = "تعذر قراءة ملف Excel: ${it.message ?: "الملف غير صالح"}" }
-                )
+                result.fold(onSuccess = { preview = it }, onFailure = { message = "تعذر قراءة ملف Excel: ${it.message ?: "الملف غير صالح"}" })
             }
         }
     }
 
-    InformationCard(
-        title = "استيراد وتصدير Excel",
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    InformationCard(modifier = Modifier.fillMaxWidth()) {
+        Text("استيراد وتصدير Excel", style = MaterialTheme.typography.titleMedium)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                "ملف واحد وSheet واحد. يتم التعامل مع البيانات النشطة فقط، ولا يدخل الأرشيف في الاستيراد أو التصدير.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("ملف واحد وSheet واحد. يتم التعامل مع البيانات النشطة فقط، ولا يدخل الأرشيف في الاستيراد أو التصدير.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
-            PrimaryButton(
-                text = "تصدير البيانات إلى Excel",
-                onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            )
-            SecondaryButton(
-                text = "استيراد البيانات من Excel",
-                onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE, "application/zip")) },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            )
+            PrimaryButton(text = "تصدير البيانات إلى Excel", onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(text = "استيراد البيانات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE, "application/zip")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             if (busy) CircularProgressIndicator()
         }
     }
@@ -108,19 +83,12 @@ fun ExcelTransferControls() {
                     Text("الأشخاص: ${data.people}")
                     Text("الحسابات: ${data.accounts}")
                     Text("العمليات: ${data.transactions}")
-                    if (data.duplicateTransactions > 0) {
-                        Text("تكرارات داخل الملف: ${data.duplicateTransactions}", color = MaterialTheme.colorScheme.error)
-                    }
+                    if (data.duplicateTransactions > 0) Text("تكرارات داخل الملف: ${data.duplicateTransactions}", color = MaterialTheme.colorScheme.error)
                     if (data.errors.isNotEmpty()) {
                         Text("لا يمكن الاستيراد قبل إصلاح الأخطاء:", color = MaterialTheme.colorScheme.error)
-                        data.errors.take(8).forEach {
-                            Text("• $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        }
+                        data.errors.take(8).forEach { Text("• $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     } else {
-                        Text(
-                            "سيتم إدخال البيانات في عملية قاعدة بيانات واحدة. البيانات المؤرشفة لن تُستورد.",
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Text("سيتم إدخال البيانات في عملية قاعدة بيانات واحدة. البيانات المؤرشفة لن تُستورد.", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             },
@@ -134,9 +102,7 @@ fun ExcelTransferControls() {
                         val result = ExcelDataManager.import(context, uri)
                         busy = false
                         result.fold(
-                            onSuccess = { summary ->
-                                message = "تم الاستيراد بنجاح.\nأضيف أشخاص: ${summary.peopleAdded}\nأضيف حسابات: ${summary.accountsAdded}\nأضيف عمليات: ${summary.transactionsAdded}\nتكرارات تم تجاوزها: ${summary.skippedDuplicates}"
-                            },
+                            onSuccess = { summary -> message = "تم الاستيراد بنجاح.\nأضيف أشخاص: ${summary.peopleAdded}\nأضيف حسابات: ${summary.accountsAdded}\nأضيف عمليات: ${summary.transactionsAdded}\nتكرارات تم تجاوزها: ${summary.skippedDuplicates}" },
                             onFailure = { message = "تعذر الاستيراد: ${it.message ?: "خطأ غير معروف"}" }
                         )
                     }
@@ -146,11 +112,5 @@ fun ExcelTransferControls() {
         )
     }
 
-    message?.let { text ->
-        AlertDialog(
-            onDismissRequest = { message = null },
-            text = { Text(text) },
-            confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
-        )
-    }
+    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }) }
 }
