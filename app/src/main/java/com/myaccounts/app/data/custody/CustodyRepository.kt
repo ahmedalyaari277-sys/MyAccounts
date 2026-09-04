@@ -31,7 +31,7 @@ object CustodyBalanceRules {
 class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabase, context: Context) {
     private val dao = db.custodyDao()
     private val attachmentStore = CustodyAttachmentStorage(context.applicationContext)
-    private val currencies: List<String> get() = CurrencyCatalog.codes
+    private val currencies: List<String> get() = CurrencyCatalog.definitions.map { it.code }
     private val allowedTypes = setOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG)
 
     fun observeCustodies(): Flow<List<CustodyEntity>> = dao.observeCustodies()
