@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.myaccounts.app.data.currency.CurrencyCatalog
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.TransactionType
@@ -59,245 +60,74 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TransactionScreen(
-    accountId: Long,
-    currencyCode: String,
-    onBack: () -> Unit,
-    transactionViewModel: TransactionViewModel,
-    accounts: List<CurrencyAccountEntity> = emptyList(),
-    embedded: Boolean = false,
-    modifier: Modifier = Modifier,
-    personName: String = ""
-) {
+fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit, transactionViewModel: TransactionViewModel, accounts: List<CurrencyAccountEntity> = emptyList(), embedded: Boolean = false, modifier: Modifier = Modifier, personName: String = "") {
     var selectedAccountId by remember(accountId) { mutableStateOf(accountId) }
     var selectedCurrencyCode by remember(currencyCode) { mutableStateOf(currencyCode) }
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionForAttachments by remember { mutableStateOf<TransactionEntity?>(null) }
     var showAddTransaction by remember { mutableStateOf(false) }
-
     LaunchedEffect(selectedAccountId) { transactionViewModel.selectAccount(selectedAccountId) }
     val transactions by transactionViewModel.transactions.collectAsState()
     val balance by transactionViewModel.balance.collectAsState()
-
-    val balanceStatus = when {
-        balance > 0L -> BalanceStatus.Due
-        balance < 0L -> BalanceStatus.Owed
-        else -> BalanceStatus.Neutral
-    }
-    val balanceStatusText = when (balanceStatus) {
-        BalanceStatus.Due -> "عليه"
-        BalanceStatus.Owed -> "له"
-        BalanceStatus.Neutral -> "متوازن"
-    }
-    val balanceStatusColor = when (balanceStatus) {
-        BalanceStatus.Due -> Due
-        BalanceStatus.Owed -> Owed
-        BalanceStatus.Neutral -> Neutral
-    }
-
+    val balanceStatus = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
+    val balanceStatusText = when (balanceStatus) { BalanceStatus.Due -> "عليه"; BalanceStatus.Owed -> "له"; BalanceStatus.Neutral -> "متوازن" }
+    val balanceStatusColor = when (balanceStatus) { BalanceStatus.Due -> Due; BalanceStatus.Owed -> Owed; BalanceStatus.Neutral -> Neutral }
     val transactionContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (accounts.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("YER", "SAR", "USD").forEach { code ->
-                        val account = accounts.firstOrNull { it.currencyCode == code } ?: return@forEach
-                        CurrencyChip(
-                            currency = code,
-                            selected = selectedCurrencyCode == code,
-                            onClick = { selectedCurrencyCode = code; selectedAccountId = account.id },
-                            modifier = Modifier.weight(1f)
-                        )
+                    accounts.forEach { account ->
+                        CurrencyChip(currency = CurrencyCatalog.name(account.currencyCode), selected = selectedCurrencyCode == account.currencyCode, onClick = { selectedCurrencyCode = account.currencyCode; selectedAccountId = account.id }, modifier = Modifier.weight(1f))
                     }
                 }
             }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("الرصيد الحالي", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    BalanceAmount(
-                        amount = formatSignedAmount(balance),
-                        status = balanceStatus,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    BalanceAmount(amount = formatSignedAmount(balance), status = balanceStatus, modifier = Modifier.fillMaxWidth())
                     StatusChip(text = balanceStatusText, color = balanceStatusColor)
                 }
             }
-
-            if (transactions.isEmpty()) {
-                EmptyState(
-                    type = EmptyStateType.Transactions,
-                    title = "لا توجد عمليات حتى الآن",
-                    description = "أضف أول عملية لهذا الحساب باستخدام زر إضافة عملية.",
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)
-                ) {
-                    items(transactions, key = { it.id }) { transaction ->
-                        Phase5TransactionCard(
-                            transaction = transaction,
-                            transactionViewModel = transactionViewModel,
-                            onEdit = { transactionToEdit = transaction },
-                            onDelete = { transactionToDelete = transaction },
-                            onAttachments = { transactionForAttachments = transaction }
-                        )
-                    }
-                }
+            if (transactions.isEmpty()) EmptyState(type = EmptyStateType.Transactions, title = "لا توجد عمليات حتى الآن", description = "أضف أول عملية لهذا الحساب باستخدام زر إضافة عملية.", modifier = Modifier.fillMaxWidth().weight(1f))
+            else LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)) {
+                items(transactions, key = { it.id }) { transaction -> Phase5TransactionCard(transaction, transactionViewModel, { transactionToEdit = transaction }, { transactionToDelete = transaction }, { transactionForAttachments = transaction }) }
             }
-
-            if (embedded) {
-                androidx.compose.material3.Button(
-                    onClick = { showAddTransaction = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("إضافة عملية", style = MaterialTheme.typography.labelLarge)
-                }
-            }
+            if (embedded) androidx.compose.material3.Button(onClick = { showAddTransaction = true }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("إضافة عملية", style = MaterialTheme.typography.labelLarge) }
         }
     }
-
-    if (embedded) {
-        transactionContent()
-    } else {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = { AppTopBar(title = "عمليات $selectedCurrencyCode", onBack = onBack) },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showAddTransaction = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") }
-            }
-        ) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) { transactionContent() }
-        }
-    }
-
-    if (showAddTransaction && accounts.isNotEmpty()) {
-        Dialog(
-            onDismissRequest = { showAddTransaction = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-        ) {
-            Surface(Modifier.fillMaxWidth(0.92f), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
-                QuickTransactionScreen(
-                    personName = personName,
-                    accounts = accounts,
-                    onSave = { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments); showAddTransaction = false },
-                    onCancel = { showAddTransaction = false }
-                )
-            }
-        }
-    }
-
+    if (embedded) transactionContent() else Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { AppTopBar(title = "عمليات ${CurrencyCatalog.name(selectedCurrencyCode)}", onBack = onBack) }, floatingActionButton = { FloatingActionButton(onClick = { showAddTransaction = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) { transactionContent() } }
+    if (showAddTransaction && accounts.isNotEmpty()) Dialog(onDismissRequest = { showAddTransaction = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { Surface(Modifier.fillMaxWidth(0.92f), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) { QuickTransactionScreen(personName, accounts, { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments); showAddTransaction = false }, { showAddTransaction = false }) } }
     transactionToEdit?.let { transaction ->
         val attachments by transactionViewModel.observeAttachments(transaction.id).collectAsState(initial = emptyList())
         var editAccounts by remember(transaction.id) { mutableStateOf<List<CurrencyAccountEntity>>(emptyList()) }
         var editPersonName by remember(transaction.id) { mutableStateOf("") }
-        LaunchedEffect(transaction.id) {
-            transactionViewModel.getAccount(transaction.accountId)?.let { account ->
-                editAccounts = transactionViewModel.getPersonCurrencyAccounts(account.personId)
-                editPersonName = transactionViewModel.getPersonNameForAccount(transaction.accountId)
-            }
-        }
-        Dialog(onDismissRequest = { transactionToEdit = null }) {
-            Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
-                if (editAccounts.isNotEmpty()) {
-                    QuickTransactionScreen(
-                        personName = editPersonName,
-                        accounts = editAccounts,
-                        initialTransaction = transaction,
-                        existingAttachments = attachments,
-                        onSave = { _, _ -> },
-                        onCancel = { transactionToEdit = null },
-                        onEditSave = { updated, newAttachments, deleted -> transactionViewModel.updateTransaction(updated, newAttachments, deleted); transactionToEdit = null }
-                    )
-                } else {
-                    Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("جاري تحميل بيانات الحساب...", style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-            }
-        }
+        LaunchedEffect(transaction.id) { transactionViewModel.getAccount(transaction.accountId)?.let { account -> editAccounts = transactionViewModel.getPersonCurrencyAccounts(account.personId); editPersonName = transactionViewModel.getPersonNameForAccount(transaction.accountId) } }
+        Dialog(onDismissRequest = { transactionToEdit = null }) { Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) { if (editAccounts.isNotEmpty()) QuickTransactionScreen(editPersonName, editAccounts, { _, _ -> }, { transactionToEdit = null }, transaction, attachments, { updated, newAttachments, deleted -> transactionViewModel.updateTransaction(updated, newAttachments, deleted); transactionToEdit = null }) else Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("جاري تحميل بيانات الحساب...", style = MaterialTheme.typography.bodyLarge) } } }
     }
-
-    transactionForAttachments?.let { transaction ->
-        val attachments by transactionViewModel.observeAttachments(transaction.id).collectAsState(initial = emptyList())
-        TransactionAttachmentsDialog(
-            transactionId = transaction.id,
-            attachments = attachments,
-            onDismiss = { transactionForAttachments = null },
-            onDelete = { transactionViewModel.deleteAttachment(it) }
-        )
-    }
-
-    transactionToDelete?.let { transaction ->
-        AlertDialog(
-            onDismissRequest = { transactionToDelete = null },
-            title = { Text("حذف العملية نهائيًا", style = MaterialTheme.typography.titleLarge) },
-            text = { Text("سيتم حذف العملية ومرفقاتها نهائيًا من الحساب. لا يمكن التراجع عن هذا الإجراء.") },
-            confirmButton = {
-                TextButton(onClick = { transactionViewModel.deleteTransactionById(transaction.id); transactionToDelete = null }) {
-                    Text("حذف نهائي", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = { TextButton(onClick = { transactionToDelete = null }) { Text("إلغاء") } }
-        )
-    }
+    transactionForAttachments?.let { transaction -> val attachments by transactionViewModel.observeAttachments(transaction.id).collectAsState(initial = emptyList()); TransactionAttachmentsDialog(transaction.id, attachments, { transactionForAttachments = null }, { transactionViewModel.deleteAttachment(it) }) }
+    transactionToDelete?.let { transaction -> AlertDialog(onDismissRequest = { transactionToDelete = null }, title = { Text("حذف العملية نهائيًا", style = MaterialTheme.typography.titleLarge) }, text = { Text("سيتم حذف العملية ومرفقاتها نهائيًا من الحساب. لا يمكن التراجع عن هذا الإجراء.") }, confirmButton = { TextButton(onClick = { transactionViewModel.deleteTransactionById(transaction.id); transactionToDelete = null }) { Text("حذف نهائي", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) } }, dismissButton = { TextButton(onClick = { transactionToDelete = null }) { Text("إلغاء") } }) }
 }
 
 @Composable
-private fun Phase5TransactionCard(
-    transaction: TransactionEntity,
-    transactionViewModel: TransactionViewModel,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onAttachments: () -> Unit
-) {
+private fun Phase5TransactionCard(transaction: TransactionEntity, transactionViewModel: TransactionViewModel, onEdit: () -> Unit, onDelete: () -> Unit, onAttachments: () -> Unit) {
     val attachmentCount by transactionViewModel.observeAttachmentCount(transaction.id).collectAsState(initial = 0)
     val date = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(transaction.transactionDate))
     val amount = BigDecimal(transaction.amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
     val isDue = transaction.type == TransactionType.RECEIVABLE
     val status = if (isDue) BalanceStatus.Due else BalanceStatus.Owed
     val statusColor = if (isDue) Due else Owed
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.small,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                StatusChip(text = if (isDue) "عليه" else "له", color = statusColor)
-                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { StatusChip(text = if (isDue) "عليه" else "له", color = statusColor); Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             BalanceAmount(amount = if (isDue) amount else "-$amount", status = status)
             if (transaction.description.isNotBlank()) Text(transaction.description, style = MaterialTheme.typography.bodyLarge)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (attachmentCount > 0) IconButton(onClick = onAttachments) { Icon(Icons.Default.AttachFile, contentDescription = "المرفقات") }
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
-                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "حذف نهائي") }
-            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { if (attachmentCount > 0) IconButton(onClick = onAttachments) { Icon(Icons.Default.AttachFile, contentDescription = "المرفقات") }; IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }; IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "حذف نهائي") } }
         }
     }
 }
 
 private fun formatSignedAmount(balance: Long): String {
     val amount = BigDecimal(kotlin.math.abs(balance)).movePointLeft(2).stripTrailingZeros().toPlainString()
-    return when {
-        balance > 0L -> amount
-        balance < 0L -> "-$amount"
-        else -> "0"
-    }
+    return when { balance > 0L -> amount; balance < 0L -> "-$amount"; else -> "0" }
 }
