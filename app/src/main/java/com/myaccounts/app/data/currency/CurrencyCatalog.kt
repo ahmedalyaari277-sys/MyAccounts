@@ -28,6 +28,9 @@ object CurrencyCatalog {
 
     fun enabledCodes(): List<String> = definitionsState.value.map { it.code }
 
+    val codes: List<String>
+        get() = enabledCodes()
+
     fun initialize(context: Context) {
         if (initialized) return
         applicationContext = context.applicationContext
