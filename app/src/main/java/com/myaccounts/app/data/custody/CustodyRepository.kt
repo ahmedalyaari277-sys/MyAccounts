@@ -31,7 +31,7 @@ object CustodyBalanceRules {
 class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabase, context: Context) {
     private val dao = db.custodyDao()
     private val attachmentStore = CustodyAttachmentStorage(context.applicationContext)
-    private val currencies = CurrencyCatalog.definitions.map { it.code }
+    private fun currencies(): List<String> = CurrencyCatalog.enabledCodes()
     private val allowedTypes = setOf(CustodyTransactionType.RECEIVED_FROM_ORG, CustodyTransactionType.PAID_TO_PERSON, CustodyTransactionType.RETURNED_FROM_PERSON, CustodyTransactionType.RETURNED_TO_ORG)
 
     fun observeCustodies(): Flow<List<CustodyEntity>> = dao.observeCustodies()
@@ -48,7 +48,7 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         require(c.name.isNotBlank()) { "اسم صاحب العهدة مطلوب" }
         require(c.organizationName.isNotBlank()) { "اسم الجهة مطلوب" }
         val id = dao.insertCustody(c.copy(name = c.name.trim(), organizationName = c.organizationName.trim()))
-        dao.insertAccounts(currencies.map { CustodyAccountEntity(custodyId = id, holderType = "OWNER", currencyCode = it) })
+        dao.insertAccounts(currencies().map { CustodyAccountEntity(custodyId = id, holderType = "OWNER", currencyCode = it) })
         id
     }
     suspend fun updateCustody(c: CustodyEntity) {
@@ -60,13 +60,13 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         require(dao.getCustody(custodyId) != null) { "العهدة غير موجودة" }
         require(p.name.isNotBlank()) { "اسم الشخص مطلوب" }
         val id = dao.insertPerson(p.copy(custodyId = custodyId, name = p.name.trim()))
-        dao.insertAccounts(currencies.map { CustodyAccountEntity(custodyId = custodyId, holderType = "PERSON", personId = id, currencyCode = it) })
+        dao.insertAccounts(currencies().map { CustodyAccountEntity(custodyId = custodyId, holderType = "PERSON", personId = id, currencyCode = it) })
         id
     }
     suspend fun updatePerson(p: CustodyPersonEntity) { require(p.name.isNotBlank()) { "اسم الشخص مطلوب" }; dao.updatePerson(p.copy(name = p.name.trim())) }
 
     suspend fun addTransaction(custodyId: Long, currency: String, type: String, personId: Long?, amountMinor: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()): Long = withContext(Dispatchers.IO) {
-        require(currency in currencies); require(type in allowedTypes); require(amountMinor > 0)
+        require(currency in currencies()); require(type in allowedTypes); require(amountMinor > 0)
         val personOperation = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
         require(personOperation == (personId != null)); require(dao.getCustody(custodyId)?.isArchived == false) { "العهدة غير موجودة أو مؤرشفة" }
         if (personId != null) require(dao.getPerson(personId)?.let { it.custodyId == custodyId && !it.isArchived } == true) { "الشخص لا ينتمي إلى هذه العهدة" }
@@ -92,7 +92,7 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
     }
 
     suspend fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amountMinor: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deletedAttachments: List<CustodyTransactionAttachmentEntity> = emptyList()) = withContext(Dispatchers.IO) {
-        require(currency in currencies); require(type in allowedTypes); require(amountMinor > 0)
+        require(currency in currencies()); require(type in allowedTypes); require(amountMinor > 0)
         val old = dao.getTransaction(id) ?: return@withContext
         val personOperation = type == CustodyTransactionType.PAID_TO_PERSON || type == CustodyTransactionType.RETURNED_FROM_PERSON
         require(personOperation == (personId != null)); require(dao.getCustody(old.custodyId)?.isArchived == false) { "العهدة غير موجودة أو مؤرشفة" }
