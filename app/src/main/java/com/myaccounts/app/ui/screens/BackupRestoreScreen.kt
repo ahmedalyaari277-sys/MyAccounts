@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Email
@@ -22,20 +21,13 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,7 +58,6 @@ fun BackupRestoreScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val security = remember { AppSecurityManager(context) }
-    val snackbarHostState = remember { SnackbarHostState() }
     val preferences = remember { context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -182,64 +173,124 @@ fun BackupRestoreScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (lastBackupUri != null) snackbarHostState.showSnackbar("يمكنك إنشاء نسخة جديدة أو مزامنتها يدويًا أو إرسالها بالبريد.")
+        if (lastBackupUri != null) {
+            message = "لديك نسخة احتياطية محفوظة ويمكنك مشاركتها أو مزامنتها."
+        }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("النسخ الاحتياطي والمزامنة") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }
-            )
-        },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.Top,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "النسخة الاحتياطية الكاملة تشمل بيانات الأشخاص والحسابات والعمليات والمرفقات الفعلية مثل الصور وملفات PDF والمستندات.",
-                style = MaterialTheme.typography.bodyLarge,
+            SummaryCard(
+                title = "حماية بياناتك",
                 modifier = Modifier.fillMaxWidth()
-            )
+            ) {
+                Text(
+                    text = "النسخة الاحتياطية الكاملة تحفظ بيانات الأشخاص والحسابات والعمليات والمرفقات الفعلية، بما فيها الصور وملفات PDF والمستندات.",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                )
+            }
 
-            Spacer(Modifier.height(16.dp))
-            ExcelTransferControls()
-            Spacer(Modifier.height(16.dp))
+            InformationCard(
+                title = "النسخ الاحتياطي",
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "أنشئ ملفًا كاملًا يمكنك الاحتفاظ به أو مشاركته أو مزامنته يدويًا.",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                PrimaryButton(
+                    text = "إنشاء نسخة احتياطية",
+                    onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("البريد الإلكتروني (اختياري)") },
-                placeholder = { Text("example@email.com") },
-                supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Backup, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("إنشاء نسخة احتياطية")
+            InformationCard(
+                title = "المزامنة اليدوية",
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (syncFolderUri == null) "اختر مجلدًا للمزامنة، ويمكن أن يكون داخل Google Drive أو أي مساحة تخزين متاحة."
+                    else "تم اختيار مجلد للمزامنة. يمكنك إنشاء نسخة جديدة فيه الآن.",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                SecondaryButton(
+                    text = "اختيار مجلد المزامنة",
+                    onClick = { syncFolderLauncher.launch(null) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                SecondaryButton(
+                    text = "مزامنة الآن",
+                    onClick = { syncNow() },
+                    enabled = !busy && syncFolderUri != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.CloudUpload, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("مزامنة الآن")
+
+            InformationCard(
+                title = "إرسال ومشاركة النسخة",
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("البريد الإلكتروني (اختياري)") },
+                    placeholder = { Text("example@email.com") },
+                    supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") }
+                )
+                Spacer(Modifier.height(8.dp))
+                SecondaryButton(
+                    text = "إرسال النسخة الاحتياطية بالبريد",
+                    onClick = { sendBackupByEmail() },
+                    enabled = !busy && lastBackupUri != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                SecondaryButton(
+                    text = "مشاركة النسخة الاحتياطية",
+                    onClick = { shareBackup() },
+                    enabled = !busy && lastBackupUri != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            OutlinedButton(onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Folder, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text(if (syncFolderUri == null) "اختيار مجلد المزامنة" else "تغيير مجلد المزامنة")
+
+            InformationCard(
+                title = "استعادة نسخة احتياطية",
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "الاستعادة تستبدل البيانات الحالية بالبيانات الموجودة في النسخة المحددة، بما فيها المرفقات. تأكد من وجود نسخة آمنة قبل المتابعة.",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error
+                )
+                Spacer(Modifier.height(8.dp))
+                DangerButton(
+                    text = "استعادة نسخة احتياطية",
+                    onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Email, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("إرسال النسخة الاحتياطية بالبريد")
+
+            if (busy) {
+                Spacer(Modifier.height(4.dp))
+                CircularProgressIndicator()
             }
-            OutlinedButton(onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Share, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("مشاركة النسخة الاحتياطية")
-            }
-            OutlinedButton(onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Restore, null); Spacer(Modifier.padding(horizontal = 4.dp)); Text("استعادة نسخة احتياطية")
-            }
-            if (busy) { Spacer(Modifier.height(18.dp)); CircularProgressIndicator() }
         }
     }
 
@@ -267,6 +318,10 @@ fun BackupRestoreScreen(
     }
 
     message?.let { text ->
-        AlertDialog(onDismissRequest = { message = null }, text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } })
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }
+        )
     }
 }
