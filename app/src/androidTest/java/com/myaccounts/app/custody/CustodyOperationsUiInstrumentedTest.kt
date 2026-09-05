@@ -147,8 +147,8 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun waitForPersonDialog() {
         assertTrue("Person dialog title not visible", device.wait(Until.hasObject(By.text("إضافة شخص")), 10_000))
-        assertTrue("Person name field not visible", device.wait(Until.hasObject(By.text("الاسم")), 5_000))
-        assertTrue("Person phone field not visible", device.wait(Until.hasObject(By.text("الهاتف")), 5_000))
+        assertTrue("Person name field not visible", device.wait(Until.hasObject(By.desc("الاسم")), 5_000))
+        assertTrue("Person phone field not visible", device.wait(Until.hasObject(By.desc("الهاتف")), 5_000))
     }
 
     private fun clickSavePerson() {
