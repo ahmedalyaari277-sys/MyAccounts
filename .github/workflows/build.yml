@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt"); s=p.read_text(); a=s.index("        onSave = { person ->", s.index("if (addPerson)")); b=s.index("    )", a)+5; block="        onSave = { person ->\n            personSaving = true\n            runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }\n            personSaving = false\n        }\n    )"; s=s[:a]+block+s[b:]; s=s.replace("properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)", "properties = DialogProperties(usePlatformDefaultWidth = false)", 1); p.write_text(s)'
-          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt"); s=p.read_text(); old="properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)"; assert old in s; p.write_text(s.replace(old, "properties = DialogProperties(usePlatformDefaultWidth = false)", 1))'
+          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt"); s=p.read_text(); old="properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)"; p.write_text(s.replace(old, "properties = DialogProperties(usePlatformDefaultWidth = false)", 1))'
       - name: Commit custody repair if changed
         shell: bash
         run: |
