@@ -215,11 +215,11 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
         existing = people,
         onDismiss = { if (!personSaving) addPerson = false },
         onSave = { person ->
-            scope.launch {
+            personSaving = true
                 personSaving = true
                 runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }
                 personSaving = false
-            }
+        }
         }
     )
     dialogType?.let { type -> CustodyOperationDialog(vm, custodyId, people, currency, type, null, onDismiss = { dialogType = null }, onFinished = { dialogType = null }) }
@@ -319,7 +319,7 @@ fun CustodyOperationDialog(vm: CustodyViewModel, custodyId: Long, people: List<C
             }
         }
     }
-    if (calc.isOpen) Dialog(onDismissRequest = calc::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { Card(modifier = Modifier.fillMaxWidth(.92f).imePadding()) { CalculatorOverlay(expression = calc.expression, result = calc.result.orEmpty(), onKey = calc::press, onClear = calc::clear, onBackspace = calc::backspace, onDismiss = calc::close, onUseResult = calc::useResult) } }
+    if (calc.isOpen) Dialog(onDismissRequest = calc::close, properties = DialogProperties(usePlatformDefaultWidth = false)) { Card(modifier = Modifier.fillMaxWidth(.92f).imePadding()) { CalculatorOverlay(expression = calc.expression, result = calc.result.orEmpty(), onKey = calc::press, onClear = calc::clear, onBackspace = calc::backspace, onDismiss = calc::close, onUseResult = calc::useResult) } }
 }
 
 @Composable
