@@ -367,6 +367,31 @@ private fun FeedbackMessage(text: String, color: Color, icon: ImageVector, modif
     }
 }
 
+enum class FeedbackDialogType { Success, Warning, Error, Info }
+
+@Composable
+fun FeedbackDialog(
+    text: String,
+    type: FeedbackDialogType = FeedbackDialogType.Info,
+    onDismiss: () -> Unit,
+    confirmText: String = "موافق"
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            when (type) {
+                FeedbackDialogType.Success -> SuccessMessage(text)
+                FeedbackDialogType.Warning -> WarningMessage(text)
+                FeedbackDialogType.Error -> ErrorMessage(text)
+                FeedbackDialogType.Info -> InfoMessage(text)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(confirmText, style = MaterialTheme.typography.labelLarge) }
+        }
+    )
+}
+
 @Composable
 fun ConfirmationDialog(
     title: String,
