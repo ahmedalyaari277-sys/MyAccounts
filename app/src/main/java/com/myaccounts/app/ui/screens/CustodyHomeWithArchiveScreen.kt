@@ -27,37 +27,121 @@ private enum class CustodySortOrder { LATEST, ALPHABETICAL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onArchive: () -> Unit, onReports: () -> Unit, onTransfer: () -> Unit) {
+fun CustodyHomeWithArchiveScreen(
+    vm: CustodyViewModel,
+    onBack: () -> Unit,
+    onOpen: (Long) -> Unit,
+    onArchive: () -> Unit,
+    onReports: () -> Unit,
+    onTransfer: () -> Unit
+) {
     val custodies by vm.custodies.collectAsState()
     var adding by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST) }
-    val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
-    Scaffold(topBar = { TopAppBar(title = { Text("العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
-        TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
-        IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
-        IconButton(onClick = onTransfer, modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }) { Icon(Icons.Default.Backup, contentDescription = null) }
-        IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
-        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) { DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false }); DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false }) }
-    } }, floatingActionButton = { FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") } }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items(displayedCustodies, key = { it.id }) { custody -> Row(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }.padding(14.dp)) { Column(Modifier.weight(1f)) { Text(custody.name, fontWeight = FontWeight.Bold); Text("الجهة: ${custody.organizationName}") } } } }
+    val displayedCustodies = when (sortOrder) {
+        CustodySortOrder.LATEST -> custodies
+        CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() }
     }
-    if (adding) CustodyCreateDialog(onDismiss = { adding = false }, onSave = { vm.create(it); adding = false })
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("العُهَد") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
+                actions = {
+                    TextButton(onClick = onReports) { Text("التقارير", fontWeight = FontWeight.Bold) }
+                    IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
+                    IconButton(
+                        onClick = onTransfer,
+                        modifier = Modifier.semantics { contentDescription = "النسخ الاحتياطي والاستعادة" }
+                    ) { Icon(Icons.Default.Backup, contentDescription = null) }
+                    IconButton(onClick = onArchive) { Icon(Icons.Default.Archive, "الأرشيف") }
+                    DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                        DropdownMenuItem(text = { Text("حسب الأحدث") }, onClick = { sortOrder = CustodySortOrder.LATEST; showSortMenu = false })
+                        DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") }
+        }
+    ) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(displayedCustodies, key = { it.id }) { custody ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpen(custody.id) }.padding(14.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(custody.name, fontWeight = FontWeight.Bold)
+                        Text("الجهة: ${custody.organizationName}")
+                    }
+                }
+            }
+        }
+    }
+
+    if (adding) {
+        CustodyCreateDialog(
+            onDismiss = { adding = false },
+            onSave = { vm.create(it); adding = false }
+        )
+    }
 }
 
 @Composable
 private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> Unit) {
-    var name by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var address by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }
-    var organization by remember { mutableStateOf("") }; var organizationPhone by remember { mutableStateOf("") }; var organizationAddress by remember { mutableStateOf("") }; var organizationNotes by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("إضافة صاحب عهدة") }, text = { Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("اسم صاحب العهدة") }, singleLine = true)
-        OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("هاتف صاحب العهدة") }, singleLine = true)
-        OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("عنوان صاحب العهدة") }, singleLine = true)
-        OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات صاحب العهدة") }, singleLine = true)
-        Text("بيانات الجهة", fontWeight = FontWeight.Bold)
-        OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth(), label = { Text("اسم الجهة") }, singleLine = true)
-        OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth(), label = { Text("هاتف الجهة") }, singleLine = true)
-        OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth(), label = { Text("عنوان الجهة") }, singleLine = true)
-        OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات الجهة") }, singleLine = true)
-    } }, confirmButton = { Button(enabled = name.isNotBlank() && organization.isNotBlank(), onClick = { onSave(CustodyEntity(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())) }) { Text("حفظ") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } })
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var organization by remember { mutableStateOf("") }
+    var organizationPhone by remember { mutableStateOf("") }
+    var organizationAddress by remember { mutableStateOf("") }
+    var organizationNotes by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("إضافة صاحب عهدة") },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, modifier = Modifier.fillMaxWidth(), label = { Text("اسم صاحب العهدة") }, singleLine = true)
+                OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth(), label = { Text("هاتف صاحب العهدة") }, singleLine = true)
+                OutlinedTextField(value = address, onValueChange = { address = it }, modifier = Modifier.fillMaxWidth(), label = { Text("عنوان صاحب العهدة") }, singleLine = true)
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("ملاحظات صاحب العهدة") }, singleLine = true)
+                Text("بيانات الجهة", fontWeight = FontWeight.Bold)
+                OutlinedTextField(value = organization, onValueChange = { organization = it }, modifier = Modifier.fillMaxWidth(), label = { Text("اسم الجهة") }, singleLine = true)
+                OutlinedTextField(value = organizationPhone, onValueChange = { organizationPhone = it }, modifier = Modifier.fillMaxWidth(), label = { Text("هاتف الجهة") }, singleLine = true)
+                OutlinedTextField(value = organizationAddress, onValueChange = { organizationAddress = it }, modifier = Modifier.fillMaxWidth(), label = { Text("عنوان الجهة") }, singleLine = true)
+                OutlinedTextField(value = organizationNotes, onValueChange = { organizationNotes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("ملاحظات الجهة") }, singleLine = true)
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = name.isNotBlank() && organization.isNotBlank(),
+                onClick = {
+                    onSave(
+                        CustodyEntity(
+                            name = name.trim(),
+                            phone = phone.trim(),
+                            address = address.trim(),
+                            notes = notes.trim(),
+                            organizationName = organization.trim(),
+                            organizationPhone = organizationPhone.trim(),
+                            organizationAddress = organizationAddress.trim(),
+                            organizationNotes = organizationNotes.trim()
+                        )
+                    )
+                }
+            ) { Text("حفظ") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+    )
 }
