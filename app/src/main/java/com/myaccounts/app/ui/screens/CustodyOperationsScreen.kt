@@ -216,10 +216,8 @@ fun CustodyOperationsScreen(vm: CustodyViewModel, custodyId: Long, onBack: () ->
         onDismiss = { if (!personSaving) addPerson = false },
         onSave = { person ->
             personSaving = true
-                personSaving = true
-                runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }
-                personSaving = false
-        }
+            runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }
+            personSaving = false
         }
     )
     dialogType?.let { type -> CustodyOperationDialog(vm, custodyId, people, currency, type, null, onDismiss = { dialogType = null }, onFinished = { dialogType = null }) }
