@@ -6,6 +6,7 @@ on:
       - "master"
       - "fix/reports-import-attachment-ui"
       - "feat/custody-module"
+      - "repair/custody-final-20260831"
   pull_request:
     branches:
       - "main"
