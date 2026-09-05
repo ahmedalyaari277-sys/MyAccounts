@@ -12,19 +12,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.CustodyEntity
+import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.BalanceAmount
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.CurrencyChip
@@ -54,10 +52,15 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("العُهَد", style = androidx.compose.material3.MaterialTheme.typography.headlineMedium) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } },
-                actions = { TextButton(onClick = onArchive) { Icon(Icons.Default.Archive, null); Text("الأرشيف") } }
+            AppTopBar(
+                title = "العُهَد",
+                onBack = onBack,
+                actions = {
+                    TextButton(onClick = onArchive) {
+                        Icon(Icons.Default.Archive, contentDescription = "الأرشيف")
+                        Text("الأرشيف")
+                    }
+                }
             )
         },
         floatingActionButton = {
