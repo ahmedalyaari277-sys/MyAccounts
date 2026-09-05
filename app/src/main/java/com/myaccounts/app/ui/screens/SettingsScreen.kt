@@ -8,12 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -32,10 +29,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.currency.CurrencyCatalog
-import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.AppTopBar
+import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.components.PrimaryButton
+import com.myaccounts.app.ui.components.SecondaryButton
+import com.myaccounts.app.ui.components.SummaryCard
 import com.myaccounts.app.ui.theme.AppearanceMode
-import kotlinx.coroutines.launch
 
 private const val PIN_LENGTH = 9
 private const val NUMBER_FORMAT_PREFS = "myaccounts_number_format"
@@ -56,41 +56,45 @@ fun SettingsScreen(
     val context = LocalContext.current
     var fixedDecimals by remember { mutableStateOf(context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).getBoolean(KEY_FIXED_DECIMALS, false)) }
     var defaultCurrency by remember { mutableStateOf(CurrencyCatalog.defaultCode()) }
-    val scope = rememberCoroutineScope()
+    rememberCoroutineScope()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            TextButton(onClick = onBack) { Text("رجوع") }
-            Spacer(Modifier.height(8.dp))
-            Text("الإعدادات", style = MaterialTheme.typography.headlineMedium)
-        }
+    androidx.compose.material3.Scaffold(
+        topBar = { AppTopBar(title = "الإعدادات", onBack = onBack) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                SummaryCard(title = "إعدادات التطبيق") {
+                    Text(
+                        "تحكم في المظهر والعملات وتنسيق الأرقام وحماية الدخول دون تغيير وظائف الحسابات.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            item {
+                InformationCard {
                     Text("المظهر", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(4.dp))
                     Text(
                         when (appearanceMode) {
                             AppearanceMode.LIGHT -> "الوضع الفاتح"
                             AppearanceMode.DARK -> "الوضع الداكن"
                             AppearanceMode.SYSTEM -> "حسب إعدادات النظام"
                         },
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     AppearanceOption("فاتح", appearanceMode == AppearanceMode.LIGHT) { onAppearanceModeChange(AppearanceMode.LIGHT) }
                     AppearanceOption("داكن", appearanceMode == AppearanceMode.DARK) { onAppearanceModeChange(AppearanceMode.DARK) }
                     AppearanceOption("حسب النظام", appearanceMode == AppearanceMode.SYSTEM) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
                 }
             }
-        }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                InformationCard {
                     Text("العملات", style = MaterialTheme.typography.titleMedium)
                     Text("العملات المفعلة متاحة للحسابات والتعاملات والتقارير والعُهَد.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     CurrencyCatalog.definitions.forEach { currency ->
@@ -106,46 +110,41 @@ fun SettingsScreen(
                         }
                     }
                     Text("العملة الافتراضية للحسابات الجديدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = { showAddCurrency = true }, modifier = Modifier.fillMaxWidth()) { Text("إضافة عملة") }
+                    SecondaryButton("إضافة عملة", { showAddCurrency = true }, Modifier.fillMaxWidth())
                 }
             }
-        }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("تنسيق الأرقام", style = MaterialTheme.typography.titleMedium)
-                        Text(if (fixedDecimals) "عرض منزلتين عشريتين دائمًا" else "عرض الرقم بدون أصفار عشرية زائدة", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Switch(
-                        checked = fixedDecimals,
-                        onCheckedChange = {
-                            fixedDecimals = it
-                            context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).edit().putBoolean(KEY_FIXED_DECIMALS, it).apply()
+            item {
+                InformationCard {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("تنسيق الأرقام", style = MaterialTheme.typography.titleMedium)
+                            Text(if (fixedDecimals) "عرض منزلتين عشريتين دائمًا" else "عرض الرقم بدون أصفار عشرية زائدة", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                    )
+                        Switch(
+                            checked = fixedDecimals,
+                            onCheckedChange = {
+                                fixedDecimals = it
+                                context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).edit().putBoolean(KEY_FIXED_DECIMALS, it).apply()
+                            }
+                        )
+                    }
                 }
             }
-        }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                InformationCard {
                     Text("النسخ الاحتياطي والتصدير", style = MaterialTheme.typography.titleMedium)
-                    Text("يمكنك تنفيذ النسخ والاستعادة ونقل البيانات والتصدير من شاشة النسخ الاحتياطي والاستعادة.", style = MaterialTheme.typography.bodyMedium)
-                    Text("تظل ملفات Excel وPDF والمرفقات ضمن وظائفها الحالية دون تغيير.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("النسخ والاستعادة ونقل البيانات والتصدير متاحة من شاشة النسخ الاحتياطي والاستعادة.", style = MaterialTheme.typography.bodyMedium)
+                    Text("تبقى ملفات Excel وPDF والمرفقات ضمن وظائفها الحالية دون تغيير.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            item {
+                InformationCard {
                     Text("حماية التطبيق عند الدخول", style = MaterialTheme.typography.titleMedium)
+                    Text(if (protectionEnabled) "البصمة أولًا، ورمز الدخول كخيار احتياطي" else "التطبيق يفتح مباشرة دون طلب حماية", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
-                    Text(if (protectionEnabled) "البصمة أولًا، ورمز الدخول كخيار احتياطي" else "التطبيق يفتح مباشرة دون طلب حماية", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(12.dp))
                     Switch(
                         checked = protectionEnabled,
                         onCheckedChange = { enabled ->
@@ -159,12 +158,12 @@ fun SettingsScreen(
                     )
                 }
             }
-        }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onDetailsClick, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    Text("تفاصيل التطبيق", modifier = Modifier.fillMaxWidth())
+            item {
+                InformationCard {
+                    Text("حول التطبيق", style = MaterialTheme.typography.titleMedium)
+                    Text("عرض معلومات التطبيق والعملات المفعلة والمزايا.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PrimaryButton("تفاصيل التطبيق", onDetailsClick, Modifier.fillMaxWidth())
                 }
             }
         }
@@ -174,9 +173,7 @@ fun SettingsScreen(
         AddCurrencyDialog(
             onDismiss = { showAddCurrency = false },
             onAdded = { code, name ->
-                if (CurrencyCatalog.add(code, name)) {
-                    defaultCurrency = code.trim().uppercase()
-                }
+                if (CurrencyCatalog.add(code, name)) defaultCurrency = code.trim().uppercase()
                 showAddCurrency = false
             }
         )
