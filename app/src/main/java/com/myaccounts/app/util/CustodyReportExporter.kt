@@ -83,7 +83,7 @@ object CustodyReportExporter {
     private fun saveXlsx(context: Context, sheet: String, name: String): String {
         val writer: (OutputStream) -> Unit = { out -> ZipOutputStream(out).use { z ->
             entry(z, "[Content_Types].xml", """<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>""")
-            entry(z, "_rels/.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>""")
+            entry(z, "_rels/.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>""")
             entry(z, "xl/workbook.xml", """<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="تقرير العهدة" sheetId="1" r:id="rId1"/></sheets></workbook>""")
             entry(z, "xl/_rels/workbook.xml.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>""")
             entry(z, "xl/worksheets/sheet1.xml", sheet)
@@ -107,5 +107,15 @@ object CustodyReportExporter {
     private fun stamp() = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     private fun safe(v: String) = v.replace(Regex("[^\u0600-\u06FFA-Za-z0-9_-]+"), "_").take(60)
     private fun currencyName(v: String) = when (v) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> v }
-    private fun typeName(v: String) = when (v) { CustodyTransactionType.RECEIVED_FROM_ORG -> "استلام من الجهة"; CustodyTransactionType.PAID_TO_PERSON -> "صرف للشخص"; CustodyTransactionType.RETURNED_FROM_PERSON -> "مرتجع من الشخص"; CustodyTransactionType.RETURNED_TO_ORG -> "مرتجع للجهة"; else -> v }
+    private fun typeName(v: String) = when (v) {
+        CustodyTransactionType.RECEIVED_FROM_ORG -> "استلام من الجهة"
+        CustodyTransactionType.PAID_TO_PERSON -> "صرف للشخص"
+        CustodyTransactionType.RETURNED_FROM_PERSON -> "مرتجع من الشخص"
+        CustodyTransactionType.RETURNED_TO_ORG -> "مرتجع للجهة"
+        CustodyTransactionType.ORG_LOAN_FROM_OWNER -> "تسليف الجهة"
+        CustodyTransactionType.ORG_LOAN_REPAYMENT -> "سداد تسليف الجهة"
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER -> "تسليف لحامل العهدة"
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN -> "سداد تسليف للشخص"
+        else -> v
+    }
 }

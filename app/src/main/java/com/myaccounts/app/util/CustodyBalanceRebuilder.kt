@@ -15,11 +15,10 @@ object CustodyBalanceRebuilder {
                 if (account.balanceMinor != 0L) dao.adjustAccountBalance(account.id, -account.balanceMinor, now)
             }
             dao.getAllTransactions(custodyId, false).forEach { tx ->
-                val ownerDelta = CustodyBalanceRules.ownerDelta(tx.type, tx.amountMinor)
-                dao.adjustAccountBalance(tx.accountId, ownerDelta, now)
+                dao.adjustAccountBalance(tx.accountId, CustodyBalanceRules.ownerDelta(tx.type, tx.amountMinor), now)
                 tx.personId?.let { personId ->
                     val delta = CustodyBalanceRules.personDelta(tx.type, tx.amountMinor)
-                    if (delta != 0L) dao.getPersonAccount(custodyId, personId, tx.currencyCode)?.let { pa -> dao.adjustAccountBalance(pa.id, delta, now) }
+                    if (delta != 0L) dao.getPersonAccount(custodyId, personId, tx.currencyCode)?.let { dao.adjustAccountBalance(it.id, delta, now) }
                 }
             }
         }
