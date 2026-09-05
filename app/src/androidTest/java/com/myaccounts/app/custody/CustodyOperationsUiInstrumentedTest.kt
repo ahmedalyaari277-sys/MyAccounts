@@ -166,6 +166,18 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun setField(description: String, value: String) {
+        val directField = device.wait(
+            Until.findObject(By.clazz("android.widget.EditText").desc(description)),
+            5_000
+        )
+        if (directField != null) {
+            directField.click()
+            device.waitForIdle()
+            directField.text = value
+            device.waitForIdle()
+            return
+        }
+
         val semanticField = device.wait(Until.findObject(By.desc(description)), 2_000)
         if (semanticField != null) {
             semanticField.click()
@@ -176,7 +188,6 @@ class CustodyOperationsUiInstrumentedTest {
             clickNodeOrClickableAncestor(labelNode, "Field $description")
         }
         device.waitForIdle()
-
         val focused = device.wait(Until.findObject(By.focused(true)), 3_000)
         val actualField = if (focused?.className == "android.widget.EditText") {
             focused
@@ -219,7 +230,6 @@ class CustodyOperationsUiInstrumentedTest {
             clickNodeOrClickableAncestor(byText, label)
             return
         }
-
         val byDesc = device.wait(Until.findObject(By.desc(text)), 5_000)
         if (byDesc != null) {
             clickNodeOrClickableAncestor(byDesc, label)
