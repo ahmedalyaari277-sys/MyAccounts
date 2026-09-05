@@ -10,19 +10,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +34,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import com.myaccounts.app.security.AppSecurityManager
+import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.components.PrimaryButton
+import com.myaccounts.app.ui.components.SecondaryButton
+import com.myaccounts.app.ui.components.SummaryCard
 
 private const val PIN_LENGTH = 9
 
@@ -51,23 +52,14 @@ fun AppLockGate(
     }
 
     if (!security.hasPin() || !security.hasRecoveryEmail()) {
-        SecuritySetupScreen(
-            security = security,
-            onCompleted = onUnlocked
-        )
+        SecuritySetupScreen(security = security, onCompleted = onUnlocked)
     } else {
-        LockScreen(
-            security = security,
-            onUnlocked = onUnlocked
-        )
+        LockScreen(security = security, onUnlocked = onUnlocked)
     }
 }
 
 @Composable
-private fun SecuritySetupScreen(
-    security: AppSecurityManager,
-    onCompleted: () -> Unit
-) {
+private fun SecuritySetupScreen(security: AppSecurityManager, onCompleted: () -> Unit) {
     var pin by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -78,70 +70,32 @@ private fun SecuritySetupScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(16.dp))
-        Text("إعداد حماية التطبيق", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "أنشئ رمز دخول من 9 أرقام وأدخل بريدًا إلكترونيًا لاستعادة الرمز عند نسيانه.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(Modifier.height(20.dp))
-        OutlinedTextField(
-            value = pin,
-            onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { pin = it; error = null } },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("رمز الدخول (9 أرقام)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true
-        )
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = confirmation,
-            onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("تأكيد رمز الدخول") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true
-        )
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it; error = null },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("البريد الإلكتروني للاسترداد") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
-        )
-        error?.let {
+        SummaryCard(title = "إعداد حماية التطبيق", modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text("أنشئ رمز دخول من 9 أرقام وأدخل بريدًا إلكترونيًا لاستعادة الرمز عند نسيانه.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            Text(it, color = MaterialTheme.colorScheme.error)
-        }
-        Spacer(Modifier.height(18.dp))
-        Button(
-            onClick = {
-                when {
-                    pin.length != PIN_LENGTH -> error = "يجب أن يتكون رمز الدخول من 9 أرقام."
-                    pin != confirmation -> error = "رمزا الدخول غير متطابقين."
-                    !isValidEmail(email) -> error = "أدخل بريدًا إلكترونيًا صحيحًا."
-                    else -> {
-                        security.saveCredentials(pin, email)
-                        onCompleted()
+            OutlinedTextField(value = pin, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { pin = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز الدخول (9 أرقام)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
+            OutlinedTextField(value = confirmation, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("تأكيد رمز الدخول") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
+            OutlinedTextField(value = email, onValueChange = { email = it; error = null }, modifier = Modifier.fillMaxWidth(), label = { Text("البريد الإلكتروني للاسترداد") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = RoundedCornerShape(8.dp))
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            PrimaryButton(
+                text = "حفظ وتفعيل الحماية",
+                onClick = {
+                    when {
+                        pin.length != PIN_LENGTH -> error = "يجب أن يتكون رمز الدخول من 9 أرقام."
+                        pin != confirmation -> error = "رمزا الدخول غير متطابقين."
+                        !isValidEmail(email) -> error = "أدخل بريدًا إلكترونيًا صحيحًا."
+                        else -> { security.saveCredentials(pin, email); onCompleted() }
                     }
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("حفظ وتفعيل الحماية") }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
 @Composable
-private fun LockScreen(
-    security: AppSecurityManager,
-    onUnlocked: () -> Unit
-) {
+private fun LockScreen(security: AppSecurityManager, onUnlocked: () -> Unit) {
     val context = LocalContext.current
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -150,26 +104,17 @@ private fun LockScreen(
 
     val biometricManager = remember(context) { BiometricManager.from(context) }
     val biometricAvailable = remember(biometricManager) {
-        biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
-            BiometricManager.BIOMETRIC_SUCCESS
+        biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     LaunchedEffect(biometricAvailable) {
         if (biometricAvailable && !biometricStarted) {
             biometricStarted = true
             val activity = context as? FragmentActivity ?: return@LaunchedEffect
-            val prompt = BiometricPrompt(
-                activity,
-                object : BiometricPrompt.AuthenticationCallback() {
-                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                        onUnlocked()
-                    }
-
-                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                        error = null
-                    }
-                }
-            )
+            val prompt = BiometricPrompt(activity, object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { onUnlocked() }
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { error = null }
+            })
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
                 .setTitle("فتح دفتر الحسابات")
                 .setSubtitle("ضع إصبعك على مستشعر البصمة")
@@ -185,78 +130,48 @@ private fun LockScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(12.dp))
-                Text("دفتر الحسابات محمي", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(8.dp))
-                if (biometricAvailable) {
+        SummaryCard(title = "حماية التطبيق", modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text("دفتر الحسابات محمي", style = MaterialTheme.typography.titleLarge)
+            if (biometricAvailable) {
+                InformationCard {
                     Icon(Icons.Default.Fingerprint, contentDescription = "البصمة", tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(6.dp))
-                    Text("استخدم البصمة مباشرة لفتح التطبيق")
-                    Spacer(Modifier.height(14.dp))
+                    Text("استخدم البصمة مباشرة لفتح التطبيق", style = MaterialTheme.typography.bodyLarge)
                 }
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = {
-                        if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) {
-                            pin = it
-                            error = null
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("رمز الدخول") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        when {
-                            pin.length != PIN_LENGTH -> error = "أدخل رمز الدخول المكون من 9 أرقام."
-                            security.verifyPin(pin) -> onUnlocked()
-                            else -> {
-                                pin = ""
-                                error = "رمز الدخول غير صحيح."
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("دخول") }
-                TextButton(onClick = { showRecovery = true }) {
-                    Text("نسيت رمز الدخول؟")
-                }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { pin = it; error = null } },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("رمز الدخول") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp)
+            )
+            PrimaryButton(
+                text = "دخول",
+                onClick = {
+                    when {
+                        pin.length != PIN_LENGTH -> error = "أدخل رمز الدخول المكون من 9 أرقام."
+                        security.verifyPin(pin) -> onUnlocked()
+                        else -> { pin = ""; error = "رمز الدخول غير صحيح." }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            SecondaryButton(text = "نسيت رمز الدخول؟", onClick = { showRecovery = true }, modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
     }
 
     if (showRecovery) {
-        RecoveryDialog(
-            security = security,
-            onDismiss = { showRecovery = false },
-            onRecovered = {
-                showRecovery = false
-                onUnlocked()
-            }
-        )
+        RecoveryDialog(security = security, onDismiss = { showRecovery = false }, onRecovered = { showRecovery = false; onUnlocked() })
     }
 }
 
 @Composable
-private fun RecoveryDialog(
-    security: AppSecurityManager,
-    onDismiss: () -> Unit,
-    onRecovered: () -> Unit
-) {
+private fun RecoveryDialog(security: AppSecurityManager, onDismiss: () -> Unit, onRecovered: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
@@ -264,61 +179,28 @@ private fun RecoveryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("استعادة رمز الدخول") },
+        title = { Text("استعادة رمز الدخول", style = MaterialTheme.typography.titleLarge) },
         text = {
-            Column {
-                Text("أدخل البريد الإلكتروني المسجل ثم أنشئ رمز دخول جديدًا من 9 أرقام.")
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it; error = null },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("البريد الإلكتروني") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = newPin,
-                    onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { newPin = it; error = null } },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("رمز الدخول الجديد (9 أرقام)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = confirmation,
-                    onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("تأكيد الرمز الجديد") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true
-                )
-                error?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error)
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("أدخل البريد الإلكتروني المسجل ثم أنشئ رمز دخول جديدًا من 9 أرقام.", style = MaterialTheme.typography.bodyLarge)
+                OutlinedTextField(value = email, onValueChange = { email = it; error = null }, modifier = Modifier.fillMaxWidth(), label = { Text("البريد الإلكتروني") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = newPin, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { newPin = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز الدخول الجديد (9 أرقام)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = confirmation, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("تأكيد الرمز الجديد") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
         },
         confirmButton = {
-            Button(onClick = {
+            PrimaryButton(text = "حفظ الرمز الجديد", onClick = {
                 when {
                     !security.verifyRecoveryEmail(email) -> error = "البريد الإلكتروني غير مطابق."
                     newPin.length != PIN_LENGTH -> error = "رمز الدخول يجب أن يتكون من 9 أرقام."
                     newPin != confirmation -> error = "رمزا الدخول غير متطابقين."
-                    else -> {
-                        security.resetPin(newPin)
-                        onRecovered()
-                    }
+                    else -> { security.resetPin(newPin); onRecovered() }
                 }
-            }) { Text("حفظ الرمز الجديد") }
+            })
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
+        dismissButton = { SecondaryButton(text = "إلغاء", onClick = onDismiss) }
     )
 }
 
-private fun isValidEmail(email: String): Boolean =
-    android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+private fun isValidEmail(email: String): Boolean = android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
