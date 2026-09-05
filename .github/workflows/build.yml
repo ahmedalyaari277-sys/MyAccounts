@@ -10,12 +10,54 @@ on:
     branches:
       - "main"
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply verified custody dialog repair
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt')
+          s = ops.read_text()
+          pattern = r'(onSave = \{ person ->\n)\s*scope\.launch \{\n(\s*personSaving = true\n\s*runCatching \{ vm\.addPersonAndWait\(custodyId, person\) \}\.onSuccess \{ addPerson = false \}\n\s*personSaving = false\n)\s*\}'
+          replacement = r'\1            personSaving = true\n\2        }'
+          s2, count = re.subn(pattern, replacement, s, count=1)
+          if count == 0:
+              raise SystemExit('person save race block not found')
+          s = s2
+          s = s.replace('properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)', 'properties = DialogProperties(usePlatformDefaultWidth = false)', 1)
+          ops.write_text(s)
+
+          person_ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt')
+          s = person_ops.read_text()
+          old = 'properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)'
+          if old not in s:
+              raise SystemExit('person operation dialog properties not found')
+          s = s.replace(old, 'properties = DialogProperties(usePlatformDefaultWidth = false)', 1)
+          person_ops.write_text(s)
+          PY
+      - name: Commit verified custody repair
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt
+          if git diff --cached --quiet; then
+            echo "No repair changes required."
+          else
+            git commit -m "fix(custody): stabilize person save and operation dialogs"
+            git push origin HEAD:main
+          fi
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
