@@ -11,7 +11,7 @@ on:
       - "main"
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,18 +20,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Repair custody UI source
-        shell: bash
-        run: |
-          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt"); s=p.read_text(); a=s.index("        onSave = { person ->", s.index("if (addPerson)")); b=s.index("    )", a)+5; block="        onSave = { person ->\n            personSaving = true\n            runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }\n            personSaving = false\n        }\n    )"; s=s[:a]+block+s[b:]; s=s.replace("properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)", "properties = DialogProperties(usePlatformDefaultWidth = false)", 1); p.write_text(s)'
-          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt"); s=p.read_text(); old="properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)"; p.write_text(s.replace(old, "properties = DialogProperties(usePlatformDefaultWidth = false)", 1))'
-      - name: Commit custody repair if changed
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt
-          if git diff --cached --quiet; then echo "No custody repair changes needed."; else git commit -m "fix(custody): stabilize person save and operation dialogs"; git push origin HEAD:main; fi
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
