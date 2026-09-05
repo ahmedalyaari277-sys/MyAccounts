@@ -45,8 +45,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -105,18 +103,12 @@ fun HomeScreen(
             AppTopBar(
                 title = "حساباتي",
                 actions = {
-                    IconButton(
-                        onClick = onReportsClick,
-                        modifier = Modifier.semantics { contentDescription = "التقارير" }
-                    ) {
-                        Icon(Icons.Default.Assessment, contentDescription = null)
+                    IconButton(onClick = onReportsClick) {
+                        Icon(Icons.Default.Assessment, contentDescription = "التقارير")
                     }
                     Box {
-                        IconButton(
-                            onClick = { showSortMenu = true },
-                            modifier = Modifier.semantics { contentDescription = "ترتيب الأشخاص" }
-                        ) {
-                            Icon(Icons.Default.Sort, contentDescription = null)
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.Default.Sort, contentDescription = "ترتيب الأشخاص")
                         }
                         DropdownMenu(
                             expanded = showSortMenu,
@@ -139,11 +131,8 @@ fun HomeScreen(
                         }
                     }
                     Box {
-                        IconButton(
-                            onClick = { showMoreMenu = true },
-                            modifier = Modifier.semantics { contentDescription = "المزيد من الخيارات" }
-                        ) {
-                            Icon(Icons.Default.MoreVert, contentDescription = null)
+                        IconButton(onClick = { showMoreMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "المزيد من الخيارات")
                         }
                         DropdownMenu(
                             expanded = showMoreMenu,
@@ -158,7 +147,7 @@ fun HomeScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                modifier = Modifier.semantics { contentDescription = "فتح النسخ الاحتياطي والاستعادة" },
+                                modifier = Modifier.semantics { androidx.compose.ui.semantics.contentDescription = "فتح النسخ الاحتياطي والاستعادة" },
                                 text = { Text("النسخ الاحتياطي والاستعادة") },
                                 leadingIcon = { Icon(Icons.Default.Backup, contentDescription = null) },
                                 onClick = {
