@@ -10,14 +10,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.ui.components.AppTopBar
+import com.myaccounts.app.ui.components.ConfirmationDialog
 import com.myaccounts.app.ui.components.DangerButton
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
@@ -87,22 +85,16 @@ fun ArchivedPersonDetailScreen(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("حذف نهائي", style = MaterialTheme.typography.titleLarge) },
-            text = { Text("سيتم حذف ${person.name} وجميع حساباته وحركاته ومرفقاته نهائيًا. لا يمكن التراجع عن هذا الإجراء.", style = MaterialTheme.typography.bodyLarge) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        onPermanentDelete()
-                    }
-                ) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null)
-                    Text("حذف نهائي", style = MaterialTheme.typography.labelLarge)
-                }
+        ConfirmationDialog(
+            title = "حذف نهائي",
+            message = "سيتم حذف ${person.name} وجميع حساباته وحركاته ومرفقاته نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+            confirmText = "حذف نهائي",
+            danger = true,
+            onConfirm = {
+                showDeleteDialog = false
+                onPermanentDelete()
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("إلغاء", style = MaterialTheme.typography.labelLarge) } }
+            onDismiss = { showDeleteDialog = false }
         )
     }
 }
