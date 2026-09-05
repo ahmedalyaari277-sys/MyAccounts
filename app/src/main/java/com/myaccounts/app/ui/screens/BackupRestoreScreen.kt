@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -170,7 +172,7 @@ fun BackupRestoreScreen(onBack: () -> Unit) {
 
     Scaffold(topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -184,6 +186,8 @@ fun BackupRestoreScreen(onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
+
+            ExcelTransferControls()
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
