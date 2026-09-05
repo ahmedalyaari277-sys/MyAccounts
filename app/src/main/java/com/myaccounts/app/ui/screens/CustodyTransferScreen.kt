@@ -1,0 +1,134 @@
+package com.myaccounts.app.ui.screens
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.myaccounts.app.data.custody.CustodyEntity
+import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.util.CustodyBackupManager
+import com.myaccounts.app.util.CustodyExcelDataManager
+import com.myaccounts.app.util.CustodyReportExporter
+import com.myaccounts.app.util.ReportShareUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+private const val PDF_MIME = "application/pdf"
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val custodies by vm.custodies.collectAsState()
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var pendingImport by remember { mutableStateOf<Uri?>(null) }
+    var pendingRestore by remember { mutableStateOf<Uri?>(null) }
+    var lastBackupUri by remember { mutableStateOf<Uri?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(CustodyExcelDataManager.MIME_TYPE)) { uri ->
+        if (uri != null) {
+            busy = true
+            scope.launch(Dispatchers.IO) {
+                val result = CustodyExcelDataManager.exportActive(context, uri)
+                message = result.fold({ "تم تصدير ${it.custodies} عهدة و${it.transactions} عملية إلى Excel." }, { "تعذر تصدير بيانات العُهَد: ${it.message ?: "خطأ غير معروف"}" })
+                busy = false
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingImport = uri }
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(CustodyBackupManager.MIME_TYPE)) { uri ->
+        if (uri != null) {
+            busy = true
+            scope.launch(Dispatchers.IO) {
+                val result = CustodyBackupManager.createBackup(context, uri)
+                if (result.isSuccess) lastBackupUri = uri
+                message = result.fold({ "تم إنشاء نسخة احتياطية للعُهَد فقط: ${it.custodies} عهدة، ${it.people} أشخاص، ${it.transactions} عمليات، ${it.attachments} مرفقات." }, { "تعذر إنشاء النسخة الاحتياطية للعُهَد: ${it.message ?: "خطأ غير معروف"}" })
+                busy = false
+            }
+        }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingRestore = uri }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("نقل بيانات العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }) }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item { Text("نقل بيانات العُهَد", style = MaterialTheme.typography.titleLarge) }
+            item { Text("هذه الوظائف مستقلة عن دفتر الحسابات وتتعامل مع بيانات العُهَد فقط.") }
+            item { Button(enabled = !busy, onClick = { exportLauncher.launch(CustodyExcelDataManager.SUGGESTED_FILE_NAME) }, Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
+            item { OutlinedButton(enabled = !busy, onClick = { importLauncher.launch(arrayOf(CustodyExcelDataManager.MIME_TYPE)) }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Restore, null); Text("استيراد العُهَد من Excel") } }
+            item { Button(enabled = !busy, onClick = { backupLauncher.launch(CustodyBackupManager.SUGGESTED_FILE_NAME) }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("نسخ احتياطي للعُهَد فقط") } }
+            item { OutlinedButton(enabled = !busy, onClick = { restoreLauncher.launch(arrayOf(CustodyBackupManager.MIME_TYPE, "application/octet-stream", "application/zip")) }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Restore, null); Text("استعادة نسخة العُهَد") } }
+            item { OutlinedButton(enabled = !busy && lastBackupUri != null, onClick = {
+                val uri = lastBackupUri ?: return@OutlinedButton
+                try { val intent = Intent(Intent.ACTION_SEND).apply { type = CustodyBackupManager.MIME_TYPE; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية للعُهَد"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(intent, "مشاركة نسخة العُهَد").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                catch (e: Exception) { message = "تعذرت مشاركة نسخة العُهَد: ${e.message ?: "خطأ غير معروف"}" }
+            }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("مشاركة آخر نسخة للعُهَد") } }
+            item { Text("التقارير والمشاركة", style = MaterialTheme.typography.titleMedium) }
+            items(custodies, key = { it.id }) { custody -> CustodyTransferCard(custody, vm, { message = it }, { busy = it }) }
+            if (custodies.isEmpty()) item { Text("لا توجد عُهَد نشطة.") }
+            if (busy) item { CircularProgressIndicator() }
+        }
+    }
+
+    pendingImport?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingImport = null }, title = { Text("تأكيد استيراد العُهَد") }, text = { Text("سيتم فحص ملف Excel ثم استيراد بيانات العُهَد الصالحة فقط. لن تتأثر بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = {
+        pendingImport = null; busy = true; scope.launch(Dispatchers.IO) {
+            val result = runCatching { val preview = CustodyExcelDataManager.previewImport(context, uri).getOrThrow(); check(preview.isValid) { preview.errors.joinToString("\n") }; CustodyExcelDataManager.import(context, uri).getOrThrow() }
+            message = result.fold({ "تم الاستيراد: ${it.custodiesAdded} عهدة، ${it.peopleAdded} أشخاص، ${it.accountsAdded} حسابات، ${it.transactionsAdded} عمليات." }, { "تعذر استيراد بيانات العُهَد: ${it.message ?: "ملف غير صالح"}" }); busy = false
+        }
+    }) { Text("استيراد") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingImport = null }) { Text("إلغاء") } }) }
+    pendingRestore?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingRestore = null }, title = { Text("تأكيد استعادة العُهَد") }, text = { Text("سيتم استيراد بيانات العُهَد من النسخة الاحتياطية، مع إعادة المرفقات إن وجدت. لن يتم استبدال أو تعديل بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = {
+        pendingRestore = null; busy = true; scope.launch(Dispatchers.IO) { val result = CustodyBackupManager.restoreBackup(context, uri); message = result.fold({ "تمت استعادة العُهَد: ${it.custodies} عهدة، ${it.people} أشخاص، ${it.transactions} عمليات، ${it.attachments} مرفقات." }, { "تعذرت استعادة نسخة العُهَد: ${it.message ?: "الملف غير صالح"}" }); busy = false }
+    }) { Text("استعادة") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null }) { Text("إلغاء") } }) }
+    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }) }
+}
+
+@Composable
+private fun CustodyTransferCard(custody: CustodyEntity, vm: CustodyViewModel, onMessage: (String) -> Unit, onBusy: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val tx by vm.transactions(custody.id).collectAsState(initial = emptyList())
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Text(custody.name, style = MaterialTheme.typography.titleMedium)
+        Text("الجهة: ${custody.organizationName}")
+        Button(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val result = CustodyReportExporter.exportExcel(context, custody, tx, "ALL"); onMessage(result.fold({ "تم إنشاء Excel للعهدة ${custody.name}." }, { "تعذر إنشاء Excel: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير Excel لهذه العهدة") }
+        OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val result = CustodyReportExporter.exportPdf(context, custody, tx, "ALL"); onMessage(result.fold({ "تم إنشاء PDF للعهدة ${custody.name}." }, { "تعذر إنشاء PDF: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("تصدير PDF لهذه العهدة") }
+        OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val result = ReportShareUtil.shareGeneratedReport(context, "MyAccounts_تقرير_عهدة", PDF_MIME, true) { CustodyReportExporter.exportPdf(context, custody, tx, "ALL") }; onMessage(result.fold({ "تم فتح خيارات مشاركة تقرير ${custody.name}." }, { "تعذرت مشاركة التقرير: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("إنشاء التقرير ومشاركته") }
+    }
+}
