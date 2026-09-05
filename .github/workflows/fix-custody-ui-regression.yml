@@ -26,7 +26,6 @@ jobs:
 
           ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt')
           s = ops.read_text()
-
           old = '''        onSave = { person ->
             scope.launch {
                 personSaving = true
@@ -43,12 +42,10 @@ jobs:
               raise SystemExit('person save block not found')
           s = s.replace(old, new, 1)
           s = s.replace('    val scope = rememberCoroutineScope()\n    val matches = existing.filter', '    val matches = existing.filter', 1)
-
           old = 'properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)'
-          new = 'properties = DialogProperties(usePlatformDefaultWidth = false)'
           if old not in s:
               raise SystemExit('custody operation dialog properties not found')
-          s = s.replace(old, new, 1)
+          s = s.replace(old, 'properties = DialogProperties(usePlatformDefaultWidth = false)', 1)
           ops.write_text(s)
 
           person_ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt')
@@ -71,3 +68,5 @@ jobs:
           git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt .github/workflows/fix-custody-ui-regression.yml
           git commit -m "fix(custody): stabilize operation dialogs and person save"
           git push origin HEAD:main
+
+# trigger repair
