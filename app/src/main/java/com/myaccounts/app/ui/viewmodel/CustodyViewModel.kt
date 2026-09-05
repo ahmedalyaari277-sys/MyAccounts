@@ -6,14 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.util.CustodyAttachmentStorage
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val repo = CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
     private val dao = com.myaccounts.app.data.local.AppDatabase.getInstance(app).custodyDao()
+    private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
     val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun custody(id: Long) = repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) {
+        repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    }
     fun persons(id: Long) = repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun accounts(id: Long) = repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun transactions(id: Long) = repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
