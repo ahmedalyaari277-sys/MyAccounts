@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
@@ -15,6 +16,12 @@ fun CalculatorHost(
     onUseResult: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    if (controller.isOpen) {
+        BackHandler(enabled = true) {
+            controller.close()
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         content()
         if (controller.isOpen) {
