@@ -20,52 +20,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Repair custody UI source if needed
+      - name: Repair custody UI source
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt')
-          s = ops.read_text()
-          block = r'''    if (addPerson) CustodyPersonDialog\(
-        existing = people,
-        onDismiss = \{ if \(!personSaving\) addPerson = false \},
-        onSave = \{ person ->.*?\n    \}\)'''
-          replacement = '''    if (addPerson) CustodyPersonDialog(
-        existing = people,
-        onDismiss = { if (!personSaving) addPerson = false },
-        onSave = { person ->
-            personSaving = true
-            runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }
-            personSaving = false
-        }
-    )'''
-          s2, count = re.subn(block, replacement, s, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit('custody person save block not found')
-          s = s2.replace('properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)', 'properties = DialogProperties(usePlatformDefaultWidth = false)', 1)
-          ops.write_text(s)
-
-          person_ops = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt')
-          s = person_ops.read_text()
-          old = 'properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)'
-          if old not in s:
-              raise SystemExit('person operation dialog properties not found')
-          person_ops.write_text(s.replace(old, 'properties = DialogProperties(usePlatformDefaultWidth = false)', 1))
-          PY
+          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt"); s=p.read_text(); a=s.index("        onSave = { person ->", s.index("if (addPerson)")); b=s.index("    )", a)+5; block="        onSave = { person ->\n            personSaving = true\n            runCatching { vm.addPersonAndWait(custodyId, person) }.onSuccess { addPerson = false }\n            personSaving = false\n        }\n    )"; s=s[:a]+block+s[b:]; s=s.replace("properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)", "properties = DialogProperties(usePlatformDefaultWidth = false)", 1); p.write_text(s)'
+          python3 -c 'from pathlib import Path; p=Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt"); s=p.read_text(); old="properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)"; assert old in s; p.write_text(s.replace(old, "properties = DialogProperties(usePlatformDefaultWidth = false)", 1))'
       - name: Commit custody repair if changed
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyOperationsScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyPersonOperationsScreen.kt
-          if git diff --cached --quiet; then
-            echo "No custody repair changes needed."
-          else
-            git commit -m "fix(custody): stabilize person save and operation dialogs"
-            git push origin HEAD:main
-          fi
+          if git diff --cached --quiet; then echo "No custody repair changes needed."; else git commit -m "fix(custody): stabilize person save and operation dialogs"; git push origin HEAD:main; fi
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
