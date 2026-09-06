@@ -5,11 +5,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.util.CustodyAttachmentStorage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val repo = CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
@@ -57,7 +59,9 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
 
     fun create(c: CustodyEntity) = viewModelScope.launch { repo.createCustody(c) }
     fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch { repo.addPerson(id, p) }
-    suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = repo.addPerson(id, p)
+    suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = withContext(Dispatchers.IO) {
+        repo.addPerson(id, p)
+    }
     fun updatePerson(p: CustodyPersonEntity) = viewModelScope.launch { repo.updatePerson(p) }
     fun updateCustody(c: CustodyEntity) = viewModelScope.launch { repo.updateCustody(c) }
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, description, date, attachments) }
