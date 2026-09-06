@@ -153,21 +153,16 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun clickSavePerson() {
         hideKeyboardIfEditing()
-        click(By.desc("حفظ الشخص"), "Save person")
+        val save = device.wait(Until.findObject(By.desc("حفظ الشخص")), 5_000)
+            ?: device.wait(Until.findObject(By.text("حفظ")), 5_000)
+            ?: error("Save person not found")
+        save.click()
         device.waitForIdle()
-        assertTrue("Person was not persisted", waitForPersonInDatabase("اختبار شخص واجهة"))
+        assertTrue("Person was not persisted", waitForPerson("${getCustodyIdForTest()}", "اختبار شخص واجهة") != null)
         assertTrue("Person dialog window did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
     }
 
-    private fun waitForPersonInDatabase(name: String): Boolean {
-        val deadline = System.currentTimeMillis() + 10_000L
-        while (System.currentTimeMillis() < deadline) {
-            if (runBlocking { db.custodyDao().getAllCustodies(false) }.any { it.externalId == externalId } &&
-                runBlocking { db.custodyDao().getAllPersons(runBlocking { db.custodyDao().getCustodyByExternalId(externalId)!!.id }) }.any { it.name == name }) return true
-            Thread.sleep(100)
-        }
-        return false
-    }
+    private fun getCustodyIdForTest(): Long = runBlocking { db.custodyDao().getCustodyByExternalId(externalId)?.id ?: error("Test custody was not persisted") }
 
     private fun waitForOperationDialog() {
         val visible = device.wait(Until.hasObject(By.text("إضافة عملية")), 10_000) ||
@@ -177,25 +172,26 @@ class CustodyOperationsUiInstrumentedTest {
     }
 
     private fun setField(description: String, value: String) {
-        val semanticField = device.wait(Until.findObject(By.desc(description)), 2_000)
-        if (semanticField != null) {
-            semanticField.click()
-        } else {
-            val label = visibleLabelFor(description)
-            val labelNode = device.wait(Until.findObject(By.text(label)), 10_000)
-                ?: error("Field '$description' not found")
-            clickNodeOrClickableAncestor(labelNode, "Field $description")
+        val editable = device.wait(
+            Until.findObject(By.clazz("android.widget.EditText").desc(description)),
+            5_000
+        )
+        if (editable != null) {
+            editable.text = value
+            device.waitForIdle()
+            return
         }
-        device.waitForIdle()
 
-        val focused = device.wait(Until.findObject(By.focused(true)), 3_000)
-        val actualField = if (focused?.className == "android.widget.EditText") {
-            focused
-        } else {
-            device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3_000)
-        }
-        if (actualField == null) error("Editable control for '$description' not found")
-        actualField.text = value
+        val semanticField = device.wait(Until.findObject(By.desc(description)), 5_000)
+            ?: run {
+                val label = visibleLabelFor(description)
+                val labelNode = device.wait(Until.findObject(By.text(label)), 10_000)
+                    ?: error("Field '$description' not found")
+                clickNodeOrClickableAncestor(labelNode, "Field $description")
+                device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3_000)
+                    ?: error("Editable control for '$description' not found")
+            }
+        semanticField.text = value
         device.waitForIdle()
     }
 
@@ -273,15 +269,13 @@ class CustodyOperationsUiInstrumentedTest {
         }!!
     }
 
-    private fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity {
+    private fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity? {
         val deadline = System.currentTimeMillis() + 10_000L
         while (System.currentTimeMillis() < deadline) {
             runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }?.let { return it }
             Thread.sleep(100)
         }
-        return runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }.also {
-            assertNotNull("Test person was not persisted", it)
-        }!!
+        return runBlocking { db.custodyDao().getAllPersons(custodyId).firstOrNull { it.name == name } }
     }
 
     private fun waitForTransactions(custodyId: Long, minimum: Int): List<com.myaccounts.app.data.custody.CustodyTransactionEntity> {
