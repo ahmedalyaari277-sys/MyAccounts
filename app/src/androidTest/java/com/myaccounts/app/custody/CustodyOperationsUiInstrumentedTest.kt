@@ -59,7 +59,6 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
-
         clickAction("استلام من الجهة", "Receive from organization")
         waitForOperationDialog()
         setField("المبلغ للعملية", "1000")
@@ -67,7 +66,6 @@ class CustodyOperationsUiInstrumentedTest {
         val custody = waitForCustody()
         assertTrue("Owner balance was not shown after receipt", device.wait(Until.hasObject(By.text("عليه 1000")), 10_000))
         assertEquals(CustodyTransactionType.RECEIVED_FROM_ORG, waitForTransactions(custody.id, 1).single().type)
-
         clickAction("مرتجع للجهة / تصفية", "Return to organization")
         waitForOperationDialog()
         setField("المبلغ للعملية", "1000")
@@ -84,7 +82,6 @@ class CustodyOperationsUiInstrumentedTest {
         click(By.text("العُهَد"), "Custody gateway")
         click(By.text(custodyName), "Custody card")
         waitForDetailScreen()
-
         clickAction("إضافة شخص", "Add custody person")
         waitForPersonDialog()
         setField("الاسم", "اختبار شخص واجهة")
@@ -92,25 +89,22 @@ class CustodyOperationsUiInstrumentedTest {
         setField("العنوان", "صنعاء")
         setField("الملاحظات", "اختبار")
         clickSavePerson()
-
         val custody = waitForCustody()
         val person = waitForPerson(custody.id, "اختبار شخص واجهة")
+        assertNotNull("Test person was not persisted", person)
         click(By.text("اختبار شخص واجهة"), "Custody person")
         assertTrue("Person screen did not open", device.wait(Until.hasObject(By.text("صرف للشخص")), 10_000))
-
         clickAction("إضافة عملية", "Add person operation")
         waitForOperationDialog()
         setField("المبلغ للعملية", "250")
         setField("بيان العملية", "صرف واجهة")
         clickSaveOperation()
         assertTrue("Person balance was not shown", device.wait(Until.hasObject(By.text("عليه 250")), 10_000))
-
         val first = waitForTransactions(custody.id, 1).single()
-        assertEquals(person.id, first.personId)
+        assertEquals(person!!.id, first.personId)
         assertEquals(CustodyTransactionType.PAID_TO_PERSON, first.type)
         assertEquals("YER", first.currencyCode)
         assertEquals(25000L, first.amountMinor)
-
         clickAction("تعديل", "Edit person operation")
         waitForOperationDialog()
         setField("المبلغ للعملية", "300")
@@ -118,13 +112,11 @@ class CustodyOperationsUiInstrumentedTest {
         var updated = waitForTransactions(custody.id, 1).single()
         assertEquals(30000L, updated.amountMinor)
         assertEquals(CustodyTransactionType.PAID_TO_PERSON, updated.type)
-
         clickAction("تعديل", "Edit operation for currency and type")
         waitForOperationDialog()
         click(By.text("SAR"), "Change operation currency to SAR")
         click(By.text("مرتجع من الشخص"), "Change operation type to returned from person")
         clickSaveOperation()
-
         updated = waitForTransactions(custody.id, 1).single()
         assertEquals("SAR", updated.currencyCode)
         assertEquals(CustodyTransactionType.RETURNED_FROM_PERSON, updated.type)
@@ -132,7 +124,6 @@ class CustodyOperationsUiInstrumentedTest {
         assertEquals(0L, db.custodyDao().getPersonAccount(custody.id, person.id, "YER")!!.balanceMinor)
         assertEquals(-30000L, db.custodyDao().getOwnerAccount(custody.id, "SAR")!!.balanceMinor)
         assertEquals(-30000L, db.custodyDao().getPersonAccount(custody.id, person.id, "SAR")!!.balanceMinor)
-
         clickAction("حذف", "Delete person operation")
         waitForText("حذف العملية")
         click(By.text("حذف"), "Confirm delete")
@@ -158,40 +149,36 @@ class CustodyOperationsUiInstrumentedTest {
             ?: error("Save person not found")
         save.click()
         device.waitForIdle()
-        assertTrue("Person was not persisted", waitForPerson("${getCustodyIdForTest()}", "اختبار شخص واجهة") != null)
+        assertTrue("Person was not persisted", waitForPerson(getCustodyIdForTest(), "اختبار شخص واجهة") != null)
         assertTrue("Person dialog window did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
     }
 
     private fun getCustodyIdForTest(): Long = runBlocking { db.custodyDao().getCustodyByExternalId(externalId)?.id ?: error("Test custody was not persisted") }
 
     private fun waitForOperationDialog() {
-        val visible = device.wait(Until.hasObject(By.text("إضافة عملية")), 10_000) ||
-            device.wait(Until.hasObject(By.text("تعديل العملية")), 10_000)
+        val visible = device.wait(Until.hasObject(By.text("إضافة عملية")), 10_000) || device.wait(Until.hasObject(By.text("تعديل العملية")), 10_000)
         assertTrue("Operation dialog not visible", visible)
         assertTrue("Operation amount field not visible", device.wait(Until.hasObject(By.text("المبلغ")), 5_000))
     }
 
     private fun setField(description: String, value: String) {
-        val editable = device.wait(
-            Until.findObject(By.clazz("android.widget.EditText").desc(description)),
-            5_000
-        )
+        val editable = device.wait(Until.findObject(By.clazz("android.widget.EditText").desc(description)), 5_000)
         if (editable != null) {
             editable.text = value
             device.waitForIdle()
             return
         }
-
         val semanticField = device.wait(Until.findObject(By.desc(description)), 5_000)
-            ?: run {
-                val label = visibleLabelFor(description)
-                val labelNode = device.wait(Until.findObject(By.text(label)), 10_000)
-                    ?: error("Field '$description' not found")
-                clickNodeOrClickableAncestor(labelNode, "Field $description")
-                device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3_000)
-                    ?: error("Editable control for '$description' not found")
-            }
-        semanticField.text = value
+        if (semanticField != null) {
+            semanticField.text = value
+            device.waitForIdle()
+            return
+        }
+        val label = visibleLabelFor(description)
+        val labelNode = device.wait(Until.findObject(By.text(label)), 10_000) ?: error("Field '$description' not found")
+        clickNodeOrClickableAncestor(labelNode, "Field $description")
+        val actualField = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3_000) ?: error("Editable control for '$description' not found")
+        actualField.text = value
         device.waitForIdle()
     }
 
@@ -205,11 +192,7 @@ class CustodyOperationsUiInstrumentedTest {
         hideKeyboardIfEditing()
         click(By.text("حفظ"), "Save operation")
         device.waitForIdle()
-        assertTrue(
-            "Operation dialog did not close",
-            device.wait(Until.gone(By.text("إضافة عملية")), 5_000) ||
-                device.wait(Until.gone(By.text("تعديل العملية")), 10_000)
-        )
+        assertTrue("Operation dialog did not close", device.wait(Until.gone(By.text("إضافة عملية")), 5_000) || device.wait(Until.gone(By.text("تعديل العملية")), 10_000))
     }
 
     private fun hideKeyboardIfEditing() {
@@ -222,16 +205,9 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun clickAction(text: String, label: String) {
         val byText = device.wait(Until.findObject(By.text(text)), 5_000)
-        if (byText != null) {
-            clickNodeOrClickableAncestor(byText, label)
-            return
-        }
-
+        if (byText != null) { clickNodeOrClickableAncestor(byText, label); return }
         val byDesc = device.wait(Until.findObject(By.desc(text)), 5_000)
-        if (byDesc != null) {
-            clickNodeOrClickableAncestor(byDesc, label)
-            return
-        }
+        if (byDesc != null) { clickNodeOrClickableAncestor(byDesc, label); return }
         error("$label not found")
     }
 
@@ -244,19 +220,13 @@ class CustodyOperationsUiInstrumentedTest {
         var current: UiObject2? = start
         repeat(8) {
             val node = current ?: return@repeat
-            if (node.isClickable) {
-                node.click()
-                device.waitForIdle()
-                return
-            }
+            if (node.isClickable) { node.click(); device.waitForIdle(); return }
             current = runCatching { node.parent }.getOrNull()
         }
         error("$label clickable ancestor not found")
     }
 
-    private fun waitForText(text: String) {
-        assertTrue("Text '$text' not found", device.wait(Until.hasObject(By.text(text)), 10_000))
-    }
+    private fun waitForText(text: String) { assertTrue("Text '$text' not found", device.wait(Until.hasObject(By.text(text)), 10_000)) }
 
     private fun waitForCustody(): CustodyEntity {
         val deadline = System.currentTimeMillis() + 10_000L
@@ -264,9 +234,7 @@ class CustodyOperationsUiInstrumentedTest {
             runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }?.let { return it }
             Thread.sleep(100)
         }
-        return runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }.also {
-            assertNotNull("Test custody was not persisted", it)
-        }!!
+        return runBlocking { db.custodyDao().getCustodyByExternalId(externalId) }.also { assertNotNull("Test custody was not persisted", it) }!!
     }
 
     private fun waitForPerson(custodyId: Long, name: String): com.myaccounts.app.data.custody.CustodyPersonEntity? {
