@@ -11,16 +11,24 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.BringIntoViewRequester
+import androidx.compose.ui.layout.bringIntoViewRequester
+import androidx.compose.ui.platform.LocalDensity
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private val custodyCurrencies = listOf("YER", "SAR", "USD")
 private fun money(v: Long): String = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
@@ -94,11 +102,18 @@ private fun CustodyFormDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> 
     var organizationPhone by remember { mutableStateOf("") }
     var organizationAddress by remember { mutableStateOf("") }
     var organizationNotes by remember { mutableStateOf("") }
+    var deliveredByName by remember { mutableStateOf("") }
+    var deliveredByPhone by remember { mutableStateOf("") }
+    var deliveredByAddress by remember { mutableStateOf("") }
+    var deliveredByNotes by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("إضافة صاحب عهدة") },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().imePadding(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 item { TextFieldFull("اسم صاحب العهدة", name) { name = it } }
                 item { TextFieldFull("الهاتف", phone) { phone = it } }
                 item { TextFieldFull("العنوان", address) { address = it } }
@@ -108,14 +123,21 @@ private fun CustodyFormDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> 
                 item { TextFieldFull("هاتف الجهة", organizationPhone) { organizationPhone = it } }
                 item { TextFieldFull("عنوان الجهة", organizationAddress) { organizationAddress = it } }
                 item { TextFieldFull("ملاحظات الجهة", organizationNotes) { organizationNotes = it } }
+                item { Text("بيانات مسلِّم العهدة", fontWeight = FontWeight.Bold) }
+                item { TextFieldFull("اسم مسلِّم العهدة", deliveredByName) { deliveredByName = it } }
+                item { TextFieldFull("هاتف مسلِّم العهدة", deliveredByPhone) { deliveredByPhone = it } }
+                item { TextFieldFull("عنوان مسلِّم العهدة", deliveredByAddress) { deliveredByAddress = it } }
+                item { TextFieldFull("ملاحظات مسلِّم العهدة", deliveredByNotes) { deliveredByNotes = it } }
             }
         },
         confirmButton = {
-            Button(enabled = name.isNotBlank() && organization.isNotBlank(), onClick = {
+            Button(enabled = name.isNotBlank() && organization.isNotBlank() && deliveredByName.isNotBlank(), onClick = {
                 onSave(CustodyEntity(
                     name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim(),
                     organizationName = organization.trim(), organizationPhone = organizationPhone.trim(),
-                    organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim()
+                    organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim(),
+                    deliveredByName = deliveredByName.trim(), deliveredByPhone = deliveredByPhone.trim(),
+                    deliveredByAddress = deliveredByAddress.trim(), deliveredByNotes = deliveredByNotes.trim()
                 ))
             }) { Text("حفظ") }
         },
@@ -125,11 +147,19 @@ private fun CustodyFormDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> 
 
 @Composable
 private fun TextFieldFull(label: String, value: String, onChange: (String) -> Unit) {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
         label = { Text(label) },
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .onFocusChanged { state ->
+                if (state.isFocused) scope.launch { bringIntoViewRequester.bringIntoView() }
+            }
+            .semantics { contentDescription = label },
         singleLine = true
     )
 }
@@ -280,7 +310,7 @@ private fun CustodyTransactionDialog(
         modifier = Modifier.semantics { contentDescription = "حوار العملية" },
         title = { Text("عملية مالية") },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.imePadding()) {
                 item { OperationChoice("استلام من الجهة", type == CustodyTransactionType.RECEIVED_FROM_ORG) { type = CustodyTransactionType.RECEIVED_FROM_ORG; personId = null } }
                 item { OperationChoice("صرف للشخص", type == CustodyTransactionType.PAID_TO_PERSON) { type = CustodyTransactionType.PAID_TO_PERSON } }
                 item { OperationChoice("مرتجع من الشخص", type == CustodyTransactionType.RETURNED_FROM_PERSON) { type = CustodyTransactionType.RETURNED_FROM_PERSON } }
@@ -337,8 +367,8 @@ private fun CustodyReportDialog(custody: CustodyEntity, accounts: List<CustodyAc
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) }) }
                     }
-                    Text("الرصيد: ${signed(balance)}", fontWeight = FontWeight.Bold)
                 }
+                item { Text("الرصيد: ${signed(balance)}", fontWeight = FontWeight.Bold) }
                 items(rows, key = { it.id }) { transaction ->
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(8.dp)) {
