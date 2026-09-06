@@ -8,9 +8,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -57,4 +58,31 @@ fun CustodyHomeWithArchiveScreen(vm:CustodyViewModel,onBack:()->Unit,onOpen:(Lon
     if(adding)CustodyCreateDialog(onDismiss={adding=false}){vm.create(it);adding=false}
 }
 
-@Composable private fun CustodyCreateDialog(onDismiss:()->Unit,onSave:(CustodyEntity)->Unit){var name by remember{mutableStateOf("")};var organization by remember{mutableStateOf("")};var phone by remember{mutableStateOf("")};var address by remember{mutableStateOf("")};AlertDialog(onDismissRequest=onDismiss,title={Text("إضافة صاحب عهدة")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("اسم صاحب العهدة")},singleLine=true);OutlinedTextField(phone,{phone=it},Modifier.fillMaxWidth(),label={Text("الهاتف")},singleLine=true);OutlinedTextField(address,{address=it},Modifier.fillMaxWidth(),label={Text("العنوان")},singleLine=true);OutlinedTextField(organization,{organization=it},Modifier.fillMaxWidth(),label={Text("اسم الجهة")},singleLine=true)}},confirmButton={TextButton(enabled=name.isNotBlank()&&organization.isNotBlank(),onClick={onSave(CustodyEntity(name=name.trim(),phone=phone.trim(),address=address.trim(),organizationName=organization.trim()))}){Text("حفظ")}},dismissButton={TextButton(onClick=onDismiss){Text("إلغاء")}})}
+@Composable private fun CustodyCreateDialog(onDismiss:()->Unit,onSave:(CustodyEntity)->Unit){
+    var name by remember{mutableStateOf("")}
+    var phone by remember{mutableStateOf("")}
+    var address by remember{mutableStateOf("")}
+    var notes by remember{mutableStateOf("")}
+    var organization by remember{mutableStateOf("")}
+    var organizationPhone by remember{mutableStateOf("")}
+    var organizationAddress by remember{mutableStateOf("")}
+    var organizationNotes by remember{mutableStateOf("")}
+    AlertDialog(
+        onDismissRequest=onDismiss,
+        title={Text("إضافة صاحب عهدة")},
+        text={Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Text("بيانات حامل العهدة",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+            OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("اسم صاحب العهدة")},singleLine=true)
+            OutlinedTextField(phone,{phone=it},Modifier.fillMaxWidth(),label={Text("هاتف صاحب العهدة")},singleLine=true)
+            OutlinedTextField(address,{address=it},Modifier.fillMaxWidth(),label={Text("عنوان صاحب العهدة")},singleLine=true)
+            OutlinedTextField(notes,{notes=it},Modifier.fillMaxWidth(),label={Text("ملاحظات صاحب العهدة")},minLines=2)
+            Text("بيانات جهة العهدة",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+            OutlinedTextField(organization,{organization=it},Modifier.fillMaxWidth(),label={Text("اسم جهة العهدة")},singleLine=true)
+            OutlinedTextField(organizationPhone,{organizationPhone=it},Modifier.fillMaxWidth(),label={Text("هاتف جهة العهدة")},singleLine=true)
+            OutlinedTextField(organizationAddress,{organizationAddress=it},Modifier.fillMaxWidth(),label={Text("عنوان جهة العهدة")},singleLine=true)
+            OutlinedTextField(organizationNotes,{organizationNotes=it},Modifier.fillMaxWidth(),label={Text("ملاحظات جهة العهدة")},minLines=2)
+        }},
+        confirmButton={TextButton(enabled=name.isNotBlank()&&organization.isNotBlank(),onClick={onSave(CustodyEntity(name=name.trim(),phone=phone.trim(),address=address.trim(),notes=notes.trim(),organizationName=organization.trim(),organizationPhone=organizationPhone.trim(),organizationAddress=organizationAddress.trim(),organizationNotes=organizationNotes.trim()))}){Text("حفظ")}},
+        dismissButton={TextButton(onClick=onDismiss){Text("إلغاء")}}
+    )
+}
