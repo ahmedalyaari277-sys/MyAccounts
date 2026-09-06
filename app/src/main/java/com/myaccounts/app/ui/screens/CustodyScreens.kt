@@ -145,6 +145,7 @@ private fun CustodyFormDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> 
     )
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TextFieldFull(label: String, value: String, onChange: (String) -> Unit) {
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
