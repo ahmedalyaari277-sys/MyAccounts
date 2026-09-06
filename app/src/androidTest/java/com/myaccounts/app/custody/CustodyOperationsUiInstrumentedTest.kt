@@ -153,9 +153,20 @@ class CustodyOperationsUiInstrumentedTest {
 
     private fun clickSavePerson() {
         hideKeyboardIfEditing()
-        click(By.text("حفظ"), "Save person")
+        click(By.desc("حفظ الشخص"), "Save person")
         device.waitForIdle()
-        assertTrue("Person dialog did not close", device.wait(Until.gone(By.text("إضافة شخص")), 10_000))
+        assertTrue("Person was not persisted", waitForPersonInDatabase("اختبار شخص واجهة"))
+        assertTrue("Person dialog window did not close", device.wait(Until.gone(By.desc("حوار إضافة شخص")), 10_000))
+    }
+
+    private fun waitForPersonInDatabase(name: String): Boolean {
+        val deadline = System.currentTimeMillis() + 10_000L
+        while (System.currentTimeMillis() < deadline) {
+            if (runBlocking { db.custodyDao().getAllCustodies(false) }.any { it.externalId == externalId } &&
+                runBlocking { db.custodyDao().getAllPersons(runBlocking { db.custodyDao().getCustodyByExternalId(externalId)!!.id }) }.any { it.name == name }) return true
+            Thread.sleep(100)
+        }
+        return false
     }
 
     private fun waitForOperationDialog() {
