@@ -3,7 +3,6 @@ package com.myaccounts.app.util
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
-import com.myaccounts.app.data.custody.CustodyAttachmentStorage
 import com.myaccounts.app.data.custody.CustodyAttachmentStore
 import com.myaccounts.app.data.local.AppDatabase
 import java.io.ByteArrayOutputStream
