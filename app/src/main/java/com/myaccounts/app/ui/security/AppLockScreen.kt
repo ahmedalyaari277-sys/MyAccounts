@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
@@ -74,9 +73,9 @@ private fun SecuritySetupScreen(security: AppSecurityManager, onCompleted: () ->
             Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text("أنشئ رمز دخول من 9 أرقام وأدخل بريدًا إلكترونيًا لاستعادة الرمز عند نسيانه.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = pin, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { pin = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز الدخول (9 أرقام)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
-            OutlinedTextField(value = confirmation, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("تأكيد رمز الدخول") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
-            OutlinedTextField(value = email, onValueChange = { email = it; error = null }, modifier = Modifier.fillMaxWidth(), label = { Text("البريد الإلكتروني للاسترداد") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = RoundedCornerShape(8.dp))
+            OutlinedTextField(value = pin, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { pin = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز الدخول (9 أرقام)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(value = confirmation, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("تأكيد رمز الدخول") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = MaterialTheme.shapes.medium)
+            OutlinedTextField(value = email, onValueChange = { email = it; error = null }, modifier = Modifier.fillMaxWidth(), label = { Text("البريد الإلكتروني للاسترداد") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = MaterialTheme.shapes.medium)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             PrimaryButton(
                 text = "حفظ وتفعيل الحماية",
@@ -116,7 +115,7 @@ private fun LockScreen(security: AppSecurityManager, onUnlocked: () -> Unit) {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { error = null }
             })
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("فتح دفتر الحسابات")
+                .setTitle("فتح حساباتي")
                 .setSubtitle("ضع إصبعك على مستشعر البصمة")
                 .setNegativeButtonText("استخدام رمز الدخول")
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
@@ -130,9 +129,9 @@ private fun LockScreen(security: AppSecurityManager, onUnlocked: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        SummaryCard(title = "حماية التطبيق", modifier = Modifier.fillMaxWidth()) {
+        SummaryCard(title = "حماية حساباتي", modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text("دفتر الحسابات محمي", style = MaterialTheme.typography.titleLarge)
+            Text("حساباتي محمي", style = MaterialTheme.typography.titleLarge)
             if (biometricAvailable) {
                 InformationCard {
                     Icon(Icons.Default.Fingerprint, contentDescription = "البصمة", tint = MaterialTheme.colorScheme.primary)
@@ -147,7 +146,7 @@ private fun LockScreen(security: AppSecurityManager, onUnlocked: () -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
-                shape = RoundedCornerShape(8.dp)
+                shape = MaterialTheme.shapes.medium
             )
             PrimaryButton(
                 text = "دخول",
@@ -183,9 +182,9 @@ private fun RecoveryDialog(security: AppSecurityManager, onDismiss: () -> Unit, 
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("أدخل البريد الإلكتروني المسجل ثم أنشئ رمز دخول جديدًا من 9 أرقام.", style = MaterialTheme.typography.bodyLarge)
-                OutlinedTextField(value = email, onValueChange = { email = it; error = null }, modifier = Modifier.fillMaxWidth(), label = { Text("البريد الإلكتروني") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = RoundedCornerShape(8.dp))
-                OutlinedTextField(value = newPin, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { newPin = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز الدخول الجديد (9 أرقام)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
-                OutlinedTextField(value = confirmation, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("تأكيد الرمز الجديد") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = email, onValueChange = { email = it; error = null }, modifier = Modifier.fillMaxWidth(), label = { Text("البريد الإلكتروني") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, shape = MaterialTheme.shapes.medium)
+                OutlinedTextField(value = newPin, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { newPin = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز الدخول الجديد (9 أرقام)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = MaterialTheme.shapes.medium)
+                OutlinedTextField(value = confirmation, onValueChange = { if (it.length <= PIN_LENGTH && it.all(Char::isDigit)) { confirmation = it; error = null } }, modifier = Modifier.fillMaxWidth(), label = { Text("تأكيد الرمز الجديد") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = MaterialTheme.shapes.medium)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
         },
