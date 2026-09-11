@@ -26,13 +26,12 @@ import com.myaccounts.app.ui.components.EmptyStateType
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
-import kotlinx.coroutines.flow.first
 
 @Composable
 fun CustodyArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     var archived by remember { mutableStateOf<List<CustodyEntity>>(emptyList()) }
     var pendingDelete by remember { mutableStateOf<CustodyEntity?>(null) }
-    LaunchedEffect(Unit) { archived = vm.archivedCustodies().first() }
+    LaunchedEffect(Unit) { archived = vm.archivedCustodies() }
     androidx.compose.material3.Scaffold(topBar = { AppTopBar(title = "أرشيف العُهَد", onBack = onBack) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (archived.isEmpty()) {
