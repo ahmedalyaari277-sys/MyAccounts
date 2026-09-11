@@ -41,8 +41,10 @@ import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.SummaryCard
+import com.myaccounts.app.util.BackupScope
 import com.myaccounts.app.util.DatabaseBackupManager
 import com.myaccounts.app.util.ManualSyncManager
+import com.myaccounts.app.util.ScopedBackupManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -55,35 +57,33 @@ enum class BackupFeedbackType { Success, Error, Info }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupRestoreScreen(onBack: () -> Unit) {
-    val scope = rememberCoroutineScope()
+fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL) {
+    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val security = remember { AppSecurityManager(context) }
     val preferences = remember { context.getSharedPreferences(BACKUP_PREFS, Context.MODE_PRIVATE) }
+    val uriKey = "${LAST_BACKUP_URI}_${scope.key}"
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var feedbackType by remember { mutableStateOf(BackupFeedbackType.Info) }
     var email by remember { mutableStateOf(preferences.getString(BACKUP_EMAIL, "") ?: "") }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
-    var lastBackupUri by remember { mutableStateOf(preferences.getString(LAST_BACKUP_URI, null)?.let(Uri::parse)) }
+    var lastBackupUri by remember { mutableStateOf(preferences.getString(uriKey, null)?.let(Uri::parse)) }
     var syncFolderUri by remember { mutableStateOf(preferences.getString(SYNC_FOLDER_URI, null)?.let(Uri::parse)) }
 
-    fun showMessage(text: String, type: BackupFeedbackType) {
-        message = text
-        feedbackType = type
-    }
+    fun showMessage(text: String, type: BackupFeedbackType) { message = text; feedbackType = type }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) {
             busy = true
-            scope.launch(Dispatchers.IO) {
-                val result = DatabaseBackupManager.createBackup(context, uri)
+            coroutineScope.launch(Dispatchers.IO) {
+                val result = ScopedBackupManager.createBackup(context, uri, scope)
                 busy = false
                 result.fold(
                     onSuccess = {
                         lastBackupUri = uri
-                        preferences.edit().putString(LAST_BACKUP_URI, uri.toString()).apply()
-                        showMessage("تم إنشاء النسخة الاحتياطية الكاملة بنجاح، وتشمل البيانات والمرفقات.", BackupFeedbackType.Success)
+                        preferences.edit().putString(uriKey, uri.toString()).apply()
+                        showMessage("تم إنشاء نسخة ${scope.title} بنجاح، وتشمل البيانات والمرفقات التابعة للنطاق.", BackupFeedbackType.Success)
                     },
                     onFailure = { showMessage("تعذر إنشاء النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
                 )
@@ -97,110 +97,77 @@ fun BackupRestoreScreen(onBack: () -> Unit) {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 syncFolderUri = uri
                 preferences.edit().putString(SYNC_FOLDER_URI, uri.toString()).apply()
-                showMessage("تم حفظ مجلد المزامنة. يمكنك اختيار مجلد داخل Google Drive ثم الضغط على مزامنة الآن.", BackupFeedbackType.Success)
+                showMessage("تم حفظ مجلد المزامنة.", BackupFeedbackType.Success)
             } catch (exception: Exception) {
                 showMessage("تعذر حفظ صلاحية مجلد المزامنة: ${exception.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error)
             }
         }
     }
 
-    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) pendingRestoreUri = uri
-    }
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingRestoreUri = uri }
 
     fun syncNow() {
         val folderUri = syncFolderUri
-        if (folderUri == null) {
-            showMessage("اختر مجلد المزامنة أولاً. يمكنك اختيار مجلد داخل Google Drive أو أي مساحة تخزين متاحة.", BackupFeedbackType.Info)
-            return
-        }
+        if (folderUri == null) { showMessage("اختر مجلد المزامنة أولاً.", BackupFeedbackType.Info); return }
         busy = true
-        scope.launch(Dispatchers.IO) {
+        coroutineScope.launch(Dispatchers.IO) {
             val result = ManualSyncManager.syncToFolder(context, folderUri)
             busy = false
             result.fold(
-                onSuccess = { uri ->
-                    lastBackupUri = uri
-                    preferences.edit().putString(LAST_BACKUP_URI, uri.toString()).apply()
-                    showMessage("تمت المزامنة اليدوية بنجاح وإنشاء نسخة جديدة داخل مجلد المزامنة.", BackupFeedbackType.Success)
-                },
+                onSuccess = { uri -> lastBackupUri = uri; preferences.edit().putString(uriKey, uri.toString()).apply(); showMessage("تمت المزامنة اليدوية بنجاح.", BackupFeedbackType.Success) },
                 onFailure = { error -> showMessage("تعذرت المزامنة: ${error.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
             )
         }
     }
 
     fun shareBackup() {
-        val uri = lastBackupUri
-        if (uri == null) {
-            showMessage("لا توجد نسخة احتياطية محفوظة للمشاركة. أنشئ نسخة احتياطية أولاً.", BackupFeedbackType.Info)
-            return
-        }
+        val uri = lastBackupUri ?: run { showMessage("أنشئ نسخة احتياطية أولاً.", BackupFeedbackType.Info); return }
         try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/octet-stream"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية من دفتر الحسابات")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+            val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية — ${scope.title}"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             context.startActivity(Intent.createChooser(intent, "مشاركة النسخة الاحتياطية").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (exception: Exception) {
-            showMessage("تعذر فتح خيارات المشاركة: ${exception.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error)
-        }
+        } catch (exception: Exception) { showMessage("تعذر فتح خيارات المشاركة: ${exception.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
     }
 
     fun sendBackupByEmail() {
-        val uri = lastBackupUri
+        val uri = lastBackupUri ?: run { showMessage("أنشئ نسخة احتياطية أولاً.", BackupFeedbackType.Info); return }
         val normalizedEmail = email.trim()
-        if (uri == null) {
-            showMessage("أنشئ نسخة احتياطية أولاً قبل إرسالها إلى البريد الإلكتروني.", BackupFeedbackType.Info)
-            return
-        }
-        if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
-            showMessage("أدخل عنوان بريد إلكتروني صحيحًا.", BackupFeedbackType.Error)
-            return
-        }
+        if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) { showMessage("أدخل عنوان بريد إلكتروني صحيحًا.", BackupFeedbackType.Error); return }
         preferences.edit().putString(BACKUP_EMAIL, normalizedEmail).apply()
         try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/octet-stream"
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(normalizedEmail))
-                putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية من دفتر الحسابات")
-                putExtra(Intent.EXTRA_TEXT, "مرفق نسخة احتياطية من تطبيق دفتر الحسابات.")
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+            val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_EMAIL, arrayOf(normalizedEmail)); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية — ${scope.title}"); putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             context.startActivity(Intent.createChooser(intent, "إرسال النسخة الاحتياطية بالبريد").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (exception: Exception) {
-            showMessage("تعذر فتح تطبيق البريد أو المشاركة: ${exception.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error)
-        }
+        } catch (exception: Exception) { showMessage("تعذر فتح تطبيق البريد أو المشاركة: ${exception.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
     }
 
-    LaunchedEffect(Unit) {
-        if (lastBackupUri != null) showMessage("لديك نسخة احتياطية محفوظة ويمكنك مشاركتها أو مزامنتها.", BackupFeedbackType.Info)
-    }
+    LaunchedEffect(scope, lastBackupUri) { if (lastBackupUri != null) showMessage("لديك نسخة ${scope.title} محفوظة ويمكنك مشاركتها.", BackupFeedbackType.Info) }
 
-    Scaffold(topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }) { padding ->
+    Scaffold(topBar = { AppTopBar(title = if (scope == BackupScope.ALL) "النسخ الاحتياطي والمزامنة" else "نسخ واستعادة ${scope.title}", onBack = onBack) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            SummaryCard(title = "حماية بياناتك", modifier = Modifier.fillMaxWidth()) {
-                Text("النسخة الاحتياطية الكاملة تحفظ بيانات الأشخاص والحسابات والعمليات والمرفقات الفعلية، بما فيها الصور وملفات PDF والمستندات.", style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+            SummaryCard(title = "نطاق النسخة") {
+                Text(scope.title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                Text(
+                    if (scope == BackupScope.ALL) "هذه هي النسخة العامة من الشاشة الرئيسية: الحسابات والعُهَد والعمليات والمرفقات معًا."
+                    else "هذه النسخة مستقلة عن القسم الآخر، والاستعادة لا تستبدل بيانات القسم الآخر.",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                )
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("النسخ الاحتياطي", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text("أنشئ ملفًا كاملًا يمكنك الاحتفاظ به أو مشاركته أو مزامنته يدويًا.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("أنشئ ملفًا يحتوي على كامل بيانات النطاق المحدد ومرفقاته.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(DatabaseBackupManager.suggestedFileName()) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(ScopedBackupManager.suggestedFileName(scope)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
-            ExcelTransferControls()
+            if (scope == BackupScope.ALL) ExcelTransferControls()
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة، ويمكن أن يكون داخل Google Drive أو أي مساحة تخزين متاحة." else "تم اختيار مجلد للمزامنة. يمكنك إنشاء نسخة جديدة فيه الآن.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
@@ -209,7 +176,7 @@ fun BackupRestoreScreen(onBack: () -> Unit) {
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("إرسال ومشاركة النسخة", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") }, placeholder = { Text("example@email.com") }, supportingText = { Text("يستخدم فقط عند الإرسال اليدوي للنسخة الاحتياطية") })
+                OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") })
                 Spacer(Modifier.height(8.dp))
                 SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
@@ -218,30 +185,27 @@ fun BackupRestoreScreen(onBack: () -> Unit) {
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("استعادة نسخة احتياطية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text("الاستعادة تستبدل البيانات الحالية بالبيانات الموجودة في النسخة المحددة، بما فيها المرفقات. تأكد من وجود نسخة آمنة قبل المتابعة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                Text("الاستعادة تستبدل بيانات النطاق المحدد فقط. خذ نسخة آمنة قبل المتابعة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(8.dp))
                 DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
-            if (busy) {
-                Spacer(Modifier.height(4.dp))
-                CircularProgressIndicator()
-            }
+            if (busy) { Spacer(Modifier.height(4.dp)); CircularProgressIndicator() }
         }
     }
 
     pendingRestoreUri?.let { uri ->
         ConfirmationDialog(
             title = "تأكيد الاستعادة",
-            message = "سيتم استبدال البيانات الحالية بالبيانات الموجودة في النسخة الاحتياطية، بما فيها المرفقات. هل تريد المتابعة؟",
+            message = "سيتم استبدال بيانات ${scope.title} الحالية بالبيانات الموجودة في النسخة المحددة، مع إبقاء القسم الآخر كما هو. هل تريد المتابعة؟",
             onConfirm = {
                 pendingRestoreUri = null
                 busy = true
-                scope.launch(Dispatchers.IO) {
-                    val result = DatabaseBackupManager.restoreBackup(context, uri)
+                coroutineScope.launch(Dispatchers.IO) {
+                    val result = ScopedBackupManager.restoreBackup(context, uri, scope)
                     busy = false
                     result.fold(
-                        onSuccess = { showMessage("تمت استعادة النسخة الاحتياطية والمرفقات بنجاح.", BackupFeedbackType.Success) },
+                        onSuccess = { showMessage("تمت استعادة ${scope.title} والمرفقات بنجاح.", BackupFeedbackType.Success) },
                         onFailure = { showMessage("تعذر استعادة النسخة الاحتياطية: ${it.message ?: "الملف غير صالح"}", BackupFeedbackType.Error) }
                     )
                 }
@@ -256,11 +220,7 @@ fun BackupRestoreScreen(onBack: () -> Unit) {
     message?.let { text ->
         FeedbackDialog(
             text = text,
-            type = when (feedbackType) {
-                BackupFeedbackType.Success -> FeedbackDialogType.Success
-                BackupFeedbackType.Error -> FeedbackDialogType.Error
-                BackupFeedbackType.Info -> FeedbackDialogType.Info
-            },
+            type = when (feedbackType) { BackupFeedbackType.Success -> FeedbackDialogType.Success; BackupFeedbackType.Error -> FeedbackDialogType.Error; BackupFeedbackType.Info -> FeedbackDialogType.Info },
             onDismiss = { message = null }
         )
     }
