@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val repo = CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
@@ -19,39 +20,41 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
 
     val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
-    private val personFlows = mutableMapOf<Long, StateFlow<List<CustodyPersonEntity>>>()
-    private val accountFlows = mutableMapOf<Long, StateFlow<List<CustodyAccountEntity>>>()
-    private val transactionFlows = mutableMapOf<Long, StateFlow<List<CustodyTransactionEntity>>>()
-    private val personTransactionFlows = mutableMapOf<String, StateFlow<List<CustodyTransactionEntity>>>()
-    private val balanceFlows = mutableMapOf<Long, StateFlow<Long>>()
+    // Keep one long-lived StateFlow per entity. This prevents recomposition from replacing
+    // the observed flow and resetting a custody screen to its initial state.
+    private val custodyFlows = ConcurrentHashMap<Long, StateFlow<CustodyEntity?>>()
+    private val personFlows = ConcurrentHashMap<Long, StateFlow<List<CustodyPersonEntity>>>()
+    private val accountFlows = ConcurrentHashMap<Long, StateFlow<List<CustodyAccountEntity>>>()
+    private val transactionFlows = ConcurrentHashMap<Long, StateFlow<List<CustodyTransactionEntity>>>()
+    private val personTransactionFlows = ConcurrentHashMap<String, StateFlow<List<CustodyTransactionEntity>>>()
+    private val balanceFlows = ConcurrentHashMap<Long, StateFlow<Long>>()
 
-    fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) {
-        repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.computeIfAbsent(id) {
+        repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.Eagerly, null)
     }
 
-    fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) {
-        repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.computeIfAbsent(id) {
+        repo.observePersons(id).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     }
 
-    fun accounts(id: Long): StateFlow<List<CustodyAccountEntity>> = accountFlows.getOrPut(id) {
-        repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun accounts(id: Long): StateFlow<List<CustodyAccountEntity>> = accountFlows.computeIfAbsent(id) {
+        repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     }
 
-    fun transactions(id: Long): StateFlow<List<CustodyTransactionEntity>> = transactionFlows.getOrPut(id) {
-        repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun transactions(id: Long): StateFlow<List<CustodyTransactionEntity>> = transactionFlows.computeIfAbsent(id) {
+        repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     }
 
     fun personTransactions(id: Long, personId: Long, currency: String): StateFlow<List<CustodyTransactionEntity>> {
         val key = "$id:$personId:$currency"
-        return personTransactionFlows.getOrPut(key) {
+        return personTransactionFlows.computeIfAbsent(key) {
             repo.observePersonTransactions(id, personId, currency)
-                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+                .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
         }
     }
 
-    fun balance(accountId: Long): StateFlow<Long> = balanceFlows.getOrPut(accountId) {
-        repo.observeBalance(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+    fun balance(accountId: Long): StateFlow<Long> = balanceFlows.computeIfAbsent(accountId) {
+        repo.observeBalance(accountId).stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
     }
 
     fun attachments(id: Long): List<CustodyTransactionAttachmentEntity> = repo.attachments(id)
