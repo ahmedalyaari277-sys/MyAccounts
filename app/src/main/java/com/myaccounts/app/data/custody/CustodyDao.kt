@@ -19,6 +19,7 @@ interface CustodyDao {
     @Query("SELECT COALESCE(SUM(CASE WHEN type IN ('RECEIVED_FROM_ORG','RETURNED_FROM_PERSON','ORG_LOAN_REPAYMENT','PERSON_LOAN_TO_OWNER') THEN amountMinor ELSE -amountMinor END),0) FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0") fun observeBalance(accountId: Long): Flow<Long>
     @Query("SELECT * FROM custodies WHERE externalId = :externalId LIMIT 1") suspend fun getCustodyByExternalId(externalId: String): CustodyEntity?
     @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND externalId = :externalId LIMIT 1") suspend fun getPersonByExternalId(custodyId: Long, externalId: String): CustodyPersonEntity?
+    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND partyType = 'ENTITY' AND isArchived = 0 ORDER BY id ASC LIMIT 1") suspend fun getEntityPerson(custodyId: Long): CustodyPersonEntity?
     @Query("SELECT * FROM custody_transactions WHERE externalId = :externalId LIMIT 1") suspend fun getTransactionByExternalId(externalId: String): CustodyTransactionEntity?
     @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1") suspend fun getCustody(id: Long): CustodyEntity?
     @Query("SELECT * FROM custodies WHERE isArchived = :archived ORDER BY createdAt DESC, id DESC") suspend fun getAllCustodies(archived: Boolean): List<CustodyEntity>
