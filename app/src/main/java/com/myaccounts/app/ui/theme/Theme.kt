@@ -21,50 +21,50 @@ private val White = Color(0xFFFFFFFF)
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
     onPrimary = White,
-    primaryContainer = Color(0xFFF5D7D9),
-    onPrimaryContainer = Color(0xFF3B090C),
-    secondary = Secondary,
-    onSecondary = Color(0xFF2A210E),
-    secondaryContainer = Color(0xFFF0E2BE),
-    onSecondaryContainer = Color(0xFF241B08),
+    primaryContainer = PrimarySoft,
+    onPrimaryContainer = PrimaryDeep,
+    secondary = SecondaryDark,
+    onSecondary = White,
+    secondaryContainer = SecondarySoft,
+    onSecondaryContainer = Color(0xFF34270F),
     tertiary = Info,
     onTertiary = White,
-    tertiaryContainer = Color(0xFFD9E7F8),
-    onTertiaryContainer = Color(0xFF071A2B),
+    tertiaryContainer = Color(0xFFE4EDF5),
+    onTertiaryContainer = Color(0xFF172D40),
     error = Error,
     onError = White,
-    errorContainer = Color(0xFFFDE8E7),
-    onErrorContainer = Color(0xFF410E0B),
+    errorContainer = Color(0xFFFCE9E7),
+    onErrorContainer = Color(0xFF4A1110),
     background = Background,
     onBackground = OnSurface,
     surface = Surface,
     onSurface = OnSurface,
     surfaceVariant = SurfaceVariant,
     onSurfaceVariant = OnSurfaceVariant,
-    outline = Border,
+    outline = BorderStrong,
     outlineVariant = Border
 )
 
-private val DarkBackground = Color(0xFF121316)
-private val DarkSurface = Color(0xFF1A1B1F)
-private val DarkSurfaceVariant = Color(0xFF292B31)
-private val DarkOnSurface = Color(0xFFE7E7EA)
-private val DarkOnSurfaceVariant = Color(0xFFB8BBC3)
-private val DarkBorder = Color(0xFF3A3C43)
+private val DarkBackground = Color(0xFF110D0E)
+private val DarkSurface = Color(0xFF1B1516)
+private val DarkSurfaceVariant = Color(0xFF302527)
+private val DarkOnSurface = Color(0xFFF0E7E8)
+private val DarkOnSurfaceVariant = Color(0xFFC7BABC)
+private val DarkBorder = Color(0xFF493B3E)
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFE8A0A4),
-    onPrimary = Color(0xFF4A0B0F),
-    primaryContainer = Color(0xFF70171C),
-    onPrimaryContainer = Color(0xFFF5D7D9),
-    secondary = Color(0xFFE2C98E),
-    onSecondary = Color(0xFF3A2F15),
-    secondaryContainer = Color(0xFF5B491F),
-    onSecondaryContainer = Color(0xFFF0E2BE),
-    tertiary = Color(0xFF9FC4EA),
-    onTertiary = Color(0xFF0A2238),
-    tertiaryContainer = Color(0xFF1E486B),
-    onTertiaryContainer = Color(0xFFD9E7F8),
+    primary = Color(0xFFF0A5AD),
+    onPrimary = Color(0xFF4A0D16),
+    primaryContainer = Color(0xFF741A27),
+    onPrimaryContainer = Color(0xFFFFDADF),
+    secondary = Color(0xFFE1C17A),
+    onSecondary = Color(0xFF3A2B0D),
+    secondaryContainer = Color(0xFF5A461D),
+    onSecondaryContainer = Color(0xFFFFEAC0),
+    tertiary = Color(0xFFA9C9E7),
+    onTertiary = Color(0xFF10283A),
+    tertiaryContainer = Color(0xFF254B68),
+    onTertiaryContainer = Color(0xFFD8EAFB),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
@@ -79,16 +79,18 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = DarkBorder
 )
 
+// v2.0 type scale. Existing business/data labels keep their semantics;
+// the scale only centralizes visual hierarchy.
 private val MyAccountsTypography = Typography(
     displayLarge = TextStyle(fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold),
     displayMedium = TextStyle(fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold),
-    displaySmall = TextStyle(fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold),
+    displaySmall = TextStyle(fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold),
     headlineLarge = TextStyle(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
-    headlineMedium = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
-    headlineSmall = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
+    headlineMedium = TextStyle(fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
+    headlineSmall = TextStyle(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
     titleLarge = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
     titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
+    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 22.sp),
     bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
@@ -98,11 +100,11 @@ private val MyAccountsTypography = Typography(
 )
 
 private val MyAccountsShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
+    extraSmall = RoundedCornerShape(7.dp),
     small = RoundedCornerShape(10.dp),
     medium = RoundedCornerShape(14.dp),
     large = RoundedCornerShape(18.dp),
-    extraLarge = RoundedCornerShape(22.dp)
+    extraLarge = RoundedCornerShape(24.dp)
 )
 
 @Composable
