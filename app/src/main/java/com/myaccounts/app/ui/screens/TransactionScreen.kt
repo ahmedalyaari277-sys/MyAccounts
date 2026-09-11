@@ -67,12 +67,26 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionForAttachments by remember { mutableStateOf<TransactionEntity?>(null) }
     var showAddTransaction by remember { mutableStateOf(false) }
+    var addAccounts by remember(accountId) { mutableStateOf(accounts) }
+    var addPersonName by remember(accountId, personName) { mutableStateOf(personName) }
+
     LaunchedEffect(selectedAccountId) { transactionViewModel.selectAccount(selectedAccountId) }
+    LaunchedEffect(showAddTransaction, accountId) {
+        if (showAddTransaction && addAccounts.isEmpty()) {
+            val account = transactionViewModel.getAccount(accountId)
+            if (account != null) {
+                addAccounts = transactionViewModel.getPersonCurrencyAccounts(account.personId)
+                if (addPersonName.isBlank()) addPersonName = transactionViewModel.getPersonNameForAccount(accountId)
+            }
+        }
+    }
+
     val transactions by transactionViewModel.transactions.collectAsState()
     val balance by transactionViewModel.balance.collectAsState()
     val balanceStatus = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
     val balanceStatusText = when (balanceStatus) { BalanceStatus.Due -> "عليه"; BalanceStatus.Owed -> "له"; BalanceStatus.Neutral -> "متوازن" }
     val balanceStatusColor = when (balanceStatus) { BalanceStatus.Due -> Due; BalanceStatus.Owed -> Owed; BalanceStatus.Neutral -> Neutral }
+
     val transactionContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (accounts.isNotEmpty()) {
@@ -96,8 +110,17 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
             if (embedded) androidx.compose.material3.Button(onClick = { showAddTransaction = true }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("إضافة عملية", style = MaterialTheme.typography.labelLarge) }
         }
     }
+
     if (embedded) transactionContent() else Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { AppTopBar(title = "عمليات ${CurrencyCatalog.name(selectedCurrencyCode)}", onBack = onBack) }, floatingActionButton = { FloatingActionButton(onClick = { showAddTransaction = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) { transactionContent() } }
-    if (showAddTransaction && accounts.isNotEmpty()) Dialog(onDismissRequest = { showAddTransaction = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { Surface(Modifier.fillMaxWidth(0.92f), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) { QuickTransactionScreen(personName, accounts, { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments); showAddTransaction = false }, { showAddTransaction = false }) } }
+
+    if (showAddTransaction && addAccounts.isNotEmpty()) {
+        Dialog(onDismissRequest = { showAddTransaction = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            Surface(Modifier.fillMaxWidth(0.92f), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
+                QuickTransactionScreen(addPersonName, addAccounts, { transaction, attachments -> transactionViewModel.addTransaction(transaction, attachments); showAddTransaction = false }, { showAddTransaction = false })
+            }
+        }
+    }
+
     transactionToEdit?.let { transaction ->
         val attachments by transactionViewModel.observeAttachments(transaction.id).collectAsState(initial = emptyList())
         var editAccounts by remember(transaction.id) { mutableStateOf<List<CurrencyAccountEntity>>(emptyList()) }
