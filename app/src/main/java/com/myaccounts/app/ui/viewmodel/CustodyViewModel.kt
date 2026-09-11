@@ -5,14 +5,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.util.CustodyAttachmentStorage
+import com.myaccounts.app.util.CustodyOrganizationManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class CustodyViewModel(app: Application): AndroidViewModel(app) {
-    private val repo = CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
+    private val repo = com.myaccounts.app.data.custody.CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
     private val dao = com.myaccounts.app.data.local.AppDatabase.getInstance(app).custodyDao()
+    private val db = com.myaccounts.app.data.local.AppDatabase.getInstance(app)
     val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
     private val personFlows = mutableMapOf<Long, StateFlow<List<CustodyPersonEntity>>>()
@@ -20,6 +23,15 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val transactionFlows = mutableMapOf<Long, StateFlow<List<CustodyTransactionEntity>>>()
     private val personTransactionFlows = mutableMapOf<String, StateFlow<List<CustodyTransactionEntity>>>()
     private val balanceFlows = mutableMapOf<Long, StateFlow<Long>>()
+
+    init {
+        viewModelScope.launch {
+            custodies.collectLatest { list ->
+                list.forEach { custody -> runCatching { CustodyOrganizationManager.ensure(db, custody.id) } }
+            }
+        }
+    }
+
     fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) { repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null) }
     fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) { repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
     fun accounts(id: Long): StateFlow<List<CustodyAccountEntity>> = accountFlows.getOrPut(id) { repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
@@ -29,14 +41,14 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     fun attachments(id: Long): List<CustodyTransactionAttachmentEntity> = repo.attachments(id)
     suspend fun archivedCustodies(): List<CustodyEntity> = dao.getAllCustodies(true)
     fun create(c: CustodyEntity) = viewModelScope.launch { repo.createCustody(c) }
-    suspend fun createAndWait(c: CustodyEntity): Long = repo.createCustody(c)
+    suspend fun createAndWait(c: CustodyEntity): Long = repo.createCustody(c).also { CustodyOrganizationManager.ensure(db, it) }
     fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch { repo.addPerson(id, p) }
     suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = repo.addPerson(id, p)
     fun updatePerson(p: CustodyPersonEntity) = viewModelScope.launch { repo.updatePerson(p) }
     suspend fun updatePersonAndWait(p: CustodyPersonEntity) = repo.updatePerson(p)
     suspend fun deletePersonAndWait(id: Long) = repo.deletePerson(id)
-    fun updateCustody(c: CustodyEntity) = viewModelScope.launch { repo.updateCustody(c) }
-    suspend fun updateCustodyAndWait(c: CustodyEntity) = repo.updateCustody(c)
+    fun updateCustody(c: CustodyEntity) = viewModelScope.launch { repo.updateCustody(c); CustodyOrganizationManager.ensure(db, c.id) }
+    suspend fun updateCustodyAndWait(c: CustodyEntity) { repo.updateCustody(c); CustodyOrganizationManager.ensure(db, c.id) }
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, categoryName, description, date, attachments) }
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, "", description, date, attachments) }
     fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = viewModelScope.launch { repo.updateTransaction(id, currency, type, personId, amount, categoryName, description, date, newAttachments, deleted) }
