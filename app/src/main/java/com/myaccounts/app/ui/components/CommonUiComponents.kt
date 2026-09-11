@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -67,7 +66,31 @@ fun AppTopBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
-        title = { Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        title = {
+            if (title == "حساباتي") {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text(
+                        "حساباتي",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1
+                    )
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        },
         navigationIcon = {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
@@ -90,7 +113,7 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    Button(onClick = onClick, modifier = modifier, enabled = enabled, shape = RoundedCornerShape(10.dp)) {
+    Button(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -102,7 +125,7 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = RoundedCornerShape(10.dp)) {
+    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -118,7 +141,7 @@ fun DangerButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(containerColor = Due)
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
@@ -139,7 +162,7 @@ fun SearchField(
         modifier = modifier.fillMaxWidth().height(52.dp),
         enabled = enabled,
         singleLine = true,
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyLarge) },
         leadingIcon = { Icon(Icons.Default.Search, "بحث") },
         trailingIcon = {
@@ -197,7 +220,7 @@ fun StatusChip(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
         color = color.copy(alpha = 0.12f),
         contentColor = color
     ) {
@@ -213,7 +236,7 @@ fun SummaryCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.large,
         border = BorderStroke(1.dp, Secondary.copy(alpha = 0.45f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -232,7 +255,7 @@ fun InformationCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -255,7 +278,7 @@ fun TransactionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.small,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -291,7 +314,7 @@ fun CustodyOperationCard(
     }
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.small,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -359,7 +382,7 @@ fun InfoMessage(text: String, modifier: Modifier = Modifier) = FeedbackMessage(t
 
 @Composable
 private fun FeedbackMessage(text: String, color: Color, icon: ImageVector, modifier: Modifier) {
-    Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), color = color.copy(alpha = 0.10f), contentColor = color) {
+    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small, color = color.copy(alpha = 0.10f), contentColor = color) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(icon, contentDescription = null)
             Text(text, style = MaterialTheme.typography.bodyLarge)
