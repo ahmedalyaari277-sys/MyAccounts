@@ -31,21 +31,22 @@ object CustodyReportExporter {
             val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, pageIndex + 1).create())
             val canvas = page.canvas
             val title = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 18f; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.RIGHT }
-            val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 9f; textAlign = Paint.Align.RIGHT }
-            val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 10f; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.RIGHT }
+            val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 8f; textAlign = Paint.Align.RIGHT }
+            val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 9f; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.RIGHT }
             var y = 42f
             canvas.drawText("تقرير العهدة — ${custody.name}", 560f, y, title)
             y += 22f
             canvas.drawText("الجهة: ${custody.organizationName}", 560f, y, text)
             canvas.drawText("العملة: ${if (currency == "ALL") "كل العملات" else currencyName(currency)}", 300f, y, text)
             y += 28f
-            canvas.drawText("التاريخ", 560f, y, bold); canvas.drawText("النوع", 455f, y, bold); canvas.drawText("المبلغ", 300f, y, bold); canvas.drawText("البيان", 125f, y, bold)
+            canvas.drawText("التاريخ", 560f, y, bold); canvas.drawText("النوع", 470f, y, bold); canvas.drawText("التصنيف", 380f, y, bold); canvas.drawText("المبلغ", 275f, y, bold); canvas.drawText("البيان", 115f, y, bold)
             y += 18f
             chunk.forEach { t ->
                 canvas.drawText(date(t.transactionDate), 560f, y, text)
-                canvas.drawText(typeName(t.type), 455f, y, text)
-                canvas.drawText("${amount(t.amountMinor)} ${t.currencyCode}", 300f, y, text)
-                canvas.drawText(t.description.ifBlank { "—" }.take(25), 125f, y, text)
+                canvas.drawText(typeName(t.type), 470f, y, text)
+                canvas.drawText(t.categoryName.ifBlank { "—" }.take(16), 380f, y, text)
+                canvas.drawText("${amount(t.amountMinor)} ${t.currencyCode}", 275f, y, text)
+                canvas.drawText(t.description.ifBlank { "—" }.take(22), 115f, y, text)
                 canvas.drawLine(35f, y + 6f, 560f, y + 6f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.LTGRAY; strokeWidth = 1f })
                 y += 28f
             }
@@ -61,10 +62,10 @@ object CustodyReportExporter {
         val rows = mutableListOf<String>()
         rows += row(1, listOf(cell("تقرير العهدة", 1)))
         rows += row(2, listOf(cell("صاحب العهدة: ${custody.name}", 2), cell("الجهة: ${custody.organizationName}", 2), cell("العملة: ${if (currency == "ALL") "كل العملات" else currencyName(currency)}", 2)))
-        rows += row(3, listOf(cell("التاريخ", 2), cell("النوع", 2), cell("العملة", 2), cell("المبلغ", 2), cell("البيان", 2), cell("المعرف", 2)))
-        filtered.forEachIndexed { index, t -> rows += row(index + 4, listOf(cell(date(t.transactionDate)), cell(typeName(t.type)), cell(t.currencyCode), number(t.amountMinor), cell(t.description), cell(t.externalId))) }
+        rows += row(3, listOf(cell("التاريخ", 2), cell("النوع", 2), cell("العملة", 2), cell("المبلغ", 2), cell("التصنيف", 2), cell("البيان", 2), cell("المعرف", 2)))
+        filtered.forEachIndexed { index, t -> rows += row(index + 4, listOf(cell(date(t.transactionDate)), cell(typeName(t.type)), cell(t.currencyCode), number(t.amountMinor), cell(t.categoryName), cell(t.description), cell(t.externalId))) }
         if (filtered.isEmpty()) rows += row(4, listOf(cell("لا توجد عمليات ضمن الاختيار.")))
-        val sheet = """<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/><col min="5" max="5" width="42" customWidth="1"/><col min="6" max="6" width="38" customWidth="1"/></cols><sheetData>${rows.joinToString("")}</sheetData><autoFilter ref="A3:F${maxOf(3, filtered.size + 3)}"/></worksheet>"""
+        val sheet = """<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/><col min="5" max="5" width="24" customWidth="1"/><col min="6" max="6" width="42" customWidth="1"/><col min="7" max="7" width="38" customWidth="1"/></cols><sheetData>${rows.joinToString("")}</sheetData><autoFilter ref="A3:G${maxOf(3, filtered.size + 3)}"/></worksheet>"""
         saveXlsx(context, sheet, "MyAccounts_تقرير_عهدة_${safe(custody.name)}_${stamp()}.xlsx")
     }
 
