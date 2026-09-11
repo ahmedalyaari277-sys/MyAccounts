@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -22,9 +23,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.myaccounts.app.data.custody.CustodyAccountEntity
-import com.myaccounts.app.data.custody.CustodyBalanceRules
-import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.data.custody.CustodyTransactionEntity
 import com.myaccounts.app.data.custody.CustodyTransactionType
 import com.myaccounts.app.ui.components.BalanceAmount
@@ -183,6 +181,7 @@ private fun CustodyHolderOperationDialog(
     onDismiss: () -> Unit,
     onFinished: () -> Unit
 ) {
+    val context = LocalContext.current
     val calc = LocalCalculatorController.current
     var currency by remember(transaction?.id) { mutableStateOf(transaction?.currencyCode ?: defaultCurrency) }
     var amount by remember(transaction?.id) { mutableStateOf(transaction?.let { holderMoney(it.amountMinor) } ?: "") }
@@ -225,7 +224,7 @@ private fun CustodyHolderOperationDialog(
                         trailingIcon = {
                             IconButton(enabled = !saving, onClick = {
                                 val d = Calendar.getInstance().apply { timeInMillis = date }
-                                DatePickerDialog(null, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show()
+                                DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show()
                             }) { Icon(Icons.Default.CalendarToday, "التاريخ") }
                         }
                     )
