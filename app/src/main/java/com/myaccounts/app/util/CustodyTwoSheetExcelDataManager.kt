@@ -18,9 +18,11 @@ object CustodyTwoSheetExcelDataManager {
         val temp = File.createTempFile("custody-excel-", ".xlsx", context.cacheDir)
         try {
             val summary = CustodyExcelDataManager.exportActive(context, Uri.fromFile(temp)).getOrThrow()
-            val entries = readZip(temp)
+            val entries = readZip(temp.inputStream())
+            val db = AppDatabase.getInstance(context)
+            val dao = db.custodyDao()
+            val transactions = dao.getAllCustodies(false).flatMap { dao.getAllTransactions(it.id, false) }
             val baseSheet = entries["xl/worksheets/sheet1.xml"] ?: error("ورقة عمليات العُهَد مفقودة.")
-            val transactions = AppDatabase.getInstance(context).custodyDao().getAllCustodies(false).flatMap { AppDatabase.getInstance(context).custodyDao().getAllTransactions(it.id, false) }
             val categorizedSheet = addCategoryColumn(baseSheet, transactions.map { it.categoryName.trim() })
             val summarySheet = buildSummarySheet(context)
             context.contentResolver.openOutputStream(uri)?.use { out -> writeWorkbook(out, categorizedSheet, summarySheet) } ?: error("تعذر فتح ملف Excel للكتابة.")
@@ -86,15 +88,17 @@ object CustodyTwoSheetExcelDataManager {
         return match.groupValues[1]
     }
 
-    private fun buildSummarySheet(context: Context): ByteArray {
+    private suspend fun buildSummarySheet(context: Context): ByteArray {
         val dao = AppDatabase.getInstance(context).custodyDao()
         val rows = mutableListOf<List<String>>()
         rows += listOf("العهدة", "العملة", "التصنيف", "عدد العمليات", "إجمالي المبلغ")
         dao.getAllCustodies(false).forEach { custody ->
             val tx = dao.getAllTransactions(custody.id, false)
-            tx.groupBy { Triple(it.currencyCode, it.categoryName.trim(), custody.name) }.toSortedMap(compareBy({ it.third }, { it.first }, { it.second })).forEach { (key, values) ->
-                rows += listOf(key.third, key.first, key.second, values.size.toString(), values.sumOf { it.amountMinor }.toString())
-            }
+            tx.groupBy { Triple(it.currencyCode, it.categoryName.trim(), custody.name) }
+                .toSortedMap(compareBy({ it.third }, { it.first }, { it.second }))
+                .forEach { (key, values) ->
+                    rows += listOf(key.third, key.first, key.second, values.size.toString(), values.sumOf { it.amountMinor }.toString())
+                }
         }
         val xml = buildString {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\" rightToLeft=\"1\"/></sheetViews><sheetData>")
