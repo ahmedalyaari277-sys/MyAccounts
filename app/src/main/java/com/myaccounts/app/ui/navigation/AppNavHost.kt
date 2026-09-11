@@ -44,7 +44,8 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
         composable(Routes.CUSTODY_ARCHIVE) { CustodyArchiveScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY_REPORTS) { CustodyReportsScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY_TRANSFER) { CustodyTransferScreen(custody) { navController.popBackStack() } }
-        composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyOperationsScreen(custody, id, { navController.popBackStack() }, { personId -> navController.navigate(Routes.custodyPerson(id, personId)) }) } }
-        composable(Routes.CUSTODY_PERSON, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("personId") { type = NavType.LongType })) { e -> val cid = e.arguments?.getLong("custodyId"); val pid = e.arguments?.getLong("personId"); if (cid != null && pid != null) CustodyPersonOperationsScreen(custody, cid, pid, { navController.popBackStack() }) }
+        composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyEntryScreen(custody, id, { navController.popBackStack() }, { navController.navigate(Routes.custodyPerson(id, -1L)) }, { navController.navigate(Routes.custodyOwner(id)) }) } }
+        composable(Routes.CUSTODY_OWNER, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyHolderOperationsScreen(custody, id) { navController.popBackStack() } } }
+        composable(Routes.CUSTODY_PERSON, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("personId") { type = NavType.LongType })) { e -> val cid = e.arguments?.getLong("custodyId"); val pid = e.arguments?.getLong("personId"); if (cid != null && pid != null && pid > 0) CustodyPersonOperationsScreen(custody, cid, pid, { navController.popBackStack() }) }
     }
 }
