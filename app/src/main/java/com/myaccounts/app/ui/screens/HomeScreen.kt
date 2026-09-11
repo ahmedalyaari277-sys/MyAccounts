@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -35,6 +34,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -75,8 +75,7 @@ fun HomeScreen(
     onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null,
     onReportsClick: () -> Unit = {},
     onArchiveClick: () -> Unit = {},
-    onBackupRestoreClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onBackupRestoreClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -140,14 +139,6 @@ fun HomeScreen(
                             expanded = showMoreMenu,
                             onDismissRequest = { showMoreMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("الإعدادات") },
-                                leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                                onClick = {
-                                    showMoreMenu = false
-                                    onSettingsClick()
-                                }
-                            )
                             DropdownMenuItem(
                                 modifier = Modifier.semantics { contentDescription = "فتح النسخ الاحتياطي والاستعادة" },
                                 text = { Text("النسخ الاحتياطي والاستعادة") },
@@ -388,7 +379,7 @@ private fun AddPersonDialog(
         title = { Text("إضافة شخص جديد", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column {
-                androidx.compose.material3.OutlinedTextField(
+                OutlinedTextField(
                     name,
                     { name = it; nameError = false },
                     Modifier.fillMaxWidth(),
@@ -405,7 +396,7 @@ private fun AddPersonDialog(
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                androidx.compose.material3.OutlinedTextField(
+                OutlinedTextField(
                     phone,
                     { phone = it },
                     Modifier.fillMaxWidth(),
@@ -414,7 +405,7 @@ private fun AddPersonDialog(
                     shape = MaterialTheme.shapes.small
                 )
                 Spacer(Modifier.height(8.dp))
-                androidx.compose.material3.OutlinedTextField(
+                OutlinedTextField(
                     address,
                     { address = it },
                     Modifier.fillMaxWidth(),
@@ -423,7 +414,7 @@ private fun AddPersonDialog(
                     shape = MaterialTheme.shapes.small
                 )
                 Spacer(Modifier.height(8.dp))
-                androidx.compose.material3.OutlinedTextField(
+                OutlinedTextField(
                     notes,
                     { notes = it },
                     Modifier.fillMaxWidth(),
