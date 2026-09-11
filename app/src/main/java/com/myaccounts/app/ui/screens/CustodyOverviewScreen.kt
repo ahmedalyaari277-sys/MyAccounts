@@ -63,7 +63,7 @@ fun CustodyOverviewScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                SummaryCard(title = "حامل العهدة") {
+                SummaryCard(title = "حامل العهدة", modifier = Modifier.fillMaxWidth().clickable { onHolder() }) {
                     Text(current.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("الجهة: ${current.organizationName}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -95,17 +95,13 @@ fun CustodyOverviewScreen(
             item {
                 SummaryCard(title = "الأطراف") {
                     Text("الأطراف المرتبطة بهذه العهدة مستقلة عن حساب حامل العهدة.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (people.isEmpty()) {
-                        Text("لا توجد أطراف مضافة حتى الآن.")
-                    }
+                    if (people.isEmpty()) Text("لا توجد أطراف مضافة حتى الآن.")
                 }
             }
             items(people, key = { it.id }) { person ->
                 val balance = transactions.filter { it.personId == person.id && it.currencyCode == "YER" }
                     .sumOf { CustodyBalanceRules.personDelta(it.type, it.amountMinor) }
-                InformationCard(
-                    modifier = Modifier.fillMaxWidth().clickable { onPerson(person.id) }
-                ) {
+                InformationCard(modifier = Modifier.fillMaxWidth().clickable { onPerson(person.id) }) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(person.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
