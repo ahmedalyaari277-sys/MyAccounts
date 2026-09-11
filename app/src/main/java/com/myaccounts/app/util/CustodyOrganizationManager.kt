@@ -13,37 +13,19 @@ object CustodyOrganizationManager {
         val dao = db.custodyDao()
         val custody = dao.getCustody(custodyId) ?: return@withTransaction
         val externalId = "ORG-${custody.externalId}"
-        val existing = dao.getPersonByExternalId(custodyId, externalId) ?: dao.getEntityPerson(custodyId)
+        val byExternalId = dao.getPersonByExternalId(custodyId, externalId)
+        val fallback = dao.getEntityPerson(custodyId)?.takeIf { it.name.trim() == custody.organizationName.trim() }
+        val existing = byExternalId ?: fallback
         val person = if (existing == null) {
-            val id = dao.insertPerson(
-                CustodyPersonEntity(
-                    custodyId = custodyId,
-                    name = custody.organizationName.trim(),
-                    phone = custody.organizationPhone.trim(),
-                    address = custody.organizationAddress.trim(),
-                    notes = custody.organizationNotes.trim(),
-                    partyType = "ENTITY",
-                    externalId = externalId
-                )
-            )
+            val id = dao.insertPerson(CustodyPersonEntity(custodyId = custodyId, name = custody.organizationName.trim(), phone = custody.organizationPhone.trim(), address = custody.organizationAddress.trim(), notes = custody.organizationNotes.trim(), partyType = "ENTITY", externalId = externalId))
             dao.getPerson(id) ?: error("تعذر إنشاء طرف الجهة")
         } else {
-            val updated = existing.copy(
-                name = custody.organizationName.trim(),
-                phone = custody.organizationPhone.trim(),
-                address = custody.organizationAddress.trim(),
-                notes = custody.organizationNotes.trim(),
-                partyType = "ENTITY",
-                isArchived = false,
-                externalId = externalId
-            )
+            val updated = existing.copy(name = custody.organizationName.trim(), phone = custody.organizationPhone.trim(), address = custody.organizationAddress.trim(), notes = custody.organizationNotes.trim(), partyType = "ENTITY", isArchived = false, externalId = externalId)
             if (updated != existing) dao.updatePerson(updated)
             updated
         }
         val accounts = dao.getAllAccounts(custodyId)
         val missing = currencies.filter { code -> accounts.none { it.holderType == "PERSON" && it.personId == person.id && it.currencyCode == code } }
-        if (missing.isNotEmpty()) {
-            dao.insertAccounts(missing.map { code -> CustodyAccountEntity(custodyId = custodyId, holderType = "PERSON", personId = person.id, currencyCode = code) })
-        }
+        if (missing.isNotEmpty()) dao.insertAccounts(missing.map { code -> CustodyAccountEntity(custodyId = custodyId, holderType = "PERSON", personId = person.id, currencyCode = code) })
     }
 }
