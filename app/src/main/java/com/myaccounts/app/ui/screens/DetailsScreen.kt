@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +28,7 @@ fun DetailsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SummaryCard(title = "حساباتي") {
-                Text("MyAccounts — دفتر الحسابات", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("حساباتي — دفتر الحسابات", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("تطبيق شخصي لإدارة الحسابات والمعاملات المالية بسهولة، مع إمكانية تفعيل العملات التي تحتاجها من الإعدادات.", style = MaterialTheme.typography.bodyLarge)
             }
 
