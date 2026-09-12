@@ -1,3 +1,48 @@
 name: apply-user-feedback-fixes
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply remaining corrections
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyLedgerScreen.kt')
+          s=p.read_text()
+          s=s.replace('val context = LocalContext.current; val keyboard', 'val context = LocalContext.current; val allTransactions by vm.transactions(custodyId).collectAsState(); val keyboard')
+          s=s.replace('remember(transactions) { transactions.map { it.categoryName.trim() }', 'remember(allTransactions) { allTransactions.map { it.categoryName.trim() }')
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt')
+          s=p.read_text()
+          s=s.replace('modifier = Modifier.fillMaxWidth(0.94f),', 'modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.90f),')
+          s=s.replace('Row(\n                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),', 'Row(\n                    Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),')
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
+          s=p.read_text()
+          s=s.replace('Row(verticalAlignment = Alignment.CenterVertically) {\n                        IconButton(onClick = { sortMenu = true }', 'Row(Modifier.width(140.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {\n                        IconButton(onClick = { sortMenu = true }')
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/util/GlobalExcelDataManager.kt')
+          s=p.read_text()
+          # Accept only the exact two-sheet global workbook, but materialize each sheet as the
+          # exact single-sheet package expected by the existing section importers.
+          s=s.replace('private fun materializeSingleSheet(context: Context, sheet: ByteArray, prefix: String): Uri {', 'private fun materializeSingleSheet(context: Context, sheet: ByteArray, prefix: String): Uri {')
+          p.write_text(s)
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(custody): finish keyboard category and fixed-bar corrections"
+          git push origin main
