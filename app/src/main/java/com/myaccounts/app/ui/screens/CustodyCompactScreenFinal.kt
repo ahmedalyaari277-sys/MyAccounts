@@ -102,7 +102,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("الأطراف", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.width(140.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { sortMenu = true }, modifier = Modifier.semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
                         TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة") }
                     }

@@ -158,7 +158,7 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxWidth(0.94f),
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.90f),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp
         ) {
@@ -192,7 +192,7 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
                 }
                 HorizontalDivider()
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) { Text("إلغاء") }
