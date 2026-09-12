@@ -44,7 +44,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
         }
         composable(Routes.SETTINGS) { SettingsScreen(security, appearanceMode, onAppearanceModeChange, { navController.popBackStack() }, { navController.navigate(Routes.DETAILS) }, { navController.navigate(Routes.backupRestore("all")) }) }
         composable(Routes.DETAILS) { DetailsScreen { navController.popBackStack() } }
-        composable(Routes.CUSTODIES) { CustodyHomeWithArchiveScreen(custody, { navController.popBackStack() }, { navController.navigate(Routes.custody(it)) }, { navController.navigate(Routes.CUSTODY_ARCHIVE) }, { navController.navigate(Routes.CUSTODY_REPORTS) }, { navController.navigate(Routes.backupRestore("custody")) }, { navController.navigate(Routes.CUSTODY_TRANSFER) }) }
+        composable(Routes.CUSTODIES) { CustodyHomeWithArchiveScreen(custody, { navController.popBackStack() }, { navController.navigate(Routes.custody(it)) }, { navController.navigate(Routes.CUSTODY_ARCHIVE) }, { navController.navigate(Routes.CUSTODY_REPORTS) }, { navController.navigate(Routes.CUSTODY_TRANSFER) }, { navController.navigate(Routes.CUSTODY_TRANSFER) }) }
         composable(Routes.CUSTODY_ARCHIVE) { CustodyArchiveScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY_REPORTS) { CustodyReportsScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY_TRANSFER) { CustodyTransferScreen(custody) { navController.popBackStack() } }

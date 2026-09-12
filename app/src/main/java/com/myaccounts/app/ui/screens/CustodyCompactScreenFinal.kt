@@ -114,7 +114,12 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
                 val categories = transactions.map { it.categoryName.trim() }.filter { it.isNotBlank() }.distinct().sorted()
                 if (categories.isNotEmpty()) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text("بنود العهدة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { categories.forEach { category -> SuggestionChip(onClick = {}, label = { Text(category) }) } } }
             }
-            items(shown, key = { it.id }) { person -> FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) { quickOwner = false; quickPerson = person.id } }
+            items(shown, key = { it.id }) { person ->
+      FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) {
+          if (person.partyType == "ENTITY") onPerson(person.id)
+          else { quickOwner = false; quickPerson = person.id }
+      }
+  }
             if (shown.isEmpty()) item { Text(if (search.isBlank()) "لا يوجد أطراف في هذه العهدة" else "لا توجد نتائج مطابقة", Modifier.padding(10.dp)) }
         }
     }

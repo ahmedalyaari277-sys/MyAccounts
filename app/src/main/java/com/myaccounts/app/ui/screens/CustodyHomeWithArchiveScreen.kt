@@ -78,12 +78,7 @@ fun CustodyHomeWithArchiveScreen(
                     IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("النقل والاستيراد والتصدير") },
-                            leadingIcon = { Icon(Icons.Default.Archive, null) },
-                            onClick = { showMoreMenu = false; onTransfer() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("النسخ الاحتياطي والاستعادة") },
+                            text = { Text("إدارة بيانات العُهَد") },
                             leadingIcon = { Icon(Icons.Default.Backup, null) },
                             onClick = { showMoreMenu = false; onBackupRestore() }
                         )
@@ -178,6 +173,8 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
+                        .imePadding()
+                        .navigationBarsPadding()
                         .padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {

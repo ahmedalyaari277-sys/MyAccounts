@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 interface CustodyDao {
     @Query("SELECT c.* FROM custodies c LEFT JOIN (SELECT custodyId, MAX(transactionDate) AS lastTransactionDate FROM custody_transactions WHERE isArchived = 0 GROUP BY custodyId) t ON c.id = t.custodyId WHERE c.isArchived = 0 ORDER BY COALESCE(t.lastTransactionDate, c.createdAt) DESC, c.id DESC") fun observeCustodies(): Flow<List<CustodyEntity>>
     @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1") fun observeCustody(id: Long): Flow<CustodyEntity?>
-    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY name COLLATE NOCASE ASC") fun observePersons(custodyId: Long): Flow<List<CustodyPersonEntity>>
+    @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY CASE WHEN partyType = 'ENTITY' THEN 0 ELSE 1 END, id ASC") fun observePersons(custodyId: Long): Flow<List<CustodyPersonEntity>>
     @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId ORDER BY holderType ASC, personId ASC, currencyCode ASC") fun observeAccounts(custodyId: Long): Flow<List<CustodyAccountEntity>>
     @Query("SELECT * FROM custody_transactions WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observeTransactions(custodyId: Long): Flow<List<CustodyTransactionEntity>>
     @Query("SELECT * FROM custody_transactions WHERE accountId = :accountId AND isArchived = 0 ORDER BY transactionDate DESC, id DESC") fun observeAccountTransactions(accountId: Long): Flow<List<CustodyTransactionEntity>>
