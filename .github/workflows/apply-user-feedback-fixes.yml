@@ -1,0 +1,80 @@
+name: apply-user-feedback-fixes
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt')
+          s=p.read_text()
+          s=s.replace('DropdownMenuItem(\n                            text = { Text("النقل والاستيراد والتصدير") },\n                            leadingIcon = { Icon(Icons.Default.Archive, null) },\n                            onClick = { showMoreMenu = false; onTransfer() }\n                        )\n                        DropdownMenuItem(\n                            text = { Text("النسخ الاحتياطي والاستعادة") },\n                            leadingIcon = { Icon(Icons.Default.Backup, null) },\n                            onClick = { showMoreMenu = false; onBackupRestore() }\n                        )', 'DropdownMenuItem(\n                            text = { Text("إدارة بيانات العُهَد") },\n                            leadingIcon = { Icon(Icons.Default.Backup, null) },\n                            onClick = { showMoreMenu = false; onBackupRestore() }\n                        )')
+          old='''                Column(\n                    modifier = Modifier\n                        .weight(1f, fill = false)\n                        .verticalScroll(rememberScrollState())\n                        .padding(horizontal = 20.dp),'''
+          new='''                Column(\n                    modifier = Modifier\n                        .weight(1f, fill = false)\n                        .verticalScroll(rememberScrollState())\n                        .imePadding()\n                        .navigationBarsPadding()\n                        .padding(horizontal = 20.dp),'''
+          s=s.replace(old,new)
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/data/custody/CustodyDao.kt')
+          s=p.read_text().replace('ORDER BY name COLLATE NOCASE ASC") fun observePersons', 'ORDER BY CASE WHEN partyType = \'ENTITY\' THEN 0 ELSE 1 END, id ASC") fun observePersons')
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
+          s=p.read_text()
+          old='''            items(shown, key = { it.id }) { person -> FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) { quickOwner = false; quickPerson = person.id } }'''
+          new='''            items(shown, key = { it.id }) { person ->
+                FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) {
+                    if (person.partyType == "ENTITY") {
+                        onPerson(person.id)
+                    } else {
+                        quickOwner = false
+                        quickPerson = person.id
+                    }
+                }
+            }'''
+          s=s.replace(old,new)
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyLedgerScreen.kt')
+          s=p.read_text()
+          needle='''            OutlinedTextField(categoryName, { categoryName = it }, Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "بند العهدة" }, label = { Text("بند العهدة") }, singleLine = true, enabled = !saving)'''
+          replacement='''            Text("التصنيف", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            var categoryMenuExpanded by remember { mutableStateOf(false) }
+            val availableCategories = remember(transactions) { transactions.map { it.categoryName.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
+            Box(Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = categoryName,
+                    onValueChange = { categoryName = it; categoryMenuExpanded = true },
+                    modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "تصنيف العملية" },
+                    label = { Text("التصنيف") },
+                    placeholder = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") },
+                    singleLine = true,
+                    enabled = !saving,
+                    trailingIcon = { TextButton(onClick = { categoryMenuExpanded = true }) { Text("▼") } }
+                )
+                DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
+                    availableCategories.forEach { value ->
+                        DropdownMenuItem(text = { Text(value) }, onClick = { categoryName = value; categoryMenuExpanded = false })
+                    }
+                    DropdownMenuItem(text = { Text("جديد") }, onClick = { categoryName = ""; categoryMenuExpanded = false })
+                }
+            }'''
+          if needle not in s: raise SystemExit('category needle not found')
+          s=s.replace(needle,replacement)
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/util/GlobalExcelDataManager.kt')
+          s=p.read_text()
+          old='''            ImportSummary(ExcelDataManager.import(context, accountUri).getOrThrow(), CustodyExcelDataManager.import(context, custodyUri).getOrThrow())'''
+          new='''            val accountResult = ExcelDataManager.import(context, accountUri).getOrThrow()
+            val custodyResult = CustodyExcelDataManager.import(context, custodyUri).getOrThrow()
+            ImportSummary(accountResult, custodyResult)'''
+          s=s.replace(old,new)
+          p.write_text(s)
