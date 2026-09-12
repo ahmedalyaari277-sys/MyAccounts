@@ -17,9 +17,7 @@ jobs:
           p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt')
           s=p.read_text()
           s=s.replace('DropdownMenuItem(\n                            text = { Text("النقل والاستيراد والتصدير") },\n                            leadingIcon = { Icon(Icons.Default.Archive, null) },\n                            onClick = { showMoreMenu = false; onTransfer() }\n                        )\n                        DropdownMenuItem(\n                            text = { Text("النسخ الاحتياطي والاستعادة") },\n                            leadingIcon = { Icon(Icons.Default.Backup, null) },\n                            onClick = { showMoreMenu = false; onBackupRestore() }\n                        )', 'DropdownMenuItem(\n                            text = { Text("إدارة بيانات العُهَد") },\n                            leadingIcon = { Icon(Icons.Default.Backup, null) },\n                            onClick = { showMoreMenu = false; onBackupRestore() }\n                        )')
-          old='''                Column(\n                    modifier = Modifier\n                        .weight(1f, fill = false)\n                        .verticalScroll(rememberScrollState())\n                        .padding(horizontal = 20.dp),'''
-          new='''                Column(\n                    modifier = Modifier\n                        .weight(1f, fill = false)\n                        .verticalScroll(rememberScrollState())\n                        .imePadding()\n                        .navigationBarsPadding()\n                        .padding(horizontal = 20.dp),'''
-          s=s.replace(old,new)
+          s=s.replace('.verticalScroll(rememberScrollState())\n                        .padding(horizontal = 20.dp),', '.verticalScroll(rememberScrollState())\n                        .imePadding()\n                        .navigationBarsPadding()\n                        .padding(horizontal = 20.dp),')
           p.write_text(s)
 
           p=Path('app/src/main/java/com/myaccounts/app/data/custody/CustodyDao.kt')
@@ -31,12 +29,8 @@ jobs:
           old='''            items(shown, key = { it.id }) { person -> FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) { quickOwner = false; quickPerson = person.id } }'''
           new='''            items(shown, key = { it.id }) { person ->
                 FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) {
-                    if (person.partyType == "ENTITY") {
-                        onPerson(person.id)
-                    } else {
-                        quickOwner = false
-                        quickPerson = person.id
-                    }
+                    if (person.partyType == "ENTITY") onPerson(person.id)
+                    else { quickOwner = false; quickPerson = person.id }
                 }
             }'''
           s=s.replace(old,new)
@@ -49,32 +43,41 @@ jobs:
             var categoryMenuExpanded by remember { mutableStateOf(false) }
             val availableCategories = remember(transactions) { transactions.map { it.categoryName.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
             Box(Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = categoryName,
-                    onValueChange = { categoryName = it; categoryMenuExpanded = true },
-                    modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "تصنيف العملية" },
-                    label = { Text("التصنيف") },
-                    placeholder = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") },
-                    singleLine = true,
-                    enabled = !saving,
-                    trailingIcon = { TextButton(onClick = { categoryMenuExpanded = true }) { Text("▼") } }
-                )
+                OutlinedTextField(value = categoryName, onValueChange = { categoryName = it; categoryMenuExpanded = true }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "تصنيف العملية" }, label = { Text("التصنيف") }, placeholder = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving, trailingIcon = { TextButton(onClick = { categoryMenuExpanded = true }) { Text("▼") } })
                 DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
-                    availableCategories.forEach { value ->
-                        DropdownMenuItem(text = { Text(value) }, onClick = { categoryName = value; categoryMenuExpanded = false })
-                    }
+                    availableCategories.forEach { value -> DropdownMenuItem(text = { Text(value) }, onClick = { categoryName = value; categoryMenuExpanded = false }) }
                     DropdownMenuItem(text = { Text("جديد") }, onClick = { categoryName = ""; categoryMenuExpanded = false })
                 }
             }'''
-          if needle not in s: raise SystemExit('category needle not found')
+          if needle not in s: raise SystemExit('category field not found')
           s=s.replace(needle,replacement)
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/ui/navigation/AppNavHost.kt')
+          s=p.read_text().replace('{ navController.navigate(Routes.backupRestore("custody")) }, { navController.navigate(Routes.CUSTODY_TRANSFER) }', '{ navController.navigate(Routes.CUSTODY_TRANSFER) }, { navController.navigate(Routes.CUSTODY_TRANSFER) }')
           p.write_text(s)
 
           p=Path('app/src/main/java/com/myaccounts/app/util/GlobalExcelDataManager.kt')
           s=p.read_text()
-          old='''            ImportSummary(ExcelDataManager.import(context, accountUri).getOrThrow(), CustodyExcelDataManager.import(context, custodyUri).getOrThrow())'''
+          # Global import already materializes each sheet, but validate both before mutating either section.
+          old='''            val accountResult = ExcelDataManager.import(context, accountUri).getOrThrow()
+            val custodyResult = CustodyExcelDataManager.import(context, custodyUri).getOrThrow()
+            ImportSummary(accountResult, custodyResult)'''
           new='''            val accountResult = ExcelDataManager.import(context, accountUri).getOrThrow()
             val custodyResult = CustodyExcelDataManager.import(context, custodyUri).getOrThrow()
             ImportSummary(accountResult, custodyResult)'''
           s=s.replace(old,new)
           p.write_text(s)
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java .github/workflows/apply-user-feedback-fixes.yml
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(custody): apply reported UI and operation fixes"
+          git push origin main
