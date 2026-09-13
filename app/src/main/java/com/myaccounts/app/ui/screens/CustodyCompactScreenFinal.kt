@@ -23,10 +23,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -66,7 +68,10 @@ private fun Modifier.keepFocusedFieldVisible(): Modifier {
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     return this.bringIntoViewRequester(bringIntoViewRequester).onFocusEvent { state ->
-        if (state.isFocused) scope.launch { bringIntoViewRequester.bringIntoView() }
+        if (state.isFocused) scope.launch {
+            kotlinx.coroutines.delay(180)
+            bringIntoViewRequester.bringIntoView()
+        }
     }
 }
 
@@ -85,6 +90,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
     var addPerson by remember { mutableStateOf(false) }
     var quickOwner by remember { mutableStateOf(false) }
     var quickPerson by remember { mutableStateOf<Long?>(null) }
+    var quickEntity by remember { mutableStateOf<Long?>(null) }
     val latestByPerson = remember(transactions) { transactions.groupBy { it.personId }.mapValues { it.value.maxOfOrNull { t -> t.transactionDate } ?: 0L } }
     val fixedEntity = people.firstOrNull { it.partyType == "ENTITY" }
     val filteredOthers = people.filter { it.partyType != "ENTITY" && (search.isBlank() || it.name.contains(search.trim(), true) || it.phone.contains(search.trim(), true)) }
@@ -101,13 +107,15 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
         })
     }) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
-            item { FinalOwnerCard(current, accounts, transactions, people, !current.isClosed, onOwner) { quickOwner = true; quickPerson = null } }
+            item { FinalOwnerCard(current, accounts, transactions, people, !current.isClosed, onOwner) { quickOwner = true; quickPerson = null; quickEntity = null } }
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("الأطراف", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Row(Modifier.width(164.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
-                        TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(108.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }
+                Box(Modifier.fillMaxWidth().height(48.dp)) {
+                    Text("الأطراف", modifier = Modifier.align(Alignment.CenterEnd), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Row(Modifier.width(176.dp).height(48.dp).align(Alignment.CenterEnd), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
+                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }
+                        }
                     }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) { DropdownMenuItem(text = { Text("أحدث عملية") }, onClick = { latestFirst = true; sortMenu = false }); DropdownMenuItem(text = { Text("أبجديًا") }, onClick = { latestFirst = false; sortMenu = false }) }
                 }
@@ -120,16 +128,18 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
             items(shown, key = { it.id }) { person ->
                 FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) {
                     quickOwner = false
-                    quickPerson = person.id
+                    quickPerson = if (person.partyType == "ENTITY") null else person.id
+                    quickEntity = if (person.partyType == "ENTITY") person.id else null
                 }
             }
             if (shown.isEmpty()) item { Text(if (search.isBlank()) "لا يوجد أطراف في هذه العهدة" else "لا توجد نتائج مطابقة", Modifier.padding(10.dp)) }
         }
     }
     if (addPerson) FinalAddPersonDialog(custodyId, people, { addPerson = false }) { vm.addPersonAndWait(custodyId, it) }
-    if (quickOwner || quickPerson != null) {
+    if (quickOwner || quickPerson != null || quickEntity != null) {
         val owner = quickOwner
-        CustodyLedgerOperationDialog(vm = vm, custodyId = custodyId, personId = if (owner) null else quickPerson, owner = owner, defaultCurrency = "YER", initialType = if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, transaction = null, dialogWidth = .94f, onDismiss = { quickOwner = false; quickPerson = null }, onFinished = { quickOwner = false; quickPerson = null })
+        val entity = quickEntity != null
+        CustodyLedgerOperationDialog(vm = vm, custodyId = custodyId, personId = if (owner) null else if (entity) quickEntity else quickPerson, owner = owner, defaultCurrency = "YER", initialType = if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, transaction = null, dialogWidth = .94f, onDismiss = { quickOwner = false; quickPerson = null; quickEntity = null }, onFinished = { quickOwner = false; quickPerson = null; quickEntity = null })
     }
     if (settlement) FinalSettlementDialog(vm, current, transactions) { settlement = false }
 }
@@ -148,7 +158,7 @@ private fun FinalOwnerCard(custody: CustodyEntity, accounts: List<CustodyAccount
 private data class CompactMetricData(val value: String, val status: String)
 @Composable private fun CompactCurrencyHeader(currencies: List<String>) { Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) { Spacer(Modifier.width(70.dp)); currencies.forEach { code -> Text(finalCurrencyName(code), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1) } } }
 @Composable private fun CompactMetricRow(label: String, cells: List<CompactMetricData>) { Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) { Text(label, modifier = Modifier.width(70.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1); cells.forEach { cell -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { FinalMetric(cell.value, cell.status, Modifier.fillMaxWidth()) } } } }
-@Composable private fun FinalPersonCard(person: CustodyPersonEntity, transactions: List<CustodyTransactionEntity>, enabled: Boolean, onClick: () -> Unit, onQuick: () -> Unit) { Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) { Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.size(40.dp).semantics { contentDescription = "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, null) }; Column(Modifier.weight(1f)) { Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text(if (person.partyType == "ENTITY") "جهة" else "شخص", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }; HorizontalDivider(); CompactCurrencyHeader(finalCurrencies); val custodyCells = finalCurrencies.map { code -> val balance = CustodyFinancialSummary.personCustodyBalance(transactions, person.id, code); CompactMetricData(finalMoney(kotlin.math.abs(balance)), finalStatus(balance, "لديه", "مستحق له")) }; val debtCells = finalCurrencies.map { code -> val debt = CustodyFinancialSummary.personDebt(transactions, person.id, code); CompactMetricData(finalMoney(kotlin.math.abs(debt)), finalStatus(debt, "مستحق له", "مستحق عليه")) }; CompactMetricRow("العهدة", custodyCells); CompactMetricRow("الذمة", debtCells) } } }
+@Composable private fun FinalPersonCard(person: CustodyPersonEntity, transactions: List<CustodyTransactionEntity>, enabled: Boolean, onClick: () -> Unit, onQuick: () -> Unit) { Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) { Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { IconButton(enabled = enabled, onClick = onQuick, modifier = Modifier.size(40.dp).semantics { contentDescription = if (person.partyType == "ENTITY") "إضافة عملية صرف للجهة" else "إضافة عملية سريعة" }) { Icon(Icons.Default.Add, null) }; Column(Modifier.weight(1f)) { Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text(if (person.partyType == "ENTITY") "جهة" else "شخص", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); if (person.phone.isNotBlank()) Text(person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }; HorizontalDivider(); CompactCurrencyHeader(finalCurrencies); val custodyCells = finalCurrencies.map { code -> val balance = CustodyFinancialSummary.personCustodyBalance(transactions, person.id, code); CompactMetricData(finalMoney(kotlin.math.abs(balance)), finalStatus(balance, "لديه", "مستحق له")) }; val debtCells = finalCurrencies.map { code -> val debt = CustodyFinancialSummary.personDebt(transactions, person.id, code); CompactMetricData(finalMoney(kotlin.math.abs(debt)), finalStatus(debt, "مستحق له", "مستحق عليه")) }; CompactMetricRow("العهدة", custodyCells); CompactMetricRow("الذمة", debtCells) } } }
 @Composable private fun FinalMetric(value: String, status: String, modifier: Modifier) { Row(modifier, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = finalStatusColor(status), maxLines = 1); Spacer(Modifier.width(3.dp)); Text(status, fontSize = 9.sp, fontWeight = FontWeight.Medium, color = finalStatusColor(status), maxLines = 1) } }
 @Composable private fun FinalAddPersonDialog(custodyId: Long, existing: List<CustodyPersonEntity>, onDismiss: () -> Unit, onSave: suspend (CustodyPersonEntity) -> Unit) {
     var name by remember { mutableStateOf("") }; var partyType by remember { mutableStateOf("PERSON") }; var phone by remember { mutableStateOf("") }; var address by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }; var saving by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }; val scope = rememberCoroutineScope()
