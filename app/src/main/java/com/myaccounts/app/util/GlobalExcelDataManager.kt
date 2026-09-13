@@ -13,57 +13,41 @@ import java.util.zip.ZipOutputStream
 object GlobalExcelDataManager {
     const val MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     const val SUGGESTED_FILE_NAME = "MyAccounts_All_Data.xlsx"
-
     data class ExportSummary(val accountPeople:Int,val accountAccounts:Int,val accountTransactions:Int,val custodyCustodies:Int,val custodyPeople:Int,val custodyAccounts:Int,val custodyTransactions:Int)
     data class ImportPreview(val account:ExcelDataManager.ImportPreview,val custody:CustodyExcelDataManager.ImportPreview){ val isValid:Boolean get()=account.isValid&&custody.isValid }
     data class ImportSummary(val account:ExcelDataManager.ImportSummary,val custody:CustodyExcelDataManager.ImportSummary)
 
     suspend fun exportActive(context:Context, uri:Uri):Result<ExportSummary> = runCatching {
-        val accountFile=File.createTempFile("myaccounts-account-excel-",".xlsx",context.cacheDir)
-        val custodyFile=File.createTempFile("myaccounts-custody-excel-",".xlsx",context.cacheDir)
+        val accountFile=File.createTempFile("myaccounts-account-excel-",".xlsx",context.cacheDir); val custodyFile=File.createTempFile("myaccounts-custody-excel-",".xlsx",context.cacheDir)
         try {
-            val account=ExcelDataManager.exportActive(context,Uri.fromFile(accountFile)).getOrThrow()
-            val custody=CustodyTwoSheetExcelDataManager.exportActive(context,Uri.fromFile(custodyFile)).getOrThrow()
+            val account=ExcelDataManager.exportActive(context,Uri.fromFile(accountFile)).getOrThrow(); val custody=CustodyTwoSheetExcelDataManager.exportActive(context,Uri.fromFile(custodyFile)).getOrThrow()
             val ae=readZip(accountFile.inputStream()); val ce=readZip(custodyFile.inputStream())
-            val accountSheet=ae["xl/worksheets/sheet1.xml"]?:error("بيانات الحسابات غير موجودة.")
-            val custodySheet=ce["xl/worksheets/sheet1.xml"]?:error("بيانات العُهَد غير موجودة.")
+            val accountSheet=ae["xl/worksheets/sheet1.xml"]?:error("بيانات الحسابات غير موجودة."); val custodySheet=ce["xl/worksheets/sheet1.xml"]?:error("بيانات العُهَد غير موجودة.")
             context.contentResolver.openOutputStream(uri)?.use{writeCombinedWorkbook(it,accountSheet,custodySheet)}?:error("تعذر فتح ملف Excel للكتابة.")
             ExportSummary(account.people,account.accounts,account.transactions,custody.custodies,custody.people,custody.accounts,custody.transactions)
         } finally { accountFile.delete(); custodyFile.delete() }
     }
 
     fun previewImport(context:Context,uri:Uri):Result<ImportPreview> = runCatching {
-        val entries=readZip(context.contentResolver.openInputStream(uri)?:error("تعذر فتح ملف Excel."))
-        val sheets=sheetNames(entries["xl/workbook.xml"]?:error("ملف Excel غير صالح."))
+        val entries=readZip(context.contentResolver.openInputStream(uri)?:error("تعذر فتح ملف Excel.")); val sheets=sheetNames(entries["xl/workbook.xml"]?:error("ملف Excel غير صالح."))
         check(sheets.size==2){"يجب أن يحتوي ملف Excel العام على Sheetين فقط: الحسابات والعُهَد."}
-        val accountUri=materializeSingleSheet(context,entries["xl/worksheets/sheet1.xml"]?:error("ورقة الحسابات مفقودة."),"accounts-preview")
-        val custodyUri=materializeSingleSheet(context,entries["xl/worksheets/sheet2.xml"]?:error("ورقة العُهَد مفقودة."),"custody-preview")
-        try { ImportPreview(ExcelDataManager.previewImport(context,accountUri).getOrThrow(),CustodyTwoSheetExcelDataManager.previewImport(context,custodyUri).getOrThrow()) }
-        finally { File(accountUri.path?:"").delete();File(custodyUri.path?:"").delete() }
+        val accountUri=materializeSingleSheet(context,entries["xl/worksheets/sheet1.xml"]?:error("ورقة الحسابات مفقودة."),"accounts-preview"); val custodyUri=materializeSingleSheet(context,entries["xl/worksheets/sheet2.xml"]?:error("ورقة العُهَد مفقودة."),"custody-preview")
+        try { ImportPreview(ExcelDataManager.previewImport(context,accountUri).getOrThrow(),CustodyTwoSheetExcelDataManager.previewImport(context,custodyUri).getOrThrow()) } finally { File(accountUri.path?:"").delete();File(custodyUri.path?:"").delete() }
     }
 
     suspend fun import(context:Context,uri:Uri):Result<ImportSummary> = runCatching {
-        val entries=readZip(context.contentResolver.openInputStream(uri)?:error("تعذر فتح ملف Excel."))
-        val sheets=sheetNames(entries["xl/workbook.xml"]?:error("ملف Excel غير صالح."))
+        val entries=readZip(context.contentResolver.openInputStream(uri)?:error("تعذر فتح ملف Excel.")); val sheets=sheetNames(entries["xl/workbook.xml"]?:error("ملف Excel غير صالح."))
         check(sheets.size==2){"يجب أن يحتوي ملف Excel العام على Sheetين فقط: الحسابات والعُهَد."}
-        val accountUri=materializeSingleSheet(context,entries["xl/worksheets/sheet1.xml"]?:error("ورقة الحسابات مفقودة."),"accounts-import")
-        val custodyUri=materializeSingleSheet(context,entries["xl/worksheets/sheet2.xml"]?:error("ورقة العُهَد مفقودة."),"custody-import")
+        val accountUri=materializeSingleSheet(context,entries["xl/worksheets/sheet1.xml"]?:error("ورقة الحسابات مفقودة."),"accounts-import"); val custodyUri=materializeSingleSheet(context,entries["xl/worksheets/sheet2.xml"]?:error("ورقة العُهَد مفقودة."),"custody-import")
         try {
-            val ap=ExcelDataManager.previewImport(context,accountUri).getOrThrow(); val cp=CustodyTwoSheetExcelDataManager.previewImport(context,custodyUri).getOrThrow()
-            check(ap.isValid){ap.errors.joinToString("\n")};check(cp.isValid){cp.errors.joinToString("\n")}
+            val ap=ExcelDataManager.previewImport(context,accountUri).getOrThrow(); val cp=CustodyTwoSheetExcelDataManager.previewImport(context,custodyUri).getOrThrow(); check(ap.isValid){ap.errors.joinToString("\n")};check(cp.isValid){cp.errors.joinToString("\n")}
             ImportSummary(ExcelDataManager.import(context,accountUri).getOrThrow(),CustodyTwoSheetExcelDataManager.import(context,custodyUri).getOrThrow())
         } finally { File(accountUri.path?:"").delete();File(custodyUri.path?:"").delete() }
     }
 
-    private fun materializeSingleSheet(context:Context,sheet:ByteArray,prefix:String):Uri{
-        val file=File.createTempFile("$prefix-",".xlsx",context.cacheDir)
-        file.outputStream().use{out->ZipOutputStream(out.buffered()).use{zip->
-            entry(zip,"[Content_Types].xml",contentTypes());entry(zip,"_rels/.rels",rootRels());entry(zip,"xl/workbook.xml",workbookXml());entry(zip,"xl/_rels/workbook.xml.rels",workbookRels());zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"));zip.write(sheet);zip.closeEntry()
-        }}
-        return Uri.fromFile(file)
-    }
-    private fun writeCombinedWorkbook(out:java.io.OutputStream,accountSheet:ByteArray,custodySheet:ByteArray){ZipOutputStream(out.buffered()).use{zip->entry(zip,"[Content_Types].xml",combinedContentTypes());entry(zip,"_rels/.rels",rootRels());entry(zip,"xl/workbook.xml",combinedWorkbook());entry(zip,"xl/_rels/workbook.xml.rels",combinedWorkbookRels());zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"));zip.write(accountSheet);zip.closeEntry();zip.putNextEntry(ZipEntry("xl/worksheets/sheet2.xml"));zip.write(custodySheet);zip.closeEntry()}}
-    private fun sheetNames(workbook:ByteArray):List<String>=Regex("<sheet\\b[^>]*name=\\\"([^\\\"]+)\\\"").findAll(workbook.toString(Charsets.UTF_8)).map{it.groupValues[1]}.toList()
+    private fun materializeSingleSheet(context:Context,sheet:ByteArray,prefix:String):Uri{ val file=File.createTempFile("$prefix-",".xlsx",context.cacheDir); file.outputStream().use{out->ZipOutputStream(out.buffered()).use{zip->{entry(zip,"[Content_Types].xml",contentTypes());entry(zip,"_rels/.rels",rootRels());entry(zip,"xl/workbook.xml",workbookXml());entry(zip,"xl/_rels/workbook.xml.rels",workbookRels());zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"));zip.write(sheet);zip.closeEntry()}}};return Uri.fromFile(file) }
+    private fun writeCombinedWorkbook(out:java.io.OutputStream,accountSheet:ByteArray,custodySheet:ByteArray){ZipOutputStream(out.buffered()).use{zip->{entry(zip,"[Content_Types].xml",combinedContentTypes());entry(zip,"_rels/.rels",rootRels());entry(zip,"xl/workbook.xml",combinedWorkbook());entry(zip,"xl/_rels/workbook.xml.rels",combinedWorkbookRels());zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"));zip.write(accountSheet);zip.closeEntry();zip.putNextEntry(ZipEntry("xl/worksheets/sheet2.xml"));zip.write(custodySheet);zip.closeEntry()}}}
+    private fun sheetNames(workbook:ByteArray): List<String> = Regex("<sheet\\b[^>]*name=\\\"([^\\\"]+)\\\"").findAll(workbook.toString(Charsets.UTF_8)).map{it.groupValues[1]}.toList()
     private fun readZip(input:InputStream):Map<String,ByteArray> = buildMap{ZipInputStream(input.buffered()).use{zip->while(true){val e=zip.nextEntry?:break;if(!e.isDirectory){val out=ByteArrayOutputStream();zip.copyTo(out);put(e.name,out.toByteArray())}}}}
     private fun entry(zip:ZipOutputStream,name:String,value:String){zip.putNextEntry(ZipEntry(name));zip.write(value.toByteArray(Charsets.UTF_8));zip.closeEntry()}
     private fun contentTypes()="""<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>"""
@@ -72,5 +56,5 @@ object GlobalExcelDataManager {
     private fun workbookXml()="""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="بيانات" sheetId="1" r:id="rId1"/></sheets></workbook>"""
     private fun workbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"""
     private fun combinedWorkbook()="""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="بيانات الحسابات" sheetId="1" r:id="rId1"/><sheet name="بيانات العُهَد" sheetId="2" r:id="rId2"/></sheets></workbook>"""
-    private fun combinedWorkbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>"""
+    private fun combinedWorkbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>"""
 }
