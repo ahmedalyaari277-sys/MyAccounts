@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -20,12 +22,14 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.focus.onFocusEvent
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,7 +69,10 @@ private fun Modifier.custodyKeepFocusedFieldVisible(): Modifier {
     val requester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     return bringIntoViewRequester(requester).onFocusEvent {
-        if (it.isFocused) scope.launch { requester.bringIntoView() }
+        if (it.isFocused) scope.launch {
+            kotlinx.coroutines.delay(180)
+            requester.bringIntoView()
+        }
     }
 }
 
@@ -174,7 +181,7 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.76f).imePadding().navigationBarsPadding(),
+            modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.92f).imePadding().navigationBarsPadding(),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp
         ) {
