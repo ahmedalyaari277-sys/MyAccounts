@@ -32,6 +32,7 @@ jobs:
           gradle-version: "8.2"
       # Build the APK from the exact current main commit and publish it for device testing.
       # Verification trigger: rebuild current main after the latest verified custody B-E fixes.
+      # Verification trigger: rebuild after section-scoped Excel transfer correction.
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Upload APK
