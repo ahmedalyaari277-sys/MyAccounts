@@ -86,14 +86,10 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
     var quickOwner by remember { mutableStateOf(false) }
     var quickPerson by remember { mutableStateOf<Long?>(null) }
     val latestByPerson = remember(transactions) { transactions.groupBy { it.personId }.mapValues { it.value.maxOfOrNull { t -> t.transactionDate } ?: 0L } }
-    val shown = people.filter { search.isBlank() || it.name.contains(search.trim(), true) || it.phone.contains(search.trim(), true) }.let { rows ->
-        val entity = rows.filter { it.partyType == "ENTITY" }
-        val others = rows.filter { it.partyType != "ENTITY" }.let { rest ->
-            if (latestFirst) rest.sortedByDescending { latestByPerson[it.id] ?: 0L }
-            else rest.sortedBy { it.name.trim().lowercase(Locale.getDefault()) }
-        }
-        entity + others
-    }
+    val fixedEntity = people.firstOrNull { it.partyType == "ENTITY" }
+    val filteredOthers = people.filter { it.partyType != "ENTITY" && (search.isBlank() || it.name.contains(search.trim(), true) || it.phone.contains(search.trim(), true)) }
+    val sortedOthers = if (latestFirst) filteredOthers.sortedByDescending { latestByPerson[it.id] ?: 0L } else filteredOthers.sortedBy { it.name.trim().lowercase(Locale.getDefault()) }
+    val shown = listOfNotNull(fixedEntity) + sortedOthers
     Scaffold(modifier = Modifier.semantics { contentDescription = "شاشة تفاصيل العهدة" }, topBar = {
         TopAppBar(title = { Text(current.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
             if (!current.isClosed) IconButton(onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, contentDescription = "إضافة طرف") }
@@ -109,11 +105,9 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("الأطراف", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Box(Modifier.width(148.dp).height(48.dp), contentAlignment = Alignment.CenterEnd) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
-                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة") }
-                        }
+                    Row(Modifier.width(164.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
+                        TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(108.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }
                     }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) { DropdownMenuItem(text = { Text("أحدث عملية") }, onClick = { latestFirst = true; sortMenu = false }); DropdownMenuItem(text = { Text("أبجديًا") }, onClick = { latestFirst = false; sortMenu = false }) }
                 }
@@ -124,11 +118,11 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
                 if (categories.isNotEmpty()) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text("بنود العهدة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { categories.forEach { category -> SuggestionChip(onClick = {}, label = { Text(category) }) } } }
             }
             items(shown, key = { it.id }) { person ->
-      FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) {
-          quickOwner = false
-          quickPerson = person.id
-      }
-  }
+                FinalPersonCard(person, transactions, !current.isClosed, { onPerson(person.id) }) {
+                    quickOwner = false
+                    quickPerson = person.id
+                }
+            }
             if (shown.isEmpty()) item { Text(if (search.isBlank()) "لا يوجد أطراف في هذه العهدة" else "لا توجد نتائج مطابقة", Modifier.padding(10.dp)) }
         }
     }
