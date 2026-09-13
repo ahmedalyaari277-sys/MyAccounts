@@ -43,6 +43,7 @@ import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.SummaryCard
 import com.myaccounts.app.util.BackupScope
 import com.myaccounts.app.util.DatabaseBackupManager
+import com.myaccounts.app.util.ExcelDataManager
 import com.myaccounts.app.util.ManualSyncManager
 import com.myaccounts.app.util.ScopedBackupManager
 import kotlinx.coroutines.Dispatchers
@@ -164,6 +165,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             }
 
             if (scope == BackupScope.ALL) ExcelTransferControls()
+            if (scope == BackupScope.ACCOUNTS) AccountExcelTransferControls()
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
@@ -223,5 +225,69 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             type = when (feedbackType) { BackupFeedbackType.Success -> FeedbackDialogType.Success; BackupFeedbackType.Error -> FeedbackDialogType.Error; BackupFeedbackType.Info -> FeedbackDialogType.Info },
             onDismiss = { message = null }
         )
+    }
+}
+
+@Composable
+private fun AccountExcelTransferControls() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var pendingImport by remember { mutableStateOf<Uri?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ExcelDataManager.MIME_TYPE)) { uri ->
+        if (uri != null) {
+            busy = true
+            coroutineScope.launch(Dispatchers.IO) {
+                val result = ExcelDataManager.exportActive(context, uri)
+                busy = false
+                message = result.fold(
+                    onSuccess = { s -> "تم تصدير الحسابات إلى Excel بنجاح. الملف يحتوي Sheet واحد فقط: بيانات الحسابات.\nالأشخاص: ${s.people}\nالحسابات: ${s.accounts}\nالعمليات: ${s.transactions}" },
+                    onFailure = { "تعذر تصدير الحسابات إلى Excel: ${it.message ?: "خطأ غير معروف"}" }
+                )
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingImport = uri }
+
+    InformationCard(modifier = Modifier.fillMaxWidth()) {
+        Text("Excel للحسابات", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+        Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        SecondaryButton(text = "استيراد الحسابات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+        if (busy) { Spacer(Modifier.height(8.dp)); CircularProgressIndicator() }
+    }
+
+    pendingImport?.let { uri ->
+        ConfirmationDialog(
+            title = "تأكيد استيراد الحسابات",
+            message = "سيتم فحص ملف Excel ذي الورقة الواحدة الخاصة بالحسابات فقط. لن تتأثر بيانات العُهَد.",
+            onConfirm = {
+                pendingImport = null
+                busy = true
+                coroutineScope.launch(Dispatchers.IO) {
+                    val result = runCatching {
+                        val preview = ExcelDataManager.previewImport(context, uri).getOrThrow()
+                        check(preview.isValid) { preview.errors.joinToString("\n") }
+                        ExcelDataManager.import(context, uri).getOrThrow()
+                    }
+                    busy = false
+                    message = result.fold(
+                        onSuccess = { s -> "تم استيراد الحسابات بنجاح.\nالأشخاص: ${s.peopleAdded}\nالحسابات: ${s.accountsAdded}\nالعمليات: ${s.transactionsAdded}" },
+                        onFailure = { "تعذر استيراد الحسابات: ${it.message ?: "ملف غير صالح"}" }
+                    )
+                }
+            },
+            onDismiss = { pendingImport = null },
+            confirmText = "استيراد",
+            dismissText = "إلغاء",
+            danger = false
+        )
+    }
+    message?.let { text ->
+        FeedbackDialog(text = text, type = if (text.startsWith("تم ")) FeedbackDialogType.Success else FeedbackDialogType.Error, onDismiss = { message = null })
     }
 }
