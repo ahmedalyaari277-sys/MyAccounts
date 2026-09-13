@@ -174,45 +174,49 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.90f).imePadding().navigationBarsPadding(),
+            modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.76f).imePadding().navigationBarsPadding(),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp
         ) {
-            Column(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxSize()) {
                 Text(
-                    "إضافة صاحب عهدة",
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                    "إضافة صاحب العهدة وبيانات الجهة",
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
+                HorizontalDivider()
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .imePadding()
                         .navigationBarsPadding()
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("بيانات حامل العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("بيانات صاحب العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم صاحب العهدة") }, singleLine = true)
                     OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف صاحب العهدة") }, singleLine = true)
                     OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان صاحب العهدة") }, singleLine = true)
                     OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات صاحب العهدة") }, minLines = 2)
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
                     Text("بيانات جهة العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم جهة العهدة") }, singleLine = true)
                     OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف جهة العهدة") }, singleLine = true)
                     OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان جهة العهدة") }, singleLine = true)
                     OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات جهة العهدة") }, minLines = 2)
-                    Spacer(Modifier.padding(bottom = 8.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
                 HorizontalDivider()
                 Row(
-                    Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) { Text("إلغاء") }
-                    TextButton(
+                    Spacer(Modifier.width(8.dp))
+                    Button(
                         enabled = name.isNotBlank() && organization.isNotBlank(),
                         onClick = {
                             onSave(
