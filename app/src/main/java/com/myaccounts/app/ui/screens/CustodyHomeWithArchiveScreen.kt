@@ -16,6 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.onFocusEvent
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -56,6 +60,15 @@ import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 
 private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")
 
+@Composable
+private fun Modifier.custodyKeepFocusedFieldVisible(): Modifier {
+    val requester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return bringIntoViewRequester(requester).onFocusEvent {
+        if (it.isFocused) scope.launch { requester.bringIntoView() }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustodyHomeWithArchiveScreen(
@@ -81,7 +94,7 @@ fun CustodyHomeWithArchiveScreen(
                     IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("إدارة بيانات العُهَد") },
+                            text = { Text("النسخ الاحتياطي و الاستعادة") },
                             leadingIcon = { Icon(Icons.Default.Backup, null) },
                             onClick = { showMoreMenu = false; onBackupRestore() }
                         )
@@ -158,10 +171,10 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.90f),
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.90f).imePadding().navigationBarsPadding(),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp
         ) {
@@ -174,7 +187,7 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
                 )
                 Column(
                     modifier = Modifier
-                        .weight(1f, fill = false)
+                        .weight(1f)
                         .verticalScroll(rememberScrollState())
                         .imePadding()
                         .navigationBarsPadding()
@@ -182,15 +195,15 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("بيانات حامل العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("اسم صاحب العهدة") }, singleLine = true)
-                    OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("هاتف صاحب العهدة") }, singleLine = true)
-                    OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("عنوان صاحب العهدة") }, singleLine = true)
-                    OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات صاحب العهدة") }, minLines = 2)
+                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم صاحب العهدة") }, singleLine = true)
+                    OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف صاحب العهدة") }, singleLine = true)
+                    OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان صاحب العهدة") }, singleLine = true)
+                    OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات صاحب العهدة") }, minLines = 2)
                     Text("بيانات جهة العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth(), label = { Text("اسم جهة العهدة") }, singleLine = true)
-                    OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth(), label = { Text("هاتف جهة العهدة") }, singleLine = true)
-                    OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth(), label = { Text("عنوان جهة العهدة") }, singleLine = true)
-                    OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth(), label = { Text("ملاحظات جهة العهدة") }, minLines = 2)
+                    OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم جهة العهدة") }, singleLine = true)
+                    OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف جهة العهدة") }, singleLine = true)
+                    OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان جهة العهدة") }, singleLine = true)
+                    OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات جهة العهدة") }, minLines = 2)
                     Spacer(Modifier.padding(bottom = 8.dp))
                 }
                 HorizontalDivider()
