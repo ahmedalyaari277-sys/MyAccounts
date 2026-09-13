@@ -68,10 +68,10 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingRestore = uri }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("نقل بيانات العُهَد") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "رجوع") } }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text("النسخ الاحتياطي و الاستعادة") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "رجوع") } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { Text("نقل بيانات العُهَد", style = MaterialTheme.typography.titleLarge) }
-            item { Text("هذه الشاشة موحدة لنسخ واستعادة واستيراد وتصدير العُهَد فقط، ولا تتعامل مع دفتر الحسابات.") }
+            item { Text("النسخ الاحتياطي و الاستعادة", style = MaterialTheme.typography.titleLarge) }
+            item { Text("هذه الشاشة موحدة للنسخ الاحتياطي والاستعادة والتصدير والاستيراد الخاصة بالعُهَد فقط، ولا تتعامل مع دفتر الحسابات.") }
             item { Button(enabled = !busy, onClick = { exportLauncher.launch(CustodyTwoSheetExcelDataManager.SUGGESTED_FILE_NAME) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
             item { OutlinedButton(enabled = !busy, onClick = { importLauncher.launch(arrayOf(CustodyTwoSheetExcelDataManager.MIME_TYPE)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileUpload, null); Text("استيراد العُهَد من Excel") } }
             item { Button(enabled = !busy, onClick = { backupLauncher.launch(CustodyBackupManager.SUGGESTED_FILE_NAME) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("نسخ احتياطي للعُهَد فقط") } }
