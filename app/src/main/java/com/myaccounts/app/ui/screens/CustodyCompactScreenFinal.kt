@@ -112,7 +112,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
                 Box(Modifier.fillMaxWidth().height(48.dp)) {
                     Text("الأطراف", modifier = Modifier.align(Alignment.CenterEnd), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                        Row(Modifier.width(176.dp).height(48.dp).align(Alignment.CenterEnd), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.width(176.dp).height(48.dp).align(Alignment.CenterStart), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
                             TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }
                         }
