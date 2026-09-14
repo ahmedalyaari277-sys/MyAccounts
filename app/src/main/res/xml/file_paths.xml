@@ -12,4 +12,7 @@
     <cache-path
         name="report_share"
         path="report_share/" />
+    <cache-path
+        name="data_transfer_staging"
+        path="." />
 </paths>

@@ -42,7 +42,6 @@ import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.SummaryCard
 import com.myaccounts.app.util.BackupScope
-import com.myaccounts.app.util.DatabaseBackupManager
 import com.myaccounts.app.util.ExcelDataManager
 import com.myaccounts.app.util.ManualSyncManager
 import com.myaccounts.app.util.ScopedBackupManager
@@ -112,10 +111,10 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
         if (folderUri == null) { showMessage("اختر مجلد المزامنة أولاً.", BackupFeedbackType.Info); return }
         busy = true
         coroutineScope.launch(Dispatchers.IO) {
-            val result = ManualSyncManager.syncToFolder(context, folderUri)
+            val result = ManualSyncManager.syncToFolder(context, folderUri, scope)
             busy = false
             result.fold(
-                onSuccess = { uri -> lastBackupUri = uri; preferences.edit().putString(uriKey, uri.toString()).apply(); showMessage("تمت المزامنة اليدوية بنجاح.", BackupFeedbackType.Success) },
+                onSuccess = { uri -> lastBackupUri = uri; preferences.edit().putString(uriKey, uri.toString()).apply(); showMessage("تم حفظ نسخة المزامنة لنطاق ${scope.title} بنجاح.", BackupFeedbackType.Success) },
                 onFailure = { error -> showMessage("تعذرت المزامنة: ${error.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
             )
         }
