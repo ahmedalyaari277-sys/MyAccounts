@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.myaccounts.app.data.custody.CustodyAttachmentStore
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import com.myaccounts.app.util.BackupScope
@@ -60,6 +61,7 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         if (uri != null) {
             busy = true
             scope.launch(Dispatchers.IO) {
+                CustodyAttachmentStore.ensureSchema(context)
                 val r = ScopedBackupManager.createBackup(context, uri, BackupScope.CUSTODY)
                 if (r.isSuccess) lastBackupUri = uri
                 message = r.fold({ "تم إنشاء النسخة الاحتياطية للعُهَد بنجاح، وتشمل بيانات العُهَد ومرفقاتها." }, { "تعذر إنشاء النسخة الاحتياطية للعُهَد: ${it.message ?: "خطأ غير معروف"}" })
@@ -83,6 +85,7 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         if (folder == null) { message = "اختر مجلد المزامنة أولاً."; return }
         busy = true
         scope.launch(Dispatchers.IO) {
+            CustodyAttachmentStore.ensureSchema(context)
             val r = ManualSyncManager.syncToFolder(context, folder, BackupScope.CUSTODY)
             if (r.isSuccess) lastBackupUri = r.getOrNull()
             message = r.fold({ "تم حفظ نسخة مزامنة للعُهَد في المجلد المحدد." }, { "تعذرت مزامنة العُهَد: ${it.message ?: "خطأ غير معروف"}" })
@@ -114,8 +117,8 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         }
     }
 
-    pendingImport?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingImport = null }, title = { Text("تأكيد استيراد العُهَد") }, text = { Text("سيتم فحص ملف Excel ذي الورقة الواحدة الخاصة بالعُهَد ثم استيراد بياناتها فقط. لن تتأثر بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingImport = null; busy = true; scope.launch(Dispatchers.IO) { val r = runCatching { val p = CustodyTwoSheetExcelDataManager.previewImport(context, uri).getOrThrow(); check(p.isValid) { p.errors.joinToString("\n") }; CustodyTwoSheetExcelDataManager.import(context, uri).getOrThrow() }; message = r.fold({ "تم الاستيراد: ${it.custodiesAdded} عهدة، ${it.peopleAdded} أشخاص، ${it.accountsAdded} حسابات، ${it.transactionsAdded} عمليات." }, { "تعذر استيراد بيانات العُهَد: ${it.message ?: "ملف غير صالح"}" }); busy = false } }) { Text("استيراد") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingImport = null }) { Text("إلغاء") } }) }
-    pendingRestore?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingRestore = null }, title = { Text("تأكيد استعادة العُهَد") }, text = { Text("سيتم استبدال بيانات العُهَد الحالية بالبيانات الموجودة في النسخة المحددة، مع إعادة المرفقات التابعة لها. كما يدعم التطبيق النسخ القديمة الخاصة بالعُهَد عند الحاجة. لن يتم تعديل بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null; busy = true; scope.launch(Dispatchers.IO) { val scoped = ScopedBackupManager.restoreBackup(context, uri, BackupScope.CUSTODY); val result = if (scoped.isSuccess) scoped else CustodyBackupManager.restoreBackup(context, uri).map { Unit }; message = result.fold({ "تمت استعادة العُهَد والمرفقات بنجاح." }, { "تعذرت استعادة نسخة العُهَد: ${it.message ?: "الملف غير صالح"}" }); busy = false } }) { Text("استعادة") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null }) { Text("إلغاء") } }) }
+    pendingImport?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingImport = null }, title = { Text("تأكيد استيراد العُهَد") }, text = { Text("سيتم فحص ملف Excel ذي الورقة الواحدة الخاصة بالعُهَد ثم استيراد بياناتها فقط. لن تتأثر بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingImport = null; busy = true; scope.launch(Dispatchers.IO) { val r = runCatching { val p = CustodyTwoSheetExcelDataManager.previewImport(context, uri).getOrThrow(); check(p.isValid) { p.errors.joinToString("\n") }; CustodyAttachmentStore.ensureSchema(context); val snapshot = File.createTempFile("myaccounts-custody-import-snapshot-", ".myaccounts", context.cacheDir); val snapshotUri = Uri.fromFile(snapshot); try { val snapshotResult = ScopedBackupManager.createBackup(context, snapshotUri, BackupScope.CUSTODY); if (snapshotResult.isFailure && snapshotResult.exceptionOrNull()?.message != "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية.") snapshotResult.getOrThrow(); try { CustodyTwoSheetExcelDataManager.import(context, uri).getOrThrow() } catch (failure: Throwable) { val rollback = ScopedBackupManager.restoreBackup(context, snapshotUri, BackupScope.CUSTODY); if (rollback.isFailure) throw IllegalStateException("فشل استيراد بيانات العُهَد وفشلت محاولة التراجع عن التغييرات: ${rollback.exceptionOrNull()?.message ?: "خطأ غير معروف"}", failure); throw failure } } finally { snapshot.delete() } }; message = r.fold({ "تم الاستيراد: ${it.custodiesAdded} عهدة، ${it.peopleAdded} أشخاص، ${it.accountsAdded} حسابات، ${it.transactionsAdded} عمليات." }, { "تعذر استيراد بيانات العُهَد: ${it.message ?: "ملف غير صالح"}" }); busy = false } }) { Text("استيراد") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingImport = null }) { Text("إلغاء") } }) }
+    pendingRestore?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingRestore = null }, title = { Text("تأكيد استعادة العُهَد") }, text = { Text("سيتم استبدال بيانات العُهَد الحالية بالبيانات الموجودة في النسخة المحددة، مع إعادة المرفقات التابعة لها. كما يدعم التطبيق النسخ القديمة الخاصة بالعُهَد عند الحاجة. لن يتم تعديل بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null; busy = true; scope.launch(Dispatchers.IO) { CustodyAttachmentStore.ensureSchema(context); val scoped = ScopedBackupManager.restoreBackup(context, uri, BackupScope.CUSTODY); val result = if (scoped.isSuccess) scoped else CustodyBackupManager.restoreBackup(context, uri).map { Unit }; message = result.fold({ "تمت استعادة العُهَد والمرفقات بنجاح." }, { "تعذرت استعادة نسخة العُهَد: ${it.message ?: "الملف غير صالح"}" }); busy = false } }) { Text("استعادة") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null }) { Text("إلغاء") } }) }
     message?.let { t -> AlertDialog(onDismissRequest = { message = null }, text = { Text(t) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }) }
 }
 
