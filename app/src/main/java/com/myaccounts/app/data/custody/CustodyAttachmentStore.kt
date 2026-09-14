@@ -8,8 +8,26 @@ class CustodyAttachmentStore(context: Context) {
     private val db = com.myaccounts.app.data.local.AppDatabase.getInstance(appContext)
 
     init {
-        db.openHelper.writableDatabase.execSQL("CREATE TABLE IF NOT EXISTS custody_transaction_attachments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, transactionId INTEGER NOT NULL, fileName TEXT NOT NULL, mimeType TEXT NOT NULL, relativePath TEXT NOT NULL, sizeBytes INTEGER NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(transactionId) REFERENCES custody_transactions(id) ON DELETE CASCADE)")
-        db.openHelper.writableDatabase.execSQL("CREATE INDEX IF NOT EXISTS index_custody_transaction_attachments_transactionId ON custody_transaction_attachments(transactionId)")
+        ensureSchema(db)
+    }
+
+    companion object {
+        /**
+         * Ensures the legacy/manual custody attachment table exists before any
+         * backup, restore, repository, or attachment operation touches it.
+         * This intentionally remains outside Room's entity schema so existing
+         * Room migrations and the database version are not changed.
+         */
+        fun ensureSchema(context: Context) {
+            val database = com.myaccounts.app.data.local.AppDatabase.getInstance(context.applicationContext)
+            ensureSchema(database)
+        }
+
+        private fun ensureSchema(database: com.myaccounts.app.data.local.AppDatabase) {
+            val sqlite = database.openHelper.writableDatabase
+            sqlite.execSQL("CREATE TABLE IF NOT EXISTS custody_transaction_attachments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, transactionId INTEGER NOT NULL, fileName TEXT NOT NULL, mimeType TEXT NOT NULL, relativePath TEXT NOT NULL, sizeBytes INTEGER NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY(transactionId) REFERENCES custody_transactions(id) ON DELETE CASCADE)")
+            sqlite.execSQL("CREATE INDEX IF NOT EXISTS index_custody_transaction_attachments_transactionId ON custody_transaction_attachments(transactionId)")
+        }
     }
 
     fun list(transactionId: Long): List<CustodyTransactionAttachmentEntity> {
