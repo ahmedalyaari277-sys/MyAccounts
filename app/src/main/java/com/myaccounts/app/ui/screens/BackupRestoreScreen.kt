@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.myaccounts.app.data.custody.CustodyAttachmentStore
 import com.myaccounts.app.security.AppSecurityManager
 import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.ConfirmationDialog
@@ -77,6 +78,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
         if (uri != null) {
             busy = true
             coroutineScope.launch(Dispatchers.IO) {
+                if (scope != BackupScope.ACCOUNTS) CustodyAttachmentStore.ensureSchema(context)
                 val result = ScopedBackupManager.createBackup(context, uri, scope)
                 busy = false
                 result.fold(
@@ -111,6 +113,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
         if (folderUri == null) { showMessage("اختر مجلد المزامنة أولاً.", BackupFeedbackType.Info); return }
         busy = true
         coroutineScope.launch(Dispatchers.IO) {
+            if (scope != BackupScope.ACCOUNTS) CustodyAttachmentStore.ensureSchema(context)
             val result = ManualSyncManager.syncToFolder(context, folderUri, scope)
             busy = false
             result.fold(
@@ -203,6 +206,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
                 pendingRestoreUri = null
                 busy = true
                 coroutineScope.launch(Dispatchers.IO) {
+                    if (scope != BackupScope.ACCOUNTS) CustodyAttachmentStore.ensureSchema(context)
                     val result = ScopedBackupManager.restoreBackup(context, uri, scope)
                     busy = false
                     result.fold(
