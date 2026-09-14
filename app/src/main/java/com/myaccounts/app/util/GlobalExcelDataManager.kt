@@ -56,13 +56,32 @@ object GlobalExcelDataManager {
         val custodySheet=entries["xl/worksheets/sheet2.xml"]?:error("ورقة العُهَد مفقودة.")
         val (accountUri,accountFile)=materializeSingleSheet(context,accountSheet,"accounts-import")
         val (custodyUri,custodyFile)=materializeSingleSheet(context,custodySheet,"custody-import")
+        val snapshotFile=File.createTempFile("myaccounts-global-import-snapshot-",".myaccounts",context.cacheDir)
+        val snapshotUri=Uri.fromFile(snapshotFile)
         try {
             val ap=ExcelDataManager.previewImport(context,accountUri).getOrThrow()
             val cp=CustodyTwoSheetExcelDataManager.previewImport(context,custodyUri).getOrThrow()
             check(ap.isValid){ap.errors.joinToString("\n")}
             check(cp.isValid){cp.errors.joinToString("\n")}
-            ImportSummary(ExcelDataManager.import(context,accountUri).getOrThrow(),CustodyTwoSheetExcelDataManager.import(context,custodyUri).getOrThrow())
-        } finally { accountFile.delete(); custodyFile.delete() }
+            com.myaccounts.app.data.custody.CustodyAttachmentStore.ensureSchema(context)
+            val snapshotResult=ScopedBackupManager.createBackup(context,snapshotUri,BackupScope.ALL)
+            if(snapshotResult.isFailure && snapshotResult.exceptionOrNull()?.message != "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية.") {
+                snapshotResult.getOrThrow()
+            }
+            try {
+                ImportSummary(ExcelDataManager.import(context,accountUri).getOrThrow(),CustodyTwoSheetExcelDataManager.import(context,custodyUri).getOrThrow())
+            } catch (failure: Throwable) {
+                val rollback=ScopedBackupManager.restoreBackup(context,snapshotUri,BackupScope.ALL)
+                if(rollback.isFailure) {
+                    throw IllegalStateException("فشل استيراد ملف Excel وفشلت محاولة التراجع عن التغييرات: ${rollback.exceptionOrNull()?.message ?: "خطأ غير معروف"}", failure)
+                }
+                throw failure
+            }
+        } finally {
+            accountFile.delete()
+            custodyFile.delete()
+            snapshotFile.delete()
+        }
     }
 
     private fun materializeSingleSheet(context:Context,sheet:ByteArray,prefix:String):Pair<Uri,File> {
@@ -87,5 +106,5 @@ object GlobalExcelDataManager {
     private fun workbookXml()="""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="بيانات" sheetId="1" r:id="rId1"/></sheets></workbook>"""
     private fun workbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"""
     private fun combinedWorkbook()="""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="بيانات الحسابات" sheetId="1" r:id="rId1"/><sheet name="بيانات العُهَد" sheetId="2" r:id="rId2"/></sheets></workbook>"""
-    private fun combinedWorkbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>"""
+    private fun combinedWorkbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>"""
 }
