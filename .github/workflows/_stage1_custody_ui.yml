@@ -6,7 +6,7 @@ permissions:
   contents: write
 jobs:
   repair:
-    if: ${{ !startsWith(github.event.head_commit.message, 'fix(ui):') && !startsWith(github.event.head_commit.message, 'chore(ui):') }}
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(ui):') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,6 @@ jobs:
               if old not in s: raise SystemExit(f'PATTERN NOT FOUND: {path}')
               if s.count(old)!=1: raise SystemExit(f'PATTERN NOT UNIQUE: {path}: {s.count(old)}')
               return s.replace(old,new)
-
           def home(s):
               s=rep(s,'import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\n','CustodyHomeWithArchiveScreen.kt')
               s=rep(s,'import androidx.compose.material.icons.filled.MoreVert\n','import androidx.compose.material.icons.filled.MoreVert\nimport androidx.compose.material.icons.filled.Sort\n','CustodyHomeWithArchiveScreen.kt')
@@ -39,7 +38,6 @@ jobs:
               s=rep(s,'            FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") }','            FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }','CustodyHomeWithArchiveScreen.kt')
               return s
           edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt',home)
-
           def detail(s):
               s=rep(s,'            if (!current.isClosed) IconButton(onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, contentDescription = "إضافة طرف") }\n','', 'CustodyCompactScreenFinal.kt')
               s=rep(s,'                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        Row(Modifier.width(176.dp).height(48.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {\n                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }\n                        }\n                    }','                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                    }','CustodyCompactScreenFinal.kt')
