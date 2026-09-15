@@ -1,4 +1,4 @@
-# stage1 trigger: use project Gradle wrapper for verified custody UI repair
+# stage1 trigger: use project-compatible Gradle 8.2 for verified custody UI repair
 name: Stage 1 Custody UI Repair
 on:
   push:
@@ -18,6 +18,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -51,7 +53,7 @@ jobs:
               return s
           edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt',detail)
       - name: Build verification
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Commit repairs
         run: |
           git config user.name 'github-actions[bot]'
