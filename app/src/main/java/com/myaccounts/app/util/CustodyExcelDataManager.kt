@@ -22,85 +22,1518 @@ import java.util.zip.ZipOutputStream
 import org.xmlpull.v1.XmlPullParser
 
 object CustodyExcelDataManager {
-    const val MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    const val MIME_TYPE =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
     const val SUGGESTED_FILE_NAME = "MyAccounts_Custodies.xlsx"
+
     private const val SHEET_NAME = "بيانات العُهَد"
-    private val HEADERS = listOf("معرف العهدة","معرف العملية","معرف الشخص","اسم صاحب العهدة","هاتف صاحب العهدة","عنوان صاحب العهدة","ملاحظات صاحب العهدة","اسم الجهة","هاتف الجهة","عنوان الجهة","ملاحظات الجهة","اسم الشخص","هاتف الشخص","عنوان الشخص","ملاحظات الشخص","العملة","نوع العملية","المبلغ","البيان","التاريخ")
-    data class ExportSummary(val custodies:Int,val people:Int,val accounts:Int,val transactions:Int)
-    data class ImportPreview(val custodies:Int,val people:Int,val accounts:Int,val transactions:Int,val errors:List<String>) { val isValid get()=errors.isEmpty() }
-    data class ImportSummary(val custodiesAdded:Int,val peopleAdded:Int,val accountsAdded:Int,val transactionsAdded:Int)
-    private data class Row(val n:Int,val custodyId:String,val transactionId:String,val personId:String,val owner:String,val ownerPhone:String,val ownerAddress:String,val ownerNotes:String,val org:String,val orgPhone:String,val orgAddress:String,val orgNotes:String,val person:String,val personPhone:String,val personAddress:String,val personNotes:String,val currency:String,val type:String,val amount:Long?,val description:String,val date:Long?)
 
-    private fun openInput(context: Context, uri: Uri): InputStream = if (uri.scheme == "file") File(requireNotNull(uri.path)).inputStream() else context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف Excel.")
-    private fun openOutput(context: Context, uri: Uri): OutputStream = if (uri.scheme == "file") File(requireNotNull(uri.path)).outputStream() else context.contentResolver.openOutputStream(uri) ?: error("تعذر فتح ملف Excel للكتابة.")
+    private val HEADERS = listOf(
+        "معرف العهدة",
+        "معرف العملية",
+        "معرف الشخص",
+        "اسم صاحب العهدة",
+        "هاتف صاحب العهدة",
+        "عنوان صاحب العهدة",
+        "ملاحظات صاحب العهدة",
+        "اسم الجهة",
+        "هاتف الجهة",
+        "عنوان الجهة",
+        "ملاحظات الجهة",
+        "اسم الشخص",
+        "هاتف الشخص",
+        "عنوان الشخص",
+        "ملاحظات الشخص",
+        "العملة",
+        "نوع العملية",
+        "المبلغ",
+        "البيان",
+        "التاريخ"
+    )
 
-    suspend fun exportActive(context:Context, uri:Uri):Result<ExportSummary> = runCatching {
-        val db=AppDatabase.getInstance(context); val dao=db.custodyDao(); val cs=dao.getAllCustodies(false); val ps=cs.flatMap{dao.getAllPersons(it.id)}; val ac=cs.flatMap{dao.getAllAccounts(it.id)}; val tx=cs.flatMap{dao.getAllTransactions(it.id,false)}; val peopleById=ps.associateBy{it.id}; val custodyById=cs.associateBy{it.id}; val transactionsByCustody=tx.groupBy{it.custodyId}; val peopleWithTransactions=tx.mapNotNull{it.personId}.toSet()
-        val rows=mutableListOf<Row>()
-        tx.forEach{t-> val c=custodyById[t.custodyId]?:error("بيانات العهدة المرتبطة بالعملية غير موجودة."); val p=t.personId?.let(peopleById::get); rows+=Row(0,c.externalId,t.externalId,p?.externalId?:"",c.name,c.phone,c.address,c.notes,c.organizationName,c.organizationPhone,c.organizationAddress,c.organizationNotes,p?.name?:"",p?.phone?:"",p?.address?:"",p?.notes?:"",t.currencyCode,t.type,t.amountMinor,t.description,t.transactionDate)}
-        cs.forEach { c ->
-            if (transactionsByCustody[c.id].isNullOrEmpty()) {
-                rows += Row(0,c.externalId,"","",c.name,c.phone,c.address,c.notes,c.organizationName,c.organizationPhone,c.organizationAddress,c.organizationNotes,"","","","","","",null,"",null)
-            }
-        }
-        ps.filter { it.id !in peopleWithTransactions }.forEach { p ->
-            val c = custodyById[p.custodyId] ?: error("بيانات العهدة المرتبطة بالشخص غير موجودة.")
-            rows += Row(0,c.externalId,"",p.externalId,c.name,c.phone,c.address,c.notes,c.organizationName,c.organizationPhone,c.organizationAddress,c.organizationNotes,p.name,p.phone,p.address,p.notes,"","","",null,null)
-        }
-        openOutput(context,uri).use{createWorkbook(it,rows)}
-        ExportSummary(cs.size,ps.size,ac.size,tx.size)
+    private val SUPPORTED_CURRENCIES = setOf(
+        "YER",
+        "SAR",
+        "USD"
+    )
+
+    private val ALLOWED_TYPES = setOf(
+        CustodyTransactionType.RECEIVED_FROM_ORG,
+        CustodyTransactionType.PAID_TO_PERSON,
+        CustodyTransactionType.RETURNED_FROM_PERSON,
+        CustodyTransactionType.RETURNED_TO_ORG,
+        CustodyTransactionType.ORG_LOAN_FROM_OWNER,
+        CustodyTransactionType.ORG_LOAN_REPAYMENT,
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER,
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN
+    )
+
+    private val PERSON_TYPES = setOf(
+        CustodyTransactionType.PAID_TO_PERSON,
+        CustodyTransactionType.RETURNED_FROM_PERSON,
+        CustodyTransactionType.PERSON_LOAN_TO_OWNER,
+        CustodyTransactionType.OWNER_REPAY_PERSON_LOAN
+    )
+
+    private val ORGANIZATION_TYPES = setOf(
+        CustodyTransactionType.RECEIVED_FROM_ORG,
+        CustodyTransactionType.RETURNED_TO_ORG,
+        CustodyTransactionType.ORG_LOAN_FROM_OWNER,
+        CustodyTransactionType.ORG_LOAN_REPAYMENT
+    )
+
+    private val ACCOUNT_CURRENCIES = listOf(
+        "YER",
+        "SAR",
+        "USD"
+    )
+
+    data class ExportSummary(
+        val custodies: Int,
+        val people: Int,
+        val accounts: Int,
+        val transactions: Int
+    )
+
+    data class ImportPreview(
+        val custodies: Int,
+        val people: Int,
+        val accounts: Int,
+        val transactions: Int,
+        val errors: List<String>
+    ) {
+        val isValid: Boolean
+            get() = errors.isEmpty()
     }
 
-    fun previewImport(context:Context,uri:Uri):Result<ImportPreview> = runCatching { validate(parseWorkbook(context,uri)) }
+    data class ImportSummary(
+        val custodiesAdded: Int,
+        val peopleAdded: Int,
+        val accountsAdded: Int,
+        val transactionsAdded: Int
+    )
 
-    suspend fun import(context:Context,uri:Uri):Result<ImportSummary> = runCatching {
-        val rows=parseWorkbook(context,uri); val preview=validate(rows); check(preview.isValid){preview.errors.joinToString("\n")}; val db=AppDatabase.getInstance(context); val dao=db.custodyDao()
+    private data class Row(
+        val n: Int,
+        val custodyId: String,
+        val transactionId: String,
+        val personId: String,
+        val owner: String,
+        val ownerPhone: String,
+        val ownerAddress: String,
+        val ownerNotes: String,
+        val org: String,
+        val orgPhone: String,
+        val orgAddress: String,
+        val orgNotes: String,
+        val person: String,
+        val personPhone: String,
+        val personAddress: String,
+        val personNotes: String,
+        val currency: String,
+        val type: String,
+        val amount: Long?,
+        val description: String,
+        val date: Long?
+    )
+
+    private fun openInput(
+        context: Context,
+        uri: Uri
+    ): InputStream {
+        return if (uri.scheme == "file") {
+            File(requireNotNull(uri.path)).inputStream()
+        } else {
+            context.contentResolver.openInputStream(uri)
+                ?: error("تعذر فتح ملف Excel.")
+        }
+    }
+
+    private fun openOutput(
+        context: Context,
+        uri: Uri
+    ): OutputStream {
+        return if (uri.scheme == "file") {
+            File(requireNotNull(uri.path)).outputStream()
+        } else {
+            context.contentResolver.openOutputStream(uri)
+                ?: error("تعذر فتح ملف Excel للكتابة.")
+        }
+    }
+
+    suspend fun exportActive(
+        context: Context,
+        uri: Uri
+    ): Result<ExportSummary> = runCatching {
+
+        val db = AppDatabase.getInstance(context)
+        val dao = db.custodyDao()
+
+        val custodies = dao.getAllCustodies(false)
+
+        val people = custodies.flatMap {
+            dao.getAllPersons(it.id)
+        }
+
+        val accounts = custodies.flatMap {
+            dao.getAllAccounts(it.id)
+        }
+
+        val transactions = custodies.flatMap {
+            dao.getAllTransactions(it.id, false)
+        }
+
+        val peopleById = people.associateBy { it.id }
+        val custodyById = custodies.associateBy { it.id }
+
+        val transactionsByCustody =
+            transactions.groupBy { it.custodyId }
+
+        val peopleWithTransactions =
+            transactions.mapNotNull { it.personId }.toSet()
+
+        val rows = mutableListOf<Row>()
+
+        /*
+         * تصدير جميع العمليات.
+         */
+        transactions.forEach { transaction ->
+
+            val custody =
+                custodyById[transaction.custodyId]
+                    ?: error(
+                        "بيانات العهدة المرتبطة بالعملية غير موجودة."
+                    )
+
+            val person =
+                transaction.personId?.let(peopleById::get)
+
+            rows += Row(
+                n = 0,
+                custodyId = custody.externalId,
+                transactionId = transaction.externalId,
+                personId = person?.externalId ?: "",
+                owner = custody.name,
+                ownerPhone = custody.phone,
+                ownerAddress = custody.address,
+                ownerNotes = custody.notes,
+                org = custody.organizationName,
+                orgPhone = custody.organizationPhone,
+                orgAddress = custody.organizationAddress,
+                orgNotes = custody.organizationNotes,
+                person = person?.name ?: "",
+                personPhone = person?.phone ?: "",
+                personAddress = person?.address ?: "",
+                personNotes = person?.notes ?: "",
+                currency = transaction.currencyCode,
+                type = transaction.type,
+                amount = transaction.amountMinor,
+                description = transaction.description,
+                date = transaction.transactionDate
+            )
+        }
+
+        /*
+         * تصدير العهد التي لا تحتوي على عمليات.
+         */
+        custodies.forEach { custody ->
+
+            if (transactionsByCustody[custody.id].isNullOrEmpty()) {
+
+                rows += Row(
+                    n = 0,
+                    custodyId = custody.externalId,
+                    transactionId = "",
+                    personId = "",
+                    owner = custody.name,
+                    ownerPhone = custody.phone,
+                    ownerAddress = custody.address,
+                    ownerNotes = custody.notes,
+                    org = custody.organizationName,
+                    orgPhone = custody.organizationPhone,
+                    orgAddress = custody.organizationAddress,
+                    orgNotes = custody.organizationNotes,
+                    person = "",
+                    personPhone = "",
+                    personAddress = "",
+                    personNotes = "",
+                    currency = "",
+                    type = "",
+                    amount = null,
+                    description = "",
+                    date = null
+                )
+            }
+        }
+
+        /*
+         * تصدير الأشخاص الذين لا توجد لهم عمليات.
+         */
+        people
+            .filter { it.id !in peopleWithTransactions }
+            .forEach { person ->
+
+                val custody =
+                    custodyById[person.custodyId]
+                        ?: error(
+                            "بيانات العهدة المرتبطة بالشخص غير موجودة."
+                        )
+
+                rows += Row(
+                    n = 0,
+                    custodyId = custody.externalId,
+                    transactionId = "",
+                    personId = person.externalId,
+                    owner = custody.name,
+                    ownerPhone = custody.phone,
+                    ownerAddress = custody.address,
+                    ownerNotes = custody.notes,
+                    org = custody.organizationName,
+                    orgPhone = custody.organizationPhone,
+                    orgAddress = custody.organizationAddress,
+                    orgNotes = custody.organizationNotes,
+                    person = person.name,
+                    personPhone = person.phone,
+                    personAddress = person.address,
+                    personNotes = person.notes,
+                    currency = "",
+                    type = "",
+                    amount = null,
+                    description = "",
+                    date = null
+                )
+            }
+
+        openOutput(context, uri).use { output ->
+            createWorkbook(output, rows)
+        }
+
+        ExportSummary(
+            custodies = custodies.size,
+            people = people.size,
+            accounts = accounts.size,
+            transactions = transactions.size
+        )
+    }
+
+    fun previewImport(
+        context: Context,
+        uri: Uri
+    ): Result<ImportPreview> = runCatching {
+
+        validate(
+            parseWorkbook(context, uri)
+        )
+    }
+
+    suspend fun import(
+        context: Context,
+        uri: Uri
+    ): Result<ImportSummary> = runCatching {
+
+        val rows = parseWorkbook(context, uri)
+
+        val preview = validate(rows)
+
+        check(preview.isValid) {
+            preview.errors.joinToString("\n")
+        }
+
+        val db = AppDatabase.getInstance(context)
+        val dao = db.custodyDao()
+
         db.withTransaction {
-            var ca=0;var pa=0;var aa=0;var ta=0; val custodyIds=mutableMapOf<String,Long>(); val personIds=mutableMapOf<String,Long>()
-            rows.groupBy{it.custodyId}.values.forEach{group->
-                val first=group.first(); val existing=dao.getCustodyByExternalId(first.custodyId); val cid=existing?.id?:dao.insertCustody(CustodyEntity(name=first.owner,phone=first.ownerPhone,address=first.ownerAddress,notes=first.ownerNotes,organizationName=first.org,organizationPhone=first.orgPhone,organizationAddress=first.orgAddress,organizationNotes=first.orgNotes,externalId=first.custodyId)).also{ca++}; custodyIds[first.custodyId]=cid
-                var currentAccounts=dao.getAllAccounts(cid)
-                if(currentAccounts.none{it.holderType=="OWNER"}){dao.insertAccounts(listOf("YER","SAR","USD").map{CustodyAccountEntity(custodyId=cid,holderType="OWNER",currencyCode=it)});aa+=3;currentAccounts=dao.getAllAccounts(cid)}
-                group.filter{it.personId.isNotBlank()}.groupBy{it.personId}.values.forEach{pg->val r=pg.first();val p=dao.getPersonByExternalId(cid,r.personId);val pid=p?.id?:dao.insertPerson(CustodyPersonEntity(custodyId=cid,name=r.person,phone=r.personPhone,address=r.personAddress,notes=r.personNotes,externalId=r.personId)).also{pa++};personIds["${first.custodyId}|${r.personId}"]=pid;if(currentAccounts.none{it.holderType=="PERSON"&&it.personId==pid}){dao.insertAccounts(listOf("YER","SAR","USD").map{CustodyAccountEntity(custodyId=cid,holderType="PERSON",personId=pid,currencyCode=it)});aa+=3}}
+
+            var custodiesAdded = 0
+            var peopleAdded = 0
+            var accountsAdded = 0
+            var transactionsAdded = 0
+
+            val custodyIds = mutableMapOf<String, Long>()
+            val personIds = mutableMapOf<String, Long>()
+
+            /*
+             * إنشاء العهد والأشخاص والحسابات أولاً.
+             */
+            rows
+                .groupBy { it.custodyId }
+                .values
+                .forEach { group ->
+
+                    val first = group.first()
+
+                    val existingCustody =
+                        dao.getCustodyByExternalId(
+                            first.custodyId
+                        )
+
+                    val custodyId =
+                        existingCustody?.id
+                            ?: dao.insertCustody(
+                                CustodyEntity(
+                                    name = first.owner,
+                                    phone = first.ownerPhone,
+                                    address = first.ownerAddress,
+                                    notes = first.ownerNotes,
+                                    organizationName = first.org,
+                                    organizationPhone = first.orgPhone,
+                                    organizationAddress = first.orgAddress,
+                                    organizationNotes = first.orgNotes,
+                                    externalId = first.custodyId
+                                )
+                            ).also {
+                                custodiesAdded++
+                            }
+
+                    custodyIds[first.custodyId] = custodyId
+
+                    /*
+                     * التأكد من وجود حسابات صاحب العهدة
+                     * للعملات الثلاث فقط عند الحاجة.
+                     */
+                    var currentAccounts =
+                        dao.getAllAccounts(custodyId)
+
+                    val existingOwnerCurrencies =
+                        currentAccounts
+                            .filter {
+                                it.holderType == "OWNER" &&
+                                    it.personId == null
+                            }
+                            .map { it.currencyCode }
+                            .toSet()
+
+                    val missingOwnerCurrencies =
+                        ACCOUNT_CURRENCIES.filter {
+                            it !in existingOwnerCurrencies
+                        }
+
+                    if (missingOwnerCurrencies.isNotEmpty()) {
+
+                        val newAccounts =
+                            missingOwnerCurrencies.map { currency ->
+
+                                CustodyAccountEntity(
+                                    custodyId = custodyId,
+                                    holderType = "OWNER",
+                                    currencyCode = currency
+                                )
+                            }
+
+                        dao.insertAccounts(newAccounts)
+
+                        accountsAdded += newAccounts.size
+
+                        currentAccounts =
+                            dao.getAllAccounts(custodyId)
+                    }
+
+                    /*
+                     * إنشاء الأشخاص وحساباتهم.
+                     */
+                    group
+                        .filter { it.personId.isNotBlank() }
+                        .groupBy { it.personId }
+                        .values
+                        .forEach { personGroup ->
+
+                            val row = personGroup.first()
+
+                            val existingPerson =
+                                dao.getPersonByExternalId(
+                                    custodyId,
+                                    row.personId
+                                )
+
+                            val personId =
+                                existingPerson?.id
+                                    ?: dao.insertPerson(
+                                        CustodyPersonEntity(
+                                            custodyId = custodyId,
+                                            name = row.person,
+                                            phone = row.personPhone,
+                                            address = row.personAddress,
+                                            notes = row.personNotes,
+                                            externalId = row.personId
+                                        )
+                                    ).also {
+                                        peopleAdded++
+                                    }
+
+                            personIds[
+                                "${first.custodyId}|${row.personId}"
+                            ] = personId
+
+                            currentAccounts =
+                                dao.getAllAccounts(custodyId)
+
+                            val existingPersonCurrencies =
+                                currentAccounts
+                                    .filter {
+                                        it.holderType == "PERSON" &&
+                                            it.personId == personId
+                                    }
+                                    .map { it.currencyCode }
+                                    .toSet()
+
+                            val missingPersonCurrencies =
+                                ACCOUNT_CURRENCIES.filter {
+                                    it !in existingPersonCurrencies
+                                }
+
+                            if (missingPersonCurrencies.isNotEmpty()) {
+
+                                val newAccounts =
+                                    missingPersonCurrencies.map { currency ->
+
+                                        CustodyAccountEntity(
+                                            custodyId = custodyId,
+                                            holderType = "PERSON",
+                                            personId = personId,
+                                            currencyCode = currency
+                                        )
+                                    }
+
+                                dao.insertAccounts(newAccounts)
+
+                                accountsAdded += newAccounts.size
+                            }
+                        }
+                }
+
+            /*
+             * إدخال العمليات.
+             *
+             * accountId يبقى حساب صاحب العهدة كما هو
+             * في التصميم المالي الحالي للتطبيق، بينما personId
+             * يحدد الطرف المرتبط بالعملية عند الحاجة.
+             */
+            rows.forEach { row ->
+
+                if (row.transactionId.isBlank()) {
+                    return@forEach
+                }
+
+                /*
+                 * الاستيراد Idempotent:
+                 * العملية الموجودة مسبقاً بنفس externalId لا تعاد إضافتها.
+                 */
+                if (
+                    dao.getTransactionByExternalId(
+                        row.transactionId
+                    ) != null
+                ) {
+                    return@forEach
+                }
+
+                val custodyId =
+                    custodyIds[row.custodyId]
+                        ?: error(
+                            "الصف ${row.n}: معرف العهدة غير صالح."
+                        )
+
+                val personId =
+                    if (row.personId.isBlank()) {
+                        null
+                    } else {
+                        personIds[
+                            "${row.custodyId}|${row.personId}"
+                        ]
+                            ?: error(
+                                "الصف ${row.n}: الشخص المرتبط بالعملية غير موجود."
+                            )
+                    }
+
+                val ownerAccount =
+                    dao.getOwnerAccount(
+                        custodyId = custodyId,
+                        currency = row.currency
+                    )
+                        ?: error(
+                            "الصف ${row.n}: حساب العملة ${row.currency} لصاحب العهدة غير موجود."
+                        )
+
+                val amount =
+                    row.amount
+                        ?: error(
+                            "الصف ${row.n}: المبلغ غير صالح."
+                        )
+
+                val date =
+                    row.date
+                        ?: error(
+                            "الصف ${row.n}: التاريخ غير صالح."
+                        )
+
+                dao.insertTransaction(
+                    CustodyTransactionEntity(
+                        custodyId = custodyId,
+                        accountId = ownerAccount.id,
+                        personId = personId,
+                        currencyCode = row.currency,
+                        type = row.type,
+                        amountMinor = amount,
+                        description = row.description,
+                        transactionDate = date,
+                        externalId = row.transactionId
+                    )
+                )
+
+                transactionsAdded++
             }
-            rows.forEach{r->if(r.transactionId.isNotBlank()&&dao.getTransactionByExternalId(r.transactionId)==null){val cid=custodyIds[r.custodyId]?:error("الصف ${r.n}: معرف العهدة غير صالح");val pid=if(r.personId.isBlank())null else personIds["${r.custodyId}|${r.personId}"];val account=dao.getOwnerAccount(cid,r.currency)?:error("الصف ${r.n}: حساب العملة غير موجود");dao.insertTransaction(CustodyTransactionEntity(custodyId=cid,accountId=account.id,personId=pid,currencyCode=r.currency,type=r.type,amountMinor=r.amount?:error("الصف ${r.n}: المبلغ غير صالح."),description=r.description,transactionDate=r.date?:error("الصف ${r.n}: التاريخ غير صالح."),externalId=r.transactionId));ta++}}
-            custodyIds.values.distinct().forEach { CustodyBalanceRebuilder.rebuildCustodyInTransaction(db, it) }
-            ImportSummary(ca,pa,aa,ta)
+
+            /*
+             * إعادة بناء أرصدة جميع العهد المتأثرة
+             * داخل نفس Room transaction.
+             */
+            custodyIds
+                .values
+                .distinct()
+                .forEach { custodyId ->
+
+                    CustodyBalanceRebuilder
+                        .rebuildCustodyInTransaction(
+                            db,
+                            custodyId
+                        )
+                }
+
+            ImportSummary(
+                custodiesAdded = custodiesAdded,
+                peopleAdded = peopleAdded,
+                accountsAdded = accountsAdded,
+                transactionsAdded = transactionsAdded
+            )
         }
     }
 
-    private fun validate(rows:List<Row>):ImportPreview {
-        val e=mutableListOf<String>(); val cs=rows.map{it.custodyId}.filter(String::isNotBlank).toSet(); val ps=rows.mapNotNull{if(it.personId.isBlank())null else "${it.custodyId}|${it.personId}"}.toSet(); val seen=mutableSetOf<String>(); var tx=0
-        val allowedTypes=setOf(CustodyTransactionType.RECEIVED_FROM_ORG,CustodyTransactionType.PAID_TO_PERSON,CustodyTransactionType.RETURNED_FROM_PERSON,CustodyTransactionType.RETURNED_TO_ORG,CustodyTransactionType.ORG_LOAN_FROM_OWNER,CustodyTransactionType.ORG_LOAN_REPAYMENT,CustodyTransactionType.PERSON_LOAN_TO_OWNER,CustodyTransactionType.OWNER_REPAY_PERSON_LOAN)
-        val personTypes=setOf(CustodyTransactionType.PAID_TO_PERSON,CustodyTransactionType.RETURNED_FROM_PERSON,CustodyTransactionType.PERSON_LOAN_TO_OWNER,CustodyTransactionType.OWNER_REPAY_PERSON_LOAN)
-        val organizationTypes=setOf(CustodyTransactionType.RECEIVED_FROM_ORG,CustodyTransactionType.RETURNED_TO_ORG,CustodyTransactionType.ORG_LOAN_FROM_OWNER,CustodyTransactionType.ORG_LOAN_REPAYMENT)
-        rows.forEach{r->
-            if(r.custodyId.isBlank())e+="الصف ${r.n}: معرف العهدة مطلوب."; if(r.owner.isBlank())e+="الصف ${r.n}: اسم صاحب العهدة مطلوب."; if(r.org.isBlank())e+="الصف ${r.n}: اسم الجهة مطلوب."
-            if(r.personId.isNotBlank() && r.person.isBlank())e+="الصف ${r.n}: اسم الشخص مطلوب عندما يكون معرف الشخص موجوداً."
-            if(r.transactionId.isNotBlank()){
-                tx++; if(r.currency !in listOf("YER","SAR","USD"))e+="الصف ${r.n}: العملة يجب أن تكون YER أو SAR أو USD."; if(!seen.add(r.transactionId))e+="الصف ${r.n}: معرف العملية مكرر."; if(r.type !in allowedTypes)e+="الصف ${r.n}: نوع عملية العهدة غير صالح."; if(r.amount==null||r.amount<=0)e+="الصف ${r.n}: المبلغ يجب أن يكون موجباً وبمنزلتين عشريتين كحد أقصى."; if(r.date==null)e+="الصف ${r.n}: التاريخ غير صالح."; if(r.type in personTypes&&r.personId.isBlank())e+="الصف ${r.n}: هذه العملية تتطلب شخصاً."; if(r.type in personTypes&&r.person.isBlank())e+="الصف ${r.n}: اسم الشخص مطلوب لهذه العملية."; if(r.type in organizationTypes&&r.personId.isNotBlank())e+="الصف ${r.n}: عملية الجهة لا ترتبط بشخص."
+    private fun validate(
+        rows: List<Row>
+    ): ImportPreview {
+
+        val errors = mutableListOf<String>()
+
+        val custodyIds =
+            rows
+                .map { it.custodyId }
+                .filter { it.isNotBlank() }
+                .toSet()
+
+        val personIds =
+            rows
+                .mapNotNull {
+                    if (it.personId.isBlank()) {
+                        null
+                    } else {
+                        "${it.custodyId}|${it.personId}"
+                    }
+                }
+                .toSet()
+
+        val transactionIds =
+            mutableSetOf<String>()
+
+        val custodyDefinitions =
+            mutableMapOf<String, String>()
+
+        val personDefinitions =
+            mutableMapOf<String, String>()
+
+        var transactionCount = 0
+
+        rows.forEach { row ->
+
+            val rowNumber = row.n
+
+            if (row.custodyId.isBlank()) {
+                errors +=
+                    "الصف $rowNumber: معرف العهدة مطلوب."
+            }
+
+            if (row.owner.isBlank()) {
+                errors +=
+                    "الصف $rowNumber: اسم صاحب العهدة مطلوب."
+            }
+
+            if (row.org.isBlank()) {
+                errors +=
+                    "الصف $rowNumber: اسم الجهة مطلوب."
+            }
+
+            /*
+             * التأكد من أن نفس معرف العهدة لا يحمل
+             * تعريفاً مختلفاً في صف آخر.
+             */
+            if (row.custodyId.isNotBlank()) {
+
+                val definition =
+                    listOf(
+                        row.owner,
+                        row.ownerPhone,
+                        row.ownerAddress,
+                        row.ownerNotes,
+                        row.org,
+                        row.orgPhone,
+                        row.orgAddress,
+                        row.orgNotes
+                    ).joinToString("\u001F")
+
+                val previous =
+                    custodyDefinitions.putIfAbsent(
+                        row.custodyId,
+                        definition
+                    )
+
+                if (
+                    previous != null &&
+                    previous != definition
+                ) {
+                    errors +=
+                        "الصف $rowNumber: بيانات العهدة ذات المعرف ${row.custodyId} غير متطابقة بين الصفوف."
+                }
+            }
+
+            if (
+                row.personId.isNotBlank() &&
+                row.person.isBlank()
+            ) {
+                errors +=
+                    "الصف $rowNumber: اسم الشخص مطلوب عندما يكون معرف الشخص موجوداً."
+            }
+
+            /*
+             * التأكد من اتساق تعريف الشخص داخل العهدة.
+             */
+            if (
+                row.custodyId.isNotBlank() &&
+                row.personId.isNotBlank()
+            ) {
+
+                val personKey =
+                    "${row.custodyId}|${row.personId}"
+
+                val definition =
+                    listOf(
+                        row.person,
+                        row.personPhone,
+                        row.personAddress,
+                        row.personNotes
+                    ).joinToString("\u001F")
+
+                val previous =
+                    personDefinitions.putIfAbsent(
+                        personKey,
+                        definition
+                    )
+
+                if (
+                    previous != null &&
+                    previous != definition
+                ) {
+                    errors +=
+                        "الصف $rowNumber: بيانات الشخص ذات المعرف ${row.personId} غير متطابقة داخل نفس العهدة."
+                }
+            }
+
+            if (row.transactionId.isBlank()) {
+                return@forEach
+            }
+
+            transactionCount++
+
+            if (
+                !transactionIds.add(
+                    row.transactionId
+                )
+            ) {
+                errors +=
+                    "الصف $rowNumber: معرف العملية مكرر داخل ملف Excel."
+            }
+
+            if (row.currency !in SUPPORTED_CURRENCIES) {
+                errors +=
+                    "الصف $rowNumber: العملة يجب أن تكون YER أو SAR أو USD."
+            }
+
+            if (row.type !in ALLOWED_TYPES) {
+                errors +=
+                    "الصف $rowNumber: نوع عملية العهدة غير صالح."
+            }
+
+            if (
+                row.amount == null ||
+                row.amount <= 0
+            ) {
+                errors +=
+                    "الصف $rowNumber: المبلغ يجب أن يكون موجباً وبمنزلتين عشريتين كحد أقصى."
+            }
+
+            if (row.date == null) {
+                errors +=
+                    "الصف $rowNumber: التاريخ غير صالح."
+            }
+
+            if (
+                row.type in PERSON_TYPES &&
+                row.personId.isBlank()
+            ) {
+                errors +=
+                    "الصف $rowNumber: هذه العملية تتطلب شخصاً."
+            }
+
+            if (
+                row.type in PERSON_TYPES &&
+                row.person.isBlank()
+            ) {
+                errors +=
+                    "الصف $rowNumber: اسم الشخص مطلوب لهذه العملية."
+            }
+
+            if (
+                row.type in ORGANIZATION_TYPES &&
+                row.personId.isNotBlank()
+            ) {
+                errors +=
+                    "الصف $rowNumber: عملية الجهة لا ترتبط بشخص."
             }
         }
-        return ImportPreview(cs.size,ps.size,cs.size*3+ps.size*3,tx,e.distinct().take(100))
+
+        return ImportPreview(
+            custodies = custodyIds.size,
+            people = personIds.size,
+            accounts =
+                custodyIds.size * ACCOUNT_CURRENCIES.size +
+                    personIds.size * ACCOUNT_CURRENCIES.size,
+            transactions = transactionCount,
+            errors = errors
+                .distinct()
+                .take(100)
+        )
     }
 
-    private fun parseWorkbook(context:Context,uri:Uri):List<Row>{
-        openInput(context,uri).use{input->{
-            val entries=readZip(input); val wb=entries["xl/workbook.xml"]?:error("ملف Excel غير صالح."); check(sheetCount(wb)==1){"يجب أن يحتوي ملف Excel على Sheet واحد فقط."}; val sheet=entries["xl/worksheets/sheet1.xml"]?:error("ورقة البيانات مفقودة."); val ss=entries["xl/sharedStrings.xml"]?.let(::sharedStrings)?:emptyList(); return parseSheet(sheet,ss)
-        }}
+    private fun parseWorkbook(
+        context: Context,
+        uri: Uri
+    ): List<Row> {
+
+        openInput(context, uri).use { input ->
+
+            val entries = readZip(input)
+
+            val workbook =
+                entries["xl/workbook.xml"]
+                    ?: error("ملف Excel غير صالح.")
+
+            check(
+                sheetCount(workbook) == 1
+            ) {
+                "يجب أن يحتوي ملف Excel على Sheet واحد فقط."
+            }
+
+            val sheet =
+                entries["xl/worksheets/sheet1.xml"]
+                    ?: error("ورقة البيانات مفقودة.")
+
+            val sharedStrings =
+                entries["xl/sharedStrings.xml"]
+                    ?.let(::sharedStrings)
+                    ?: emptyList()
+
+            return parseSheet(
+                sheet,
+                sharedStrings
+            )
+        }
     }
 
-    private fun readZip(input:InputStream):Map<String,ByteArray>{val m=mutableMapOf<String,ByteArray>();ZipInputStream(input.buffered()).use{z->while(true){val e=z.nextEntry?:break;if(e.isDirectory)continue;val b=ByteArrayOutputStream();z.copyTo(b);m[e.name]=b.toByteArray()}};return m}
-    private fun sheetCount(b:ByteArray):Int{val p=Xml.newPullParser();p.setInput(ByteArrayInputStream(b),"UTF-8");var n=0;var e=p.eventType;while(e!=XmlPullParser.END_DOCUMENT){if(e==XmlPullParser.START_TAG&&p.name=="sheet")n++;e=p.next()};return n}
-    private fun sharedStrings(b:ByteArray):List<String>{val out=mutableListOf<String>();val p=Xml.newPullParser();p.setInput(ByteArrayInputStream(b),"UTF-8");var s="";var inT=false;var e=p.eventType;while(e!=XmlPullParser.END_DOCUMENT){if(e==XmlPullParser.START_TAG&&p.name=="t"){s="";inT=true};if(e==XmlPullParser.TEXT&&inT)s+=p.text;if(e==XmlPullParser.END_TAG&&p.name=="t"){out+=s;inT=false};e=p.next()};return out}
-    private fun parseSheet(b:ByteArray,ss:List<String>):List<Row>{val out=mutableListOf<Row>();val p=Xml.newPullParser();p.setInput(ByteArrayInputStream(b),"UTF-8");var cells=mutableMapOf<Int,String>();var col=-1;var typ="";var v="";var inV=false;var rn=0;var e=p.eventType;while(e!=XmlPullParser.END_DOCUMENT){when(e){XmlPullParser.START_TAG->when(p.name){"row"->{cells=mutableMapOf();rn=p.getAttributeValue(null,"r")?.toIntOrNull()?:rn+1};"c"->{col=column(p.getAttributeValue(null,"r")?:"");typ=p.getAttributeValue(null,"t")?:""};"v","t"->{v="";inV=true}};XmlPullParser.TEXT->if(inV)v+=p.text;XmlPullParser.END_TAG->when(p.name){"v","t"->{if(col>=0)cells[col]=if(typ=="s")ss.getOrNull(v.toIntOrNull()?:-1)?:v else v;inV=false};"c"->col=-1;"row"->if(rn==1){val h=(0..19).map{cells[it]?:""};require(h==HEADERS){"أعمدة ملف Excel للعُهَد غير مطابقة للصيغة المعتمدة."}}else if(rn>1){out+=row(rn,(0..19).map{cells[it]?:""})}}};e=p.next()};check(out.isNotEmpty()){ "ملف Excel لا يحتوي على بيانات." };return out}
-    private fun row(n:Int,a:List<String>)=Row(n,a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15].uppercase(Locale.ROOT),a[16],parseAmount(a[17]),a[18],parseDate(a[19]))
-    private fun parseAmount(v:String)=runCatching{if(v.isBlank())return null;BigDecimal(v.replace(',','.')).setScale(2,RoundingMode.UNNECESSARY).movePointRight(2).longValueExact()}.getOrNull()
-    private fun parseDate(v:String)=runCatching{SimpleDateFormat("yyyy-MM-dd",Locale.US).apply{isLenient=false}.parse(v)?.time}.getOrNull()
-    private fun column(r:String):Int{val l=r.takeWhile{it.isLetter()};var x=0;l.forEach{x=x*26+(it.uppercaseChar()-'A'+1)};return x-1}
-    private fun esc(v:String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
-    private fun createWorkbook(out:OutputStream,rows:List<Row>){ZipOutputStream(out.buffered()).use{z->entry(z,"[Content_Types].xml","<?xml version=\"1.0\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>");entry(z,"_rels/.rels","<?xml version=\"1.0\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>");entry(z,"xl/workbook.xml","<?xml version=\"1.0\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"$SHEET_NAME\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>".replace("$SHEET_NAME",SHEET_NAME));entry(z,"xl/_rels/workbook.xml.rels","<?xml version=\"1.0\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>");entry(z,"xl/worksheets/sheet1.xml",sheetXml(rows))}}
-    private fun entry(z:ZipOutputStream,n:String,s:String){z.putNextEntry(ZipEntry(n));z.write(s.toByteArray(Charsets.UTF_8));z.closeEntry()}
-    private fun sheetXml(rows:List<Row>):String{val data=mutableListOf<List<String>>();data+=HEADERS;rows.forEach{r->data+=listOf(r.custodyId,r.transactionId,r.personId,r.owner,r.ownerPhone,r.ownerAddress,r.ownerNotes,r.org,r.orgPhone,r.orgAddress,r.orgNotes,r.person,r.personPhone,r.personAddress,r.personNotes,r.currency,r.type,r.amount?.let{BigDecimal(it).movePointLeft(2).toPlainString()}?:"",r.description,r.date?.let{SimpleDateFormat("yyyy-MM-dd",Locale.US).format(Date(it))}?:"")};return buildString{append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>");data.forEachIndexed{ri,row->append("<row r=\"${ri+1}\">");row.forEachIndexed{ci,value->append("<c r=\"${colName(ci)}${ri+1}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">${esc(value)}</t></is></c>")};append("</row>")};append("</sheetData></worksheet>")}}
-    private fun colName(i:Int):String{var n=i+1;val s=StringBuilder();while(n>0){val r=(n-1)%26;s.append(('A'.code+r).toChar());n=(n-1)/26};return s.reverse().toString()}
+    private fun readZip(
+        input: InputStream
+    ): Map<String, ByteArray> {
+
+        val entries = mutableMapOf<String, ByteArray>()
+
+        ZipInputStream(
+            input.buffered()
+        ).use { zip ->
+
+            while (true) {
+
+                val entry =
+                    zip.nextEntry
+                        ?: break
+
+                if (entry.isDirectory) {
+                    continue
+                }
+
+                val output =
+                    ByteArrayOutputStream()
+
+                zip.copyTo(output)
+
+                entries[entry.name] =
+                    output.toByteArray()
+            }
+        }
+
+        return entries
+    }
+
+    private fun sheetCount(
+        bytes: ByteArray
+    ): Int {
+
+        val parser =
+            Xml.newPullParser()
+
+        parser.setInput(
+            ByteArrayInputStream(bytes),
+            "UTF-8"
+        )
+
+        var count = 0
+
+        var event =
+            parser.eventType
+
+        while (
+            event != XmlPullParser.END_DOCUMENT
+        ) {
+
+            if (
+                event == XmlPullParser.START_TAG &&
+                parser.name == "sheet"
+            ) {
+                count++
+            }
+
+            event = parser.next()
+        }
+
+        return count
+    }
+
+    /*
+     * قراءة sharedStrings.xml بشكل صحيح.
+     *
+     * Excel قد يستخدم أكثر من <t> داخل نفس <si>
+     * خصوصاً عند وجود Rich Text.
+     */
+    private fun sharedStrings(
+        bytes: ByteArray
+    ): List<String> {
+
+        val result = mutableListOf<String>()
+
+        val parser =
+            Xml.newPullParser()
+
+        parser.setInput(
+            ByteArrayInputStream(bytes),
+            "UTF-8"
+        )
+
+        var inSharedString = false
+        var inText = false
+
+        val current =
+            StringBuilder()
+
+        var event =
+            parser.eventType
+
+        while (
+            event != XmlPullParser.END_DOCUMENT
+        ) {
+
+            when (event) {
+
+                XmlPullParser.START_TAG -> {
+
+                    when (parser.name) {
+
+                        "si" -> {
+                            inSharedString = true
+                            current.setLength(0)
+                        }
+
+                        "t" -> {
+                            if (inSharedString) {
+                                inText = true
+                            }
+                        }
+                    }
+                }
+
+                XmlPullParser.TEXT -> {
+
+                    if (
+                        inSharedString &&
+                        inText
+                    ) {
+                        current.append(parser.text)
+                    }
+                }
+
+                XmlPullParser.END_TAG -> {
+
+                    when (parser.name) {
+
+                        "t" -> {
+                            inText = false
+                        }
+
+                        "si" -> {
+
+                            if (inSharedString) {
+                                result += current.toString()
+                            }
+
+                            current.setLength(0)
+                            inSharedString = false
+                            inText = false
+                        }
+                    }
+                }
+            }
+
+            event = parser.next()
+        }
+
+        return result
+    }
+
+    private fun parseSheet(
+        bytes: ByteArray,
+        sharedStrings: List<String>
+    ): List<Row> {
+
+        val result = mutableListOf<Row>()
+
+        val parser =
+            Xml.newPullParser()
+
+        parser.setInput(
+            ByteArrayInputStream(bytes),
+            "UTF-8"
+        )
+
+        var cells =
+            mutableMapOf<Int, String>()
+
+        var currentColumn = -1
+
+        var currentType = ""
+
+        var currentCellText =
+            StringBuilder()
+
+        var inCellValue = false
+
+        var rowNumber = 0
+
+        var event =
+            parser.eventType
+
+        while (
+            event != XmlPullParser.END_DOCUMENT
+        ) {
+
+            when (event) {
+
+                XmlPullParser.START_TAG -> {
+
+                    when (parser.name) {
+
+                        "row" -> {
+
+                            cells = mutableMapOf()
+
+                            rowNumber =
+                                parser
+                                    .getAttributeValue(
+                                        null,
+                                        "r"
+                                    )
+                                    ?.toIntOrNull()
+                                    ?: (rowNumber + 1)
+                        }
+
+                        "c" -> {
+
+                            currentColumn =
+                                column(
+                                    parser.getAttributeValue(
+                                        null,
+                                        "r"
+                                    ).orEmpty()
+                                )
+
+                            currentType =
+                                parser.getAttributeValue(
+                                    null,
+                                    "t"
+                                ).orEmpty()
+
+                            currentCellText =
+                                StringBuilder()
+                        }
+
+                        "v",
+                        "t" -> {
+
+                            if (currentColumn >= 0) {
+                                inCellValue = true
+                            }
+                        }
+                    }
+                }
+
+                XmlPullParser.TEXT -> {
+
+                    if (inCellValue) {
+                        currentCellText.append(
+                            parser.text
+                        )
+                    }
+                }
+
+                XmlPullParser.END_TAG -> {
+
+                    when (parser.name) {
+
+                        "v",
+                        "t" -> {
+                            inCellValue = false
+                        }
+
+                        "c" -> {
+
+                            if (currentColumn >= 0) {
+
+                                val raw =
+                                    currentCellText
+                                        .toString()
+
+                                val value =
+                                    if (
+                                        currentType == "s"
+                                    ) {
+
+                                        val index =
+                                            raw
+                                                .trim()
+                                                .toIntOrNull()
+
+                                        if (index == null) {
+                                            raw
+                                        } else {
+                                            sharedStrings
+                                                .getOrNull(index)
+                                                ?: raw
+                                        }
+
+                                    } else {
+                                        raw
+                                    }
+
+                                cells[
+                                    currentColumn
+                                ] = value
+                            }
+
+                            currentColumn = -1
+                            currentType = ""
+                            currentCellText =
+                                StringBuilder()
+                            inCellValue = false
+                        }
+
+                        "row" -> {
+
+                            if (rowNumber == 1) {
+
+                                val headers =
+                                    (0..19).map {
+                                        cells[it].orEmpty()
+                                    }
+
+                                require(
+                                    headers == HEADERS
+                                ) {
+                                    "أعمدة ملف Excel للعُهَد غير مطابقة للصيغة المعتمدة."
+                                }
+
+                            } else if (rowNumber > 1) {
+
+                                result += row(
+                                    rowNumber,
+                                    (0..19).map {
+                                        cells[it].orEmpty()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            event = parser.next()
+        }
+
+        check(result.isNotEmpty()) {
+            "ملف Excel لا يحتوي على بيانات."
+        }
+
+        return result
+    }
+
+    private fun row(
+        n: Int,
+        values: List<String>
+    ): Row {
+
+        return Row(
+            n = n,
+            custodyId = values[0].trim(),
+            transactionId = values[1].trim(),
+            personId = values[2].trim(),
+            owner = values[3].trim(),
+            ownerPhone = values[4].trim(),
+            ownerAddress = values[5].trim(),
+            ownerNotes = values[6].trim(),
+            org = values[7].trim(),
+            orgPhone = values[8].trim(),
+            orgAddress = values[9].trim(),
+            orgNotes = values[10].trim(),
+            person = values[11].trim(),
+            personPhone = values[12].trim(),
+            personAddress = values[13].trim(),
+            personNotes = values[14].trim(),
+            currency = values[15]
+                .trim()
+                .uppercase(Locale.ROOT),
+            type = values[16].trim(),
+            amount = parseAmount(values[17]),
+            description = values[18].trim(),
+            date = parseDate(values[19])
+        )
+    }
+
+    private fun parseAmount(
+        value: String
+    ): Long? {
+
+        val normalized =
+            value
+                .trim()
+                .replace("٬", "")
+                .replace("٫", ".")
+                .replace(",", ".")
+
+        if (normalized.isBlank()) {
+            return null
+        }
+
+        return runCatching {
+
+            BigDecimal(normalized)
+                .setScale(
+                    2,
+                    RoundingMode.UNNECESSARY
+                )
+                .movePointRight(2)
+                .longValueExact()
+
+        }.getOrNull()
+    }
+
+    private fun parseDate(
+        value: String
+    ): Long? {
+
+        val normalized =
+            value.trim()
+
+        if (normalized.isBlank()) {
+            return null
+        }
+
+        return runCatching {
+
+            SimpleDateFormat(
+                "yyyy-MM-dd",
+                Locale.US
+            ).apply {
+                isLenient = false
+            }.parse(normalized)?.time
+
+        }.getOrNull()
+    }
+
+    private fun column(
+        reference: String
+    ): Int {
+
+        val letters =
+            reference.takeWhile {
+                it.isLetter()
+            }
+
+        if (letters.isEmpty()) {
+            return -1
+        }
+
+        var value = 0
+
+        letters.forEach { letter ->
+
+            value =
+                value * 26 +
+                    (
+                        letter.uppercaseChar() -
+                            'A' +
+                            1
+                    )
+        }
+
+        return value - 1
+    }
+
+    private fun esc(
+        value: String
+    ): String {
+
+        return value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
+    }
+
+    private fun createWorkbook(
+        output: OutputStream,
+        rows: List<Row>
+    ) {
+
+        ZipOutputStream(
+            output.buffered()
+        ).use { zip ->
+
+            entry(
+                zip,
+                "[Content_Types].xml",
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                    <Default Extension="rels"
+                        ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                    <Default Extension="xml"
+                        ContentType="application/xml"/>
+                    <Override PartName="/xl/workbook.xml"
+                        ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+                    <Override PartName="/xl/worksheets/sheet1.xml"
+                        ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                </Types>
+                """.trimIndent()
+            )
+
+            entry(
+                zip,
+                "_rels/.rels",
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                    <Relationship
+                        Id="rId1"
+                        Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+                        Target="xl/workbook.xml"/>
+                </Relationships>
+                """.trimIndent()
+            )
+
+            entry(
+                zip,
+                "xl/workbook.xml",
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <workbook
+                    xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                    xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                    <sheets>
+                        <sheet
+                            name="$SHEET_NAME"
+                            sheetId="1"
+                            r:id="rId1"/>
+                    </sheets>
+                </workbook>
+                """.trimIndent()
+            )
+
+            entry(
+                zip,
+                "xl/_rels/workbook.xml.rels",
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                    <Relationship
+                        Id="rId1"
+                        Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+                        Target="worksheets/sheet1.xml"/>
+                </Relationships>
+                """.trimIndent()
+            )
+
+            entry(
+                zip,
+                "xl/worksheets/sheet1.xml",
+                sheetXml(rows)
+            )
+        }
+    }
+
+    private fun entry(
+        zip: ZipOutputStream,
+        name: String,
+        content: String
+    ) {
+
+        zip.putNextEntry(
+            ZipEntry(name)
+        )
+
+        zip.write(
+            content.toByteArray(
+                Charsets.UTF_8
+            )
+        )
+
+        zip.closeEntry()
+    }
+
+    private fun sheetXml(
+        rows: List<Row>
+    ): String {
+
+        val data =
+            mutableListOf<List<String>>()
+
+        data += HEADERS
+
+        rows.forEach { row ->
+
+            data += listOf(
+                row.custodyId,
+                row.transactionId,
+                row.personId,
+                row.owner,
+                row.ownerPhone,
+                row.ownerAddress,
+                row.ownerNotes,
+                row.org,
+                row.orgPhone,
+                row.orgAddress,
+                row.orgNotes,
+                row.person,
+                row.personPhone,
+                row.personAddress,
+                row.personNotes,
+                row.currency,
+                row.type,
+                row.amount
+                    ?.let {
+                        BigDecimal(it)
+                            .movePointLeft(2)
+                            .toPlainString()
+                    }
+                    ?: "",
+                row.description,
+                row.date
+                    ?.let {
+                        SimpleDateFormat(
+                            "yyyy-MM-dd",
+                            Locale.US
+                        ).format(Date(it))
+                    }
+                    ?: ""
+            )
+        }
+
+        return buildString {
+
+            append(
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                    <sheetData>
+                """.trimIndent()
+            )
+
+            data.forEachIndexed { rowIndex, row ->
+
+                val excelRow =
+                    rowIndex + 1
+
+                append(
+                    "<row r=\"$excelRow\">"
+                )
+
+                row.forEachIndexed { columnIndex, value ->
+
+                    val reference =
+                        "${colName(columnIndex)}$excelRow"
+
+                    append(
+                        "<c r=\"$reference\" t=\"inlineStr\">" +
+                            "<is>" +
+                            "<t xml:space=\"preserve\">" +
+                            esc(value) +
+                            "</t>" +
+                            "</is>" +
+                            "</c>"
+                    )
+                }
+
+                append("</row>")
+            }
+
+            append(
+                """
+                    </sheetData>
+                </worksheet>
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun colName(
+        index: Int
+    ): String {
+
+        var number =
+            index + 1
+
+        val result =
+            StringBuilder()
+
+        while (number > 0) {
+
+            val remainder =
+                (number - 1) % 26
+
+            result.append(
+                ('A'.code + remainder).toChar()
+            )
+
+            number =
+                (number - 1) / 26
+        }
+
+        return result
+            .reverse()
+            .toString()
+    }
 }
