@@ -1,4 +1,4 @@
-# stage1 trigger: run verified custody UI repair
+# stage1 trigger: use project Gradle wrapper for verified custody UI repair
 name: Stage 1 Custody UI Repair
 on:
   push:
@@ -51,7 +51,7 @@ jobs:
               return s
           edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt',detail)
       - name: Build verification
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
       - name: Commit repairs
         run: |
           git config user.name 'github-actions[bot]'
