@@ -120,7 +120,7 @@ fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId
   var categoryMenuExpanded by remember { mutableStateOf(false) }
   val availableCategories = remember(allTransactions) { allTransactions.map { it.categoryName.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
   Box(Modifier.fillMaxWidth()) {
-      OutlinedTextField(value = categoryName, onValueChange = { categoryName = it; categoryMenuExpanded = true }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "تصنيف العملية" }, label = { Text("التصنيف") }, placeholder = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving, trailingIcon = { TextButton(onClick = { categoryMenuExpanded = true }) { Text("▼") } })
+      OutlinedTextField(value = categoryName, onValueChange = { categoryName = it }, modifier = Modifier.fillMaxWidth().keepFocusedFieldVisible().semantics { contentDescription = "تصنيف العملية" }, label = { Text("التصنيف") }, placeholder = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving, trailingIcon = { TextButton(onClick = { categoryMenuExpanded = true }) { Text("▼") } })
       DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
           availableCategories.forEach { value -> DropdownMenuItem(text = { Text(value) }, onClick = { categoryName = value; categoryMenuExpanded = false }) }
           DropdownMenuItem(text = { Text("جديد") }, onClick = { categoryName = ""; categoryMenuExpanded = false })
