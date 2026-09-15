@@ -19,8 +19,6 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
-          # Backup/restore: reduce vertical density without touching data or behavior.
           p=Path('app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt')
           s=p.read_text()
           s=s.replace('            SummaryCard(title = "نطاق النسخة") {\n                Text(scope.title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)\n                Text(\n                    if (scope == BackupScope.ALL) "هذه هي النسخة العامة من الشاشة الرئيسية: الحسابات والعُهَد والعمليات والمرفقات معًا."\n                    else "هذه النسخة مستقلة عن القسم الآخر، والاستعادة لا تستبدل بيانات القسم الآخر.",\n                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge\n                )\n            }\n\n','')
@@ -28,19 +26,16 @@ jobs:
           s=s.replace('الاستعادة تستبدل بيانات النطاق المحدد فقط. خذ نسخة آمنة قبل المتابعة.','تستبدل الاستعادة بيانات هذا النطاق فقط.')
           s=s.replace('Spacer(Modifier.height(8.dp))','Spacer(Modifier.height(4.dp))')
           p.write_text(s)
-
-          # Custody report filters: make filter rows horizontally scrollable so Arabic labels never clip.
           p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt')
           s=p.read_text()
           if 'import androidx.compose.foundation.horizontalScroll' not in s:
               s=s.replace('import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.horizontalScroll\nimport androidx.compose.foundation.rememberScrollState\nimport androidx.compose.foundation.layout.Arrangement\n',1)
+          # Only rows whose body contains FilterChip are converted; export/button rows remain unchanged.
           pattern=r'Row\(Modifier\.fillMaxWidth\(\), horizontalArrangement = Arrangement\.spacedBy\(8\.dp\)\) \{([^{}]|\{[^{}]*\})*FilterChip([^{}]|\{[^{}]*\})*\}'
           def repl(m):
-              text=m.group(0)
-              return text.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',1)
+              return m.group(0).replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',1)
           s2=re.sub(pattern,repl,s)
-          if s2==s:
-              raise SystemExit('No custody report filter rows matched')
+          if s2==s: raise SystemExit('No custody report filter rows matched')
           p.write_text(s2)
           PY
       - name: Build verification
