@@ -1,0 +1,101 @@
+name: Apply Verified UI Repair Pass
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(ui):') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply verified repairs
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          root=Path('.')
+          def edit(path, fn):
+              p=root/path; s=p.read_text(encoding='utf-8'); n=fn(s)
+              if n==s: raise SystemExit(f'NO CHANGE: {path}')
+              p.write_text(n,encoding='utf-8'); print('UPDATED',path)
+          def rep(s,old,new,path):
+              if old not in s: raise SystemExit(f'PATTERN NOT FOUND: {path}')
+              if s.count(old)!=1: raise SystemExit(f'PATTERN NOT UNIQUE: {path}: {s.count(old)}')
+              return s.replace(old,new)
+
+          def home(s):
+              s=rep(s,'import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'import androidx.compose.material.icons.filled.MoreVert\n','import androidx.compose.material.icons.filled.MoreVert\nimport androidx.compose.material.icons.filled.Sort\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")\n','private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")\n\nprivate enum class CustodySortOrder { LATEST_TRANSACTION, ALPHABETICAL }\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'    var adding by remember { mutableStateOf(false) }\n    var showMoreMenu by remember { mutableStateOf(false) }\n','    var adding by remember { mutableStateOf(false) }\n    var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST_TRANSACTION) }\n    var showSortMenu by remember { mutableStateOf(false) }\n    var showMoreMenu by remember { mutableStateOf(false) }\n\n    val displayedCustodies = when (sortOrder) {\n        CustodySortOrder.LATEST_TRANSACTION -> custodies\n        CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() }\n    }\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }\n                    IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }\n','                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }\n                    Box {\n                        IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }\n                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {\n                            DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = CustodySortOrder.LATEST_TRANSACTION; showSortMenu = false })\n                            DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })\n                        }\n                    }\n                    IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'items(custodies, key = { it.id }) { custody ->','items(displayedCustodies, key = { it.id }) { custody ->','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'            FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") }','            FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }','CustodyHomeWithArchiveScreen.kt')
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt',home)
+
+          def detail(s):
+              s=rep(s,'            if (!current.isClosed) IconButton(onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, contentDescription = "إضافة طرف") }\n','', 'CustodyCompactScreenFinal.kt')
+              s=rep(s,'                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        Row(Modifier.width(176.dp).height(48.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {\n                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }\n                        }\n                    }','                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                    }','CustodyCompactScreenFinal.kt')
+              s=rep(s,'        })\n    }) { padding ->\n','        },\n        floatingActionButton = {\n            FloatingActionButton(onClick = { if (!current.isClosed) addPerson = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة طرف") }\n        }\n    ) { padding ->\n','CustodyCompactScreenFinal.kt')
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt',detail)
+
+          def org(s):
+              return rep(s,'OutlinedTextField(category, { category = it; categoryMenu = true }, Modifier.fillMaxWidth().orgKeepFocusedVisible(), label = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving)','OutlinedTextField(category, { category = it; categoryMenu = false }, Modifier.fillMaxWidth().orgKeepFocusedVisible(), label = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving)','CustodyOrganizationOperationsScreen.kt')
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyOrganizationOperationsScreen.kt',org)
+
+          def backup(s):
+              s=s.replace('verticalArrangement = Arrangement.spacedBy(12.dp),','verticalArrangement = Arrangement.spacedBy(8.dp),',1)
+              s=s.replace('.padding(16.dp).verticalScroll(rememberScrollState()),','.padding(horizontal = 12.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),',1)
+              s=re.sub(r'\n            SummaryCard\(title = "نطاق النسخة"\) \{.*?\n            \}\n\n            InformationCard','\n            InformationCard',s,count=1,flags=re.S)
+              texts=['هذه هي النسخة العامة من الشاشة الرئيسية: الحسابات والعُهَد والعمليات والمرفقات معًا.','هذه النسخة مستقلة عن القسم الآخر، والاستعادة لا تستبدل بيانات القسم الآخر.','أنشئ ملفًا يحتوي على كامل بيانات النطاق المحدد ومرفقاته.','اختر مجلدًا للمزامنة.','تم اختيار مجلد للمزامنة.','الاستعادة تستبدل بيانات النطاق المحدد فقط. خذ نسخة آمنة قبل المتابعة.']
+              for t in texts:
+                  s=re.sub(r'\n\s*Text\("'+re.escape(t)+r'"[^\n]*\)', '', s)
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt',backup)
+
+          def person(s):
+              s=rep(s,'import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\n','PersonAccountScreen.kt')
+              old='''            SummaryCard(title = "بيانات الشخص") {\n                Text(\n                    person.name,\n                    style = MaterialTheme.typography.titleLarge,\n                    fontWeight = FontWeight.Bold,\n                    color = MaterialTheme.colorScheme.onSurface\n                )\n                if (person.phone.isNotBlank()) {\n                    Text(\n                        "الهاتف: ${person.phone}",\n                        style = MaterialTheme.typography.bodyLarge,\n                        color = MaterialTheme.colorScheme.onSurfaceVariant\n                    )\n                }\n                if (person.address.isNotBlank()) {\n                    Text(\n                        "العنوان: ${person.address}",\n                        style = MaterialTheme.typography.bodyLarge,\n                        color = MaterialTheme.colorScheme.onSurfaceVariant\n                    )\n                }\n                if (person.notes.isNotBlank()) {\n                    Text(\n                        "الملاحظات: ${person.notes}",\n                        style = MaterialTheme.typography.bodySmall,\n                        color = MaterialTheme.colorScheme.onSurfaceVariant\n                    )\n                }\n            }\n\n            if (accounts.isNotEmpty()) {\n                SummaryCard(title = "ملخص الأرصدة") {\n                    accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->\n                        BalanceAmount(\n                            amount = formatBalance(account.balanceMinor),\n                            status = balanceStatus(account.balanceMinor),\n                            label = account.currencyCode,\n                            modifier = Modifier.fillMaxWidth()\n                        )\n                    }\n                }\n            }\n'''
+              new='''            InformationCard {\n                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {\n                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n                        Text(person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)\n                        if (person.phone.isNotBlank()) Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)\n                        if (person.address.isNotBlank()) Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)\n                        if (person.notes.isNotBlank()) Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)\n                    }\n                    if (accounts.isNotEmpty()) {\n                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n                            Text("الأرصدة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)\n                            accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->\n                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {\n                                    Text(account.currencyCode, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)\n                                    BalanceAmount(amount = formatBalance(account.balanceMinor), status = balanceStatus(account.balanceMinor), label = "")\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n'''
+              s=rep(s,old,new,'PersonAccountScreen.kt')
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/PersonAccountScreen.kt',person)
+
+          def tx(s):
+              s=rep(s,'import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\n','TransactionScreen.kt')
+              s=rep(s,'            if (embedded) androidx.compose.material3.Button(onClick = { showAddTransaction = true }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("إضافة عملية", style = MaterialTheme.typography.labelLarge) }\n','', 'TransactionScreen.kt')
+              old='if (embedded) transactionContent() else Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { AppTopBar(title = "عمليات ${CurrencyCatalog.name(selectedCurrencyCode)}", onBack = onBack) }, floatingActionButton = { FloatingActionButton(onClick = { showAddTransaction = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) { transactionContent() } }'
+              new='if (embedded) {\n        Box(modifier.fillMaxSize()) {\n            transactionContent()\n            FloatingActionButton(onClick = { showAddTransaction = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") }\n        }\n    } else Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { AppTopBar(title = "عمليات ${CurrencyCatalog.name(selectedCurrencyCode)}", onBack = onBack) }, floatingActionButton = { FloatingActionButton(onClick = { showAddTransaction = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) { transactionContent() } }'
+              return rep(s,old,new,'TransactionScreen.kt')
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/TransactionScreen.kt',tx)
+
+          def reports(s):
+              s=rep(s,'import androidx.compose.material3.ExperimentalMaterial3Api\n','import androidx.compose.material3.ExperimentalMaterial3Api\nimport androidx.compose.material3.FilterChip\n','CustodyReportsScreen.kt')
+              s=rep(s,'                        reportModeButton("أصحاب العُهَد", reportMode == 0, Modifier.weight(1f)) { reportMode = 0; personId = null }\n                        reportModeButton("الأرصدة", reportMode == 1, Modifier.weight(1f)) { reportMode = 1 }\n                        reportModeButton("العمليات", reportMode == 2, Modifier.weight(1f)) { reportMode = 2 }','                        FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })\n                        FilterChip(reportMode == 1, { reportMode = 1 }, label = { Text("الأرصدة") })\n                        FilterChip(reportMode == 2, { reportMode = 2 }, label = { Text("العمليات") })','CustodyReportsScreen.kt')
+              s=rep(s,'            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy) } }','            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> FilterChip(currency == code, { currency = code }, label = { Text(if (code == "ALL") "الكل" else code) }, enabled = !busy) } }','CustodyReportsScreen.kt')
+              s=rep(s,'            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("كل الحساب", { onPeriod(0) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("اليوم", { onPeriod(1) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy) }','            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(period == 0, { onPeriod(0) }, label = { Text("كل الحساب") }, enabled = !busy); FilterChip(period == 1, { onPeriod(1) }, label = { Text("اليوم") }, enabled = !busy); FilterChip(period == 2, { onPeriod(2) }, label = { Text("الأسبوع") }, enabled = !busy); FilterChip(period == 3, { onPeriod(3) }, label = { Text("الشهر") }, enabled = !busy) }','CustodyReportsScreen.kt')
+              s=rep(s,'            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach { (code, label) -> SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy) } }\n            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach { (code, label) -> SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy) } }','            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(2).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(if (code == "ALL") "الكل" else label) }, enabled = !busy) } }\n            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(2).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(label) }, enabled = !busy) } }','CustodyReportsScreen.kt')
+              s=rep(s,'            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy); people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) } }','            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null, { onPerson(null) }, label = { Text("الكل") }, enabled = !busy); people.take(3).forEach { person -> FilterChip(currentPersonId == person.id, { onPerson(person.id) }, label = { Text(person.name) }, enabled = !busy) } }','CustodyReportsScreen.kt')
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt',reports)
+          print('REPAIR PASS COMPLETE')
+      - name: Build verification
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/myaccounts/app/ui/screens
+          git commit -m "fix(ui): align custody, backup, account and report screens"
+          git push
