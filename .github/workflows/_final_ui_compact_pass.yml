@@ -1,0 +1,48 @@
+name: Final Compact UI Pass
+on:
+  push:
+    paths: ['.github/workflows/_final_ui_compact_pass.yml']
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt')
+          s=p.read_text()
+          s=s.replace('            SummaryCard(title = "نطاق النسخة") {\n                Text(scope.title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)\n                Text(\n                    if (scope == BackupScope.ALL) "هذه هي النسخة العامة من الشاشة الرئيسية: الحسابات والعُهَد والعمليات والمرفقات معًا."\n                    else "هذه النسخة مستقلة عن القسم الآخر، والاستعادة لا تستبدل بيانات القسم الآخر.",\n                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge\n                )\n            }\n\n','')
+          s=s.replace('Text("أنشئ ملفًا يحتوي على كامل بيانات النطاق المحدد ومرفقاته.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)\n                Spacer(Modifier.height(8.dp))','Text("بيانات النطاق المحدد ومرفقاته.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)\n                Spacer(Modifier.height(4.dp))')
+          s=s.replace('Spacer(Modifier.height(8.dp))\n                SecondaryButton(text = "اختيار مجلد المزامنة"','Spacer(Modifier.height(4.dp))\n                SecondaryButton(text = "اختيار مجلد المزامنة"')
+          s=s.replace('Spacer(Modifier.height(8.dp))\n                SecondaryButton(text = "مزامنة الآن"','Spacer(Modifier.height(4.dp))\n                SecondaryButton(text = "مزامنة الآن"')
+          s=s.replace('Spacer(Modifier.height(8.dp))\n                SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد"','Spacer(Modifier.height(4.dp))\n                SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد"')
+          s=s.replace('Spacer(Modifier.height(8.dp))\n                SecondaryButton(text = "مشاركة النسخة الاحتياطية"','Spacer(Modifier.height(4.dp))\n                SecondaryButton(text = "مشاركة النسخة الاحتياطية"')
+          s=s.replace('Text("الاستعادة تستبدل بيانات النطاق المحدد فقط. خذ نسخة آمنة قبل المتابعة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)','Text("تستبدل بيانات هذا النطاق فقط.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)')
+          p.write_text(s)
+
+          p=Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt')
+          s=p.read_text()
+          if 'import androidx.compose.foundation.horizontalScroll' not in s:
+              s=s.replace('import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.horizontalScroll\nimport androidx.compose.foundation.rememberScrollState\nimport androidx.compose.foundation.layout.Arrangement\n',1)
+          s=s.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })',1)
+          s=s.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach',1)
+          s=s.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(period == 0','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(period == 0',1)
+          s=s.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach',1)
+          s=s.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach',1)
+          s=s.replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null','Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null',1)
+          p.write_text(s)
+          PY
+      - name: Build and commit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt
+          git diff --cached --quiet || git commit -m 'fix(ui): compact backup screens and prevent custody report filter clipping'
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/_final_ui_compact_pass.yml
+          git commit -m 'chore(ci): remove temporary compact UI workflow'
+          git push
