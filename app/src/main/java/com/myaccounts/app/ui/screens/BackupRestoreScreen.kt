@@ -150,19 +150,10 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            SummaryCard(title = "نطاق النسخة") {
-                Text(scope.title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text(
-                    if (scope == BackupScope.ALL) "هذه هي النسخة العامة من الشاشة الرئيسية: الحسابات والعُهَد والعمليات والمرفقات معًا."
-                    else "هذه النسخة مستقلة عن القسم الآخر، والاستعادة لا تستبدل بيانات القسم الآخر.",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
-                )
-            }
-
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("النسخ الاحتياطي", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text("أنشئ ملفًا يحتوي على كامل بيانات النطاق المحدد ومرفقاته.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
+                Text("بيانات النطاق المحدد ومرفقاته.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
                 PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(ScopedBackupManager.suggestedFileName(scope)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
@@ -172,25 +163,25 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
                 Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 SecondaryButton(text = "مزامنة الآن", onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth())
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("إرسال ومشاركة النسخة", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
                 OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") })
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 SecondaryButton(text = "مشاركة النسخة الاحتياطية", onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("استعادة نسخة احتياطية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text("الاستعادة تستبدل بيانات النطاق المحدد فقط. خذ نسخة آمنة قبل المتابعة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(8.dp))
+                Text("تستبدل الاستعادة بيانات هذا النطاق فقط.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(4.dp))
                 DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
@@ -257,11 +248,11 @@ private fun AccountExcelTransferControls() {
     InformationCard(modifier = Modifier.fillMaxWidth()) {
         Text("Excel للحسابات", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
         Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         SecondaryButton(text = "استيراد الحسابات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        if (busy) { Spacer(Modifier.height(8.dp)); CircularProgressIndicator() }
+        if (busy) { Spacer(Modifier.height(4.dp)); CircularProgressIndicator() }
     }
 
     pendingImport?.let { uri ->

@@ -1,5 +1,7 @@
 package com.myaccounts.app.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -124,7 +126,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
             item {
                 SummaryCard(title = "مركز تقارير العُهَد") {
                     Text("التقارير مستقلة عن دفتر الحسابات وتقرأ من بيانات العهد فقط.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })
                         FilterChip(reportMode == 1, { reportMode = 1 }, label = { Text("الأرصدة") })
                         FilterChip(reportMode == 2, { reportMode = 2 }, label = { Text("العمليات") })
@@ -167,7 +169,7 @@ private fun CustodyReportContent(custody: CustodyEntity, people: List<CustodyPer
         }
         InformationCard {
             Text("الفترة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(period == 0, { onPeriod(0) }, label = { Text("كل الحساب") }, enabled = !busy); FilterChip(period == 1, { onPeriod(1) }, label = { Text("اليوم") }, enabled = !busy); FilterChip(period == 2, { onPeriod(2) }, label = { Text("الأسبوع") }, enabled = !busy); FilterChip(period == 3, { onPeriod(3) }, label = { Text("الشهر") }, enabled = !busy) }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(period == 0, { onPeriod(0) }, label = { Text("كل الحساب") }, enabled = !busy); FilterChip(period == 1, { onPeriod(1) }, label = { Text("اليوم") }, enabled = !busy); FilterChip(period == 2, { onPeriod(2) }, label = { Text("الأسبوع") }, enabled = !busy); FilterChip(period == 3, { onPeriod(3) }, label = { Text("الشهر") }, enabled = !busy) }
             StatusChip(when (period) { 1 -> "اليوم"; 2 -> "هذا الأسبوع"; 3 -> "هذا الشهر"; else -> "كل الحساب" })
         }
         InformationCard {
