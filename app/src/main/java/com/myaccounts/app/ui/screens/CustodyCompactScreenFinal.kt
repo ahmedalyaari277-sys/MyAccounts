@@ -98,24 +98,24 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
     val shown = listOfNotNull(fixedEntity) + sortedOthers
     Scaffold(modifier = Modifier.semantics { contentDescription = "شاشة تفاصيل العهدة" }, topBar = {
         TopAppBar(title = { Text(current.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
-            if (!current.isClosed) IconButton(onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, contentDescription = "إضافة طرف") }
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (!current.isClosed) DropdownMenuItem(text = { Text("إغلاق وتسوية العهدة") }, onClick = { menu = false; settlement = true }) else DropdownMenuItem(text = { Text("إعادة فتح العهدة") }, onClick = { menu = false; vm.reopenCustody(custodyId) })
                 DropdownMenuItem(text = { Text("أرشفة العهدة") }, onClick = { menu = false; vm.archive(custodyId); onBack() })
             }
         })
-    }) { padding ->
+    },
+    floatingActionButton = {
+        FloatingActionButton(onClick = { if (!current.isClosed) addPerson = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة طرف") }
+    }
+    ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
             item { FinalOwnerCard(current, accounts, transactions, people, !current.isClosed, onOwner) { quickOwner = true; quickPerson = null; quickEntity = null } }
             item {
                 Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("الأطراف", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                        Row(Modifier.width(176.dp).height(48.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
-                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }
-                        }
+                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
                     }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) { DropdownMenuItem(text = { Text("أحدث عملية") }, onClick = { latestFirst = true; sortMenu = false }); DropdownMenuItem(text = { Text("أبجديًا") }, onClick = { latestFirst = false; sortMenu = false }) }
                 }

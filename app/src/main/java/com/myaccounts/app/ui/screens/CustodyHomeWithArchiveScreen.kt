@@ -3,6 +3,7 @@ package com.myaccounts.app.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,6 +67,8 @@ import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 
 private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")
 
+private enum class CustodySortOrder { LATEST_TRANSACTION, ALPHABETICAL }
+
 @Composable
 private fun Modifier.custodyKeepFocusedFieldVisible(): Modifier {
     val requester = remember { BringIntoViewRequester() }
@@ -89,7 +94,14 @@ fun CustodyHomeWithArchiveScreen(
 ) {
     val custodies by vm.custodies.collectAsState()
     var adding by remember { mutableStateOf(false) }
+    var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST_TRANSACTION) }
+    var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
+
+    val displayedCustodies = when (sortOrder) {
+        CustodySortOrder.LATEST_TRANSACTION -> custodies
+        CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() }
+    }
 
     Scaffold(
         topBar = {
@@ -98,6 +110,13 @@ fun CustodyHomeWithArchiveScreen(
                 onBack = onBack,
                 actions = {
                     IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
+                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                            DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = CustodySortOrder.LATEST_TRANSACTION; showSortMenu = false })
+                            DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
+                        }
+                    }
                     IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                         DropdownMenuItem(
@@ -115,7 +134,7 @@ fun CustodyHomeWithArchiveScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") }
+            FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }
         }
     ) { padding ->
         LazyColumn(
@@ -129,7 +148,7 @@ fun CustodyHomeWithArchiveScreen(
                     description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية."
                 )
             }
-            items(custodies, key = { it.id }) { custody ->
+            items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
                 InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
