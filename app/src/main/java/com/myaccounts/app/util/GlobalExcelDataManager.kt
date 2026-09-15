@@ -15,7 +15,7 @@ object GlobalExcelDataManager {
     const val MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     const val SUGGESTED_FILE_NAME = "MyAccounts_All_Data.xlsx"
     data class ExportSummary(val accountPeople:Int,val accountAccounts:Int,val accountTransactions:Int,val custodyCustodies:Int,val custodyPeople:Int,val custodyAccounts:Int,val custodyTransactions:Int)
-    data class ImportPreview(val account:ExcelDataManager.ImportPreview,val custody:CustodyExcelDataManager.ImportPreview){ val isValid:Boolean get()=account.isValid&&custody.isValid }
+    data class ImportPreview(val account:ExcelDataManager.ImportPreview,val custody:CustodyTwoSheetExcelDataManager.ImportPreview){ val isValid:Boolean get()=account.isValid&&custody.isValid }
     data class ImportSummary(val account:ExcelDataManager.ImportSummary,val custody:CustodyExcelDataManager.ImportSummary)
 
     private fun fileUri(context: Context, file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -57,7 +57,7 @@ object GlobalExcelDataManager {
         val (accountUri,accountFile)=materializeSingleSheet(context,accountSheet,"accounts-import")
         val (custodyUri,custodyFile)=materializeSingleSheet(context,custodySheet,"custody-import")
         val snapshotFile=File.createTempFile("myaccounts-global-import-snapshot-",".myaccounts",context.cacheDir)
-        val snapshotUri=Uri.fromFile(snapshotFile)
+        val snapshotUri=fileUri(context,snapshotFile)
         try {
             val ap=ExcelDataManager.previewImport(context,accountUri).getOrThrow()
             val cp=CustodyTwoSheetExcelDataManager.previewImport(context,custodyUri).getOrThrow()
@@ -122,7 +122,7 @@ object GlobalExcelDataManager {
     private fun combinedContentTypes()="""<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>"""
     private fun rootRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"""
     private fun workbookXml()="""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="بيانات" sheetId="1" r:id="rId1"/></sheets></workbook>"""
-    private fun workbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"""
+    private fun workbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"""
     private fun combinedWorkbook()="""<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="بيانات الحسابات" sheetId="1" r:id="rId1"/><sheet name="بيانات العُهَد" sheetId="2" r:id="rId2"/></sheets></workbook>"""
     private fun combinedWorkbookRels()="""<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>"""
 }
