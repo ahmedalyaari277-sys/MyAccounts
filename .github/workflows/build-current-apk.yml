@@ -31,4 +31,4 @@ jobs:
           name: myaccounts-app-debug-current
           path: app/build/outputs/apk/debug/app-debug.apk
 
-# Verification trigger: build exact current main after UI repair commit 637ca2e.
+# Final verification trigger: build exact current main after the compact UI and backup/report inspection pass.
