@@ -23,7 +23,6 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import re
 
           root = Path('.')
 
@@ -46,25 +45,14 @@ jobs:
               if needle not in text:
                   raise SystemExit(f'EXPECTED UI STATE NOT FOUND: {path}: {needle[:120]}')
 
-          # Custody home/detail were already landed in main; verify them rather than reapplying them.
           home = read('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt')
-          for needle in [
-              'CustodySortOrder.LATEST_TRANSACTION',
-              'CustodySortOrder.ALPHABETICAL',
-              'Icon(Icons.Default.Sort, "ترتيب العُهَد")',
-              'Modifier.padding(16.dp).size(56.dp)',
-          ]:
+          for needle in ['CustodySortOrder.LATEST_TRANSACTION','CustodySortOrder.ALPHABETICAL','Icon(Icons.Default.Sort, "ترتيب العُهَد")','Modifier.padding(16.dp).size(56.dp)']:
               ensure(home, needle, 'CustodyHomeWithArchiveScreen.kt')
 
           detail = read('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
-          for needle in [
-              'floatingActionButton = {',
-              'Modifier.padding(16.dp).size(56.dp)',
-              'contentDescription = "ترتيب الأطراف"',
-          ]:
+          for needle in ['floatingActionButton = {','Modifier.padding(16.dp).size(56.dp)','contentDescription = "ترتيب الأطراف"']:
               ensure(detail, needle, 'CustodyCompactScreenFinal.kt')
 
-          # Category typing: selecting the popup must never reopen it on every keystroke.
           path = 'app/src/main/java/com/myaccounts/app/ui/screens/CustodyOrganizationOperationsScreen.kt'
           s = read(path)
           old = 'OutlinedTextField(category, { category = it; categoryMenu = true }, Modifier.fillMaxWidth().orgKeepFocusedVisible(), label = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving)'
@@ -73,60 +61,50 @@ jobs:
               s = replace_once(s, old, new, path)
           else:
               ensure(s, 'categoryMenu = false', path)
-          write(path, s) if s != read(path) else None
+          if s != read(path): write(path, s)
 
-          # Backup/restore: compact the common screen without touching backup logic.
           path = 'app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt'
-          s = read(path)
-          original = s
-          s = s.replace('verticalArrangement = Arrangement.spacedBy(12.dp),', 'verticalArrangement = Arrangement.spacedBy(8.dp),', 1)
-          s = s.replace('.padding(16.dp).verticalScroll(rememberScrollState()),', '.padding(horizontal = 12.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),', 1)
-          if s != original:
-              write(path, s)
+          s = read(path); original = s
+          s = s.replace('verticalArrangement = Arrangement.spacedBy(12.dp),','verticalArrangement = Arrangement.spacedBy(8.dp),',1)
+          s = s.replace('.padding(16.dp).verticalScroll(rememberScrollState()),','.padding(horizontal = 12.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),',1)
+          if s != original: write(path, s)
 
-          # Person account: replace the tall person+balance stack with one compact horizontal card.
           path = 'app/src/main/java/com/myaccounts/app/ui/screens/PersonAccountScreen.kt'
           s = read(path)
           start_marker = '            SummaryCard(title = "بيانات الشخص") {'
           end_marker = '            Row(\n                modifier = Modifier.fillMaxWidth(),'
           if start_marker in s and end_marker in s:
-              start = s.index(start_marker)
-              end = s.index(end_marker, start)
+              start = s.index(start_marker); end = s.index(end_marker, start)
               compact = '''            InformationCard {\n                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {\n                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n                        Text(person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)\n                        if (person.phone.isNotBlank()) Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)\n                        if (person.address.isNotBlank()) Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)\n                        if (person.notes.isNotBlank()) Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)\n                    }\n                    if (accounts.isNotEmpty()) {\n                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n                            Text("الأرصدة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)\n                            accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->\n                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {\n                                    Text(account.currencyCode, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)\n                                    BalanceAmount(amount = formatBalance(account.balanceMinor), status = balanceStatus(account.balanceMinor), label = "")\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n\n'''
               s = s[:start] + compact + s[end:]
           else:
               ensure(s, 'InformationCard {', path)
-          write(path, s) if s != read(path) else None
+          if s != read(path): write(path, s)
 
-          # Embedded person transactions: use the same compact FAB treatment instead of a full-width add button.
           path = 'app/src/main/java/com/myaccounts/app/ui/screens/TransactionScreen.kt'
           s = read(path)
+          if 'import androidx.compose.foundation.layout.size\n' not in s:
+              s = replace_once(s, 'import androidx.compose.foundation.layout.padding\n', 'import androidx.compose.foundation.layout.padding\nimport androidx.compose.foundation.layout.size\n', path)
           old = '            if (embedded) androidx.compose.material3.Button(onClick = { showAddTransaction = true }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("إضافة عملية", style = MaterialTheme.typography.labelLarge) }'
           new = '            if (embedded) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { FloatingActionButton(onClick = { showAddTransaction = true }, modifier = Modifier.size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }'
-          if old in s:
-              s = replace_once(s, old, new, path)
-          else:
-              ensure(s, 'if (embedded) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End)', path)
-          write(path, s) if s != read(path) else None
+          if old in s: s = replace_once(s, old, new, path)
+          else: ensure(s, 'if (embedded) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End)', path)
+          write(path, s)
 
-          # Custody reports: use FilterChip controls like the working ledger reports instead of weighted buttons.
           path = 'app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt'
-          s = read(path)
-          original = s
+          s = read(path); original = s
           if 'import androidx.compose.material3.FilterChip\n' not in s:
               s = replace_once(s, 'import androidx.compose.material3.ExperimentalMaterial3Api\n', 'import androidx.compose.material3.ExperimentalMaterial3Api\nimport androidx.compose.material3.FilterChip\n', path)
-          s = s.replace('reportModeButton("أصحاب العُهَد", reportMode == 0, Modifier.weight(1f)) { reportMode = 0; personId = null }', 'FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })')
-          s = s.replace('reportModeButton("الأرصدة", reportMode == 1, Modifier.weight(1f)) { reportMode = 1 }', 'FilterChip(reportMode == 1, { reportMode = 1 }, label = { Text("الأرصدة") })')
-          s = s.replace('reportModeButton("العمليات", reportMode == 2, Modifier.weight(1f)) { reportMode = 2 }', 'FilterChip(reportMode == 2, { reportMode = 2 }, label = { Text("العمليات") })')
-          s = s.replace('SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy)', 'FilterChip(currency == code, { currency = code }, label = { Text(if (code == "ALL") "الكل" else code) }, enabled = !busy)')
-          s = s.replace('SecondaryButton("كل الحساب", { onPeriod(0) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("اليوم", { onPeriod(1) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy)', 'FilterChip(period == 0, { onPeriod(0) }, label = { Text("كل الحساب") }, enabled = !busy); FilterChip(period == 1, { onPeriod(1) }, label = { Text("اليوم") }, enabled = !busy); FilterChip(period == 2, { onPeriod(2) }, label = { Text("الأسبوع") }, enabled = !busy); FilterChip(period == 3, { onPeriod(3) }, label = { Text("الشهر") }, enabled = !busy)')
-          s = s.replace('SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy)', 'FilterChip(currentType == code, { onType(code) }, label = { Text(if (code == "ALL") "الكل" else label) }, enabled = !busy)')
-          s = s.replace('SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy)', 'FilterChip(currentType == code, { onType(code) }, label = { Text(label) }, enabled = !busy)')
-          s = s.replace('SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy); people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) }', 'FilterChip(currentPersonId == null, { onPerson(null) }, label = { Text("الكل") }, enabled = !busy); people.take(3).forEach { person -> FilterChip(currentPersonId == person.id, { onPerson(person.id) }, label = { Text(person.name) }, enabled = !busy) }')
-          if s == original:
-              ensure(s, 'FilterChip', path)
-          else:
-              write(path, s)
+          s = s.replace('reportModeButton("أصحاب العُهَد", reportMode == 0, Modifier.weight(1f)) { reportMode = 0; personId = null }','FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })')
+          s = s.replace('reportModeButton("الأرصدة", reportMode == 1, Modifier.weight(1f)) { reportMode = 1 }','FilterChip(reportMode == 1, { reportMode = 1 }, label = { Text("الأرصدة") })')
+          s = s.replace('reportModeButton("العمليات", reportMode == 2, Modifier.weight(1f)) { reportMode = 2 }','FilterChip(reportMode == 2, { reportMode = 2 }, label = { Text("العمليات") })')
+          s = s.replace('SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy)','FilterChip(currency == code, { currency = code }, label = { Text(if (code == "ALL") "الكل" else code) }, enabled = !busy)')
+          s = s.replace('SecondaryButton("كل الحساب", { onPeriod(0) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("اليوم", { onPeriod(1) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy)','FilterChip(period == 0, { onPeriod(0) }, label = { Text("كل الحساب") }, enabled = !busy); FilterChip(period == 1, { onPeriod(1) }, label = { Text("اليوم") }, enabled = !busy); FilterChip(period == 2, { onPeriod(2) }, label = { Text("الأسبوع") }, enabled = !busy); FilterChip(period == 3, { onPeriod(3) }, label = { Text("الشهر") }, enabled = !busy)')
+          s = s.replace('SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy)','FilterChip(currentType == code, { onType(code) }, label = { Text(if (code == "ALL") "الكل" else label) }, enabled = !busy)')
+          s = s.replace('SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy)','FilterChip(currentType == code, { onType(code) }, label = { Text(label) }, enabled = !busy)')
+          s = s.replace('SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy); people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) }','FilterChip(currentPersonId == null, { onPerson(null) }, label = { Text("الكل") }, enabled = !busy); people.take(3).forEach { person -> FilterChip(currentPersonId == person.id, { onPerson(person.id) }, label = { Text(person.name) }, enabled = !busy) }')
+          if s == original: ensure(s, 'FilterChip', path)
+          else: write(path, s)
 
           print('STAGE 1 SOURCE REPAIR PASS COMPLETE')
       - name: Build verification
