@@ -10,8 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -19,49 +17,37 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.2'
-      - name: Apply compact backup and report UI repairs
+      - name: Complete custody report filter scrolling
         shell: python
         run: |
           from pathlib import Path
-          import re
-
-          # Backup/restore: reduce vertical density and explanatory duplication; behavior/data remain unchanged.
-          p = Path('app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt')
-          s = p.read_text(encoding='utf-8')
-          original = s
-          s = s.replace('            SummaryCard(title = "نطاق النسخة") {\n                Text(scope.title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)\n                Text(\n                    if (scope == BackupScope.ALL) "هذه هي النسخة العامة من الشاشة الرئيسية: الحسابات والعُهَد والعمليات والمرفقات معًا."\n                    else "هذه النسخة مستقلة عن القسم الآخر، والاستعادة لا تستبدل بيانات القسم الآخر.",\n                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge\n                )\n            }\n\n', '')
-          s = s.replace('أنشئ ملفًا يحتوي على كامل بيانات النطاق المحدد ومرفقاته.', 'بيانات النطاق المحدد ومرفقاته.')
-          s = s.replace('الاستعادة تستبدل بيانات النطاق المحدد فقط. خذ نسخة آمنة قبل المتابعة.', 'تستبدل الاستعادة بيانات هذا النطاق فقط.')
-          s = s.replace('Spacer(Modifier.height(8.dp))', 'Spacer(Modifier.height(4.dp))')
-          if s != original:
-              p.write_text(s, encoding='utf-8')
-
-          # Custody report filters: horizontal scrolling prevents Arabic chips from clipping.
           p = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt')
           s = p.read_text(encoding='utf-8')
-          original = s
-          if 'import androidx.compose.foundation.horizontalScroll' not in s:
-              s = s.replace('import androidx.compose.foundation.layout.Arrangement\n', 'import androidx.compose.foundation.horizontalScroll\nimport androidx.compose.foundation.rememberScrollState\nimport androidx.compose.foundation.layout.Arrangement\n', 1)
-          pattern = r'Row\(Modifier\.fillMaxWidth\(\), horizontalArrangement = Arrangement\.spacedBy\(8\.dp\)\) \{([^{}]|\{[^{}]*\})*FilterChip([^{}]|\{[^{}]*\})*\}'
-          def convert(m):
-              return m.group(0).replace('Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {', 'Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {', 1)
-          s = re.sub(pattern, convert, s)
-          if s != original:
-              p.write_text(s, encoding='utf-8')
-
-          # Fail only if neither target was changed, preventing silent no-op passes.
-          if Path('app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt').read_text(encoding='utf-8') == original:
-              pass
+          old = s
+          rows = [
+            'Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach',
+            'Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach',
+            'Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach',
+            'Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null',
+          ]
+          for prefix in rows:
+            s = s.replace(prefix, prefix.replace('Row(Modifier.fillMaxWidth()', 'Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())'), 1)
+          if 'horizontalScroll(rememberScrollState())' not in s:
+            raise SystemExit('No custody report filter was patched')
+          if s != old:
+            p.write_text(s, encoding='utf-8')
+          else:
+            print('All targeted report filter rows were already patched.')
       - name: Build verification
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Commit repairs
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add app/src/main/java/com/myaccounts/app/ui/screens/BackupRestoreScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt
           if git diff --cached --quiet; then
-            echo 'No source changes required; current UI already matches the compact pass.'
-            exit 0
+            echo 'No report filter source changes required.'
+          else
+            git commit -m 'fix(ui): make all custody report filters horizontally scrollable'
+            git push
           fi
-          git commit -m 'fix(ui): compact backup screens and custody report filters'
-          git push
