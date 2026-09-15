@@ -1,0 +1,43 @@
+name: Apply UI Repair Pass v3
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(ui):') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2'
+      - name: Reuse verified repair script
+        shell: python
+        run: |
+          from pathlib import Path
+          import textwrap
+          p = Path('.github/workflows/_apply_ui_repairs_v2.yml')
+          text = p.read_text(encoding='utf-8')
+          marker = '        run: |\n'
+          start = text.index(marker) + len(marker)
+          end = text.index('      - name: Build verification', start)
+          block = text[start:end]
+          code = textwrap.dedent(block)
+          exec(compile(code, str(p), 'exec'), {'__name__': '__main__'})
+      - name: Build verification
+        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Commit repairs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/myaccounts/app/ui/screens
+          git commit -m "fix(ui): align custody, backup, account and report screens"
+          git push
