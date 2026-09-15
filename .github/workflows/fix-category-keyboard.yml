@@ -1,0 +1,48 @@
+name: Fix custody category keyboard
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Stop category menu from stealing keyboard focus
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="app/src/main/java/com/myaccounts/app/ui/screens/CustodyLedgerScreen.kt"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/src/main/java/com/myaccounts/app/ui/screens/CustodyLedgerScreen.kt")
+          s = p.read_text()
+          old = 'onValueChange = { categoryName = it; categoryMenuExpanded = true }'
+          new = 'onValueChange = { categoryName = it }'
+          if old not in s:
+              raise SystemExit("Target category onValueChange expression was not found; refusing to modify the file.")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+          grep -n 'OutlinedTextField(value = categoryName' "$file"
+          if grep -n 'onValueChange = { categoryName = it; categoryMenuExpanded = true }' "$file"; then
+            echo 'Old focus-stealing expression still exists.'
+            exit 1
+          fi
+      - name: Commit fix and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-category-keyboard.yml
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyLedgerScreen.kt .github/workflows/fix-category-keyboard.yml
+          git commit -m "fix: keep keyboard open while typing custody category"
+          git push origin HEAD:main
