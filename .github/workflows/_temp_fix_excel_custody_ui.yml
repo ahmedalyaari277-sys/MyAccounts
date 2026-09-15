@@ -1,0 +1,43 @@
+name: Temp fix Excel and custody UI
+on:
+  push:
+    paths:
+      - '.github/workflows/_temp_fix_excel_custody_ui.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply focused fixes
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
+          s = p.read_text(encoding='utf-8')
+          old = '''            item {\n                Box(Modifier.fillMaxWidth().height(48.dp)) {\n                    Text("الأطراف", modifier = Modifier.align(Alignment.CenterEnd), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)\n                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        Row(Modifier.width(176.dp).height(48.dp).align(Alignment.CenterEnd), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {\n                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }\n                        }\n                    }\n                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) { DropdownMenuItem(text = { Text("أحدث عملية") }, onClick = { latestFirst = true; sortMenu = false }); DropdownMenuItem(text = { Text("أبجديًا") }, onClick = { latestFirst = false; sortMenu = false }) }\n                }\n            }'''
+          new = '''            item {\n                Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {\n                    Text("الأطراف", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)\n                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        Row(Modifier.width(176.dp).height(48.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {\n                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.AutoMirrored.Filled.Sort, null) }\n                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }\n                        }\n                    }\n                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) { DropdownMenuItem(text = { Text("أحدث عملية") }, onClick = { latestFirst = true; sortMenu = false }); DropdownMenuItem(text = { Text("أبجديًا") }, onClick = { latestFirst = false; sortMenu = false }) }\n                }\n            }'''
+          if old not in s:
+              raise SystemExit('Custody UI target block not found; refusing to modify.')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          # Strengthen the global workbook writer: keep the two source sheets isolated
+          # and emit a complete XLSX package with exactly the agreed two worksheets.
+          p = Path('app/src/main/java/com/myaccounts/app/util/GlobalExcelDataManager.kt')
+          s = p.read_text(encoding='utf-8')
+          old = '    private fun writeCombinedWorkbook(out:java.io.OutputStream,accountSheet:ByteArray,custodySheet:ByteArray){ZipOutputStream(out.buffered()).use{zip->{entry(zip,"[Content_Types].xml",combinedContentTypes());entry(zip,"_rels/.rels",rootRels());entry(zip,"xl/workbook.xml",combinedWorkbook());entry(zip,"xl/_rels/workbook.xml.rels",combinedWorkbookRels());zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"));zip.write(accountSheet);zip.closeEntry();zip.putNextEntry(ZipEntry("xl/worksheets/sheet2.xml"));zip.write(custodySheet);zip.closeEntry()}}}'
+          new = '''    private fun writeCombinedWorkbook(out:java.io.OutputStream,accountSheet:ByteArray,custodySheet:ByteArray){\n        val accounts = normalizeWorksheetXml(accountSheet)\n        val custody = normalizeWorksheetXml(custodySheet)\n        ZipOutputStream(out.buffered()).use { zip ->\n            entry(zip,"[Content_Types].xml",combinedContentTypes())\n            entry(zip,"_rels/.rels",rootRels())\n            entry(zip,"xl/workbook.xml",combinedWorkbook())\n            entry(zip,"xl/_rels/workbook.xml.rels",combinedWorkbookRels())\n            zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml")); zip.write(accounts); zip.closeEntry()\n            zip.putNextEntry(ZipEntry("xl/worksheets/sheet2.xml")); zip.write(custody); zip.closeEntry()\n        }\n    }\n\n    private fun normalizeWorksheetXml(sheet:ByteArray):ByteArray {\n        val text = sheet.toString(Charsets.UTF_8).removePrefix("\\uFEFF").trim()\n        require(text.startsWith("<?xml") || text.startsWith("<worksheet")) { "ورقة Excel غير صالحة." }\n        require(text.contains("<worksheet")) { "ورقة Excel لا تحتوي على عنصر worksheet." }\n        return text.toByteArray(Charsets.UTF_8)\n    }'''
+          if old not in s:
+              raise SystemExit('Global Excel writer target not found; refusing to modify.')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit fixes and remove temporary workflow
+        run: |
+          rm -f .github/workflows/_temp_fix_excel_custody_ui.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt app/src/main/java/com/myaccounts/app/util/GlobalExcelDataManager.kt .github/workflows/_temp_fix_excel_custody_ui.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: correct global Excel package and custody controls layout'
+          git push
