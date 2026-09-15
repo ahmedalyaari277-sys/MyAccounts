@@ -16,7 +16,7 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val repo = com.myaccounts.app.data.custody.CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
     private val dao = com.myaccounts.app.data.local.AppDatabase.getInstance(app).custodyDao()
     private val db = com.myaccounts.app.data.local.AppDatabase.getInstance(app)
-    val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
     private val personFlows = mutableMapOf<Long, StateFlow<List<CustodyPersonEntity>>>()
     private val accountFlows = mutableMapOf<Long, StateFlow<List<CustodyAccountEntity>>>()
@@ -32,7 +32,7 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
         }
     }
 
-    fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) { repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null) }
+    fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) { repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), custodies.value.firstOrNull { it.id == id }) }
     fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) { repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
     fun accounts(id: Long): StateFlow<List<CustodyAccountEntity>> = accountFlows.getOrPut(id) { repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
     fun transactions(id: Long): StateFlow<List<CustodyTransactionEntity>> = transactionFlows.getOrPut(id) { repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
@@ -52,11 +52,11 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, categoryName, description, date, attachments) }
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, "", description, date, attachments) }
     fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = viewModelScope.launch { repo.updateTransaction(id, currency, type, personId, amount, categoryName, description, date, newAttachments, deleted) }
-    fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = viewModelScope.launch { repo.updateTransaction(id, currency, type, personId, amount, "", description, date, newAttachments, deleted) }
+    fun updateTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = viewModelScope.launch { repo.updateTransaction(id, currency, type, personId, amount, description, date, newAttachments, deleted) }
     suspend fun addTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = repo.addTransaction(id, currency, type, personId, amount, categoryName, description, date, attachments)
     suspend fun addTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = repo.addTransaction(id, currency, type, personId, amount, "", description, date, attachments)
     suspend fun updateTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = repo.updateTransaction(id, currency, type, personId, amount, categoryName, description, date, newAttachments, deleted)
-    suspend fun updateTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = repo.updateTransaction(id, currency, type, personId, amount, "", description, date, newAttachments, deleted)
+    suspend fun updateTransactionAndWait(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, newAttachments: List<CustodyAttachmentStorage.Selected> = emptyList(), deleted: List<CustodyTransactionAttachmentEntity> = emptyList()) = repo.updateTransaction(id, currency, type, personId, amount, description, date, newAttachments, deleted)
     suspend fun transferTransactionAndWait(id: Long, newPersonId: Long, reason: String) = repo.transferTransaction(id, newPersonId, reason)
     fun deleteTransaction(id: Long) = viewModelScope.launch { repo.deleteTransaction(id) }
     suspend fun closeCustodyAndWait(id: Long, yerActualMinor: Long, sarActualMinor: Long, usdActualMinor: Long, notes: String) = repo.closeCustody(id, yerActualMinor, sarActualMinor, usdActualMinor, notes)
