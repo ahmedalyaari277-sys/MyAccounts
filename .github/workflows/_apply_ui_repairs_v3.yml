@@ -31,6 +31,14 @@ jobs:
           end = text.index('      - name: Build verification', start)
           block = text[start:end]
           code = textwrap.dedent(block)
+          code = code.replace(
+              "s=rep(s,'import androidx.compose.foundation.layout.Arrangement\\n','import androidx.compose.foundation.layout.Arrangement\\nimport androidx.compose.foundation.layout.Box\\n','CustodyHomeWithArchiveScreen.kt')",
+              "s=rep(s,'import androidx.compose.foundation.layout.Arrangement\\n','import androidx.compose.foundation.layout.Arrangement\\nimport androidx.compose.foundation.layout.Box\\nimport androidx.compose.foundation.layout.size\\n','CustodyHomeWithArchiveScreen.kt')"
+          )
+          code = code.replace(
+              "s=rep(s,'        })\\n    }) { padding ->\\n',\n'        },\\n        floatingActionButton = {\\n            FloatingActionButton(onClick = { if (!current.isClosed) addPerson = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, \"إضافة طرف\") }\\n        }\\n    ) { padding ->\\n'",
+              "s=rep(s,'        })\\n    }) { padding ->\\n',\n'        })\\n        floatingActionButton = {\\n            FloatingActionButton(onClick = { if (!current.isClosed) addPerson = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, \"إضافة طرف\") }\\n        }\\n    ) { padding ->\\n'"
+          )
           exec(compile(code, str(p), 'exec'), {'__name__': '__main__'})
       - name: Build verification
         run: gradle assembleDebug --no-daemon --stacktrace
@@ -42,4 +50,4 @@ jobs:
           git commit -m "fix(ui): align custody, backup, account and report screens"
           git push
 
-# Retriggered after the workflow was present on main.
+# Retriggered after correcting the verified repair script.
