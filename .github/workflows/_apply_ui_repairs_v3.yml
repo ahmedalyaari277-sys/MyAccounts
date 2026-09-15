@@ -41,3 +41,5 @@ jobs:
           git add app/src/main/java/com/myaccounts/app/ui/screens
           git commit -m "fix(ui): align custody, backup, account and report screens"
           git push
+
+# Retriggered after the workflow was present on main.
