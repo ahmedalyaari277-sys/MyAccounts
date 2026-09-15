@@ -96,7 +96,25 @@ object GlobalExcelDataManager {
         return fileUri(context,file) to file
     }
 
-    private fun writeCombinedWorkbook(out:java.io.OutputStream,accountSheet:ByteArray,custodySheet:ByteArray){ZipOutputStream(out.buffered()).use{zip->{entry(zip,"[Content_Types].xml",combinedContentTypes());entry(zip,"_rels/.rels",rootRels());entry(zip,"xl/workbook.xml",combinedWorkbook());entry(zip,"xl/_rels/workbook.xml.rels",combinedWorkbookRels());zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"));zip.write(accountSheet);zip.closeEntry();zip.putNextEntry(ZipEntry("xl/worksheets/sheet2.xml"));zip.write(custodySheet);zip.closeEntry()}}}
+    private fun writeCombinedWorkbook(out:java.io.OutputStream,accountSheet:ByteArray,custodySheet:ByteArray){
+        val accounts = normalizeWorksheetXml(accountSheet)
+        val custody = normalizeWorksheetXml(custodySheet)
+        ZipOutputStream(out.buffered()).use { zip ->
+            entry(zip,"[Content_Types].xml",combinedContentTypes())
+            entry(zip,"_rels/.rels",rootRels())
+            entry(zip,"xl/workbook.xml",combinedWorkbook())
+            entry(zip,"xl/_rels/workbook.xml.rels",combinedWorkbookRels())
+            zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml")); zip.write(accounts); zip.closeEntry()
+            zip.putNextEntry(ZipEntry("xl/worksheets/sheet2.xml")); zip.write(custody); zip.closeEntry()
+        }
+    }
+
+    private fun normalizeWorksheetXml(sheet:ByteArray):ByteArray {
+        val text = sheet.toString(Charsets.UTF_8).removePrefix("\uFEFF").trim()
+        require(text.startsWith("<?xml") || text.startsWith("<worksheet")) { "ورقة Excel غير صالحة." }
+        require(text.contains("<worksheet")) { "ورقة Excel لا تحتوي على عنصر worksheet." }
+        return text.toByteArray(Charsets.UTF_8)
+    }
     private fun sheetNames(workbook:ByteArray): List<String> = Regex("<sheet\\b[^>]*name=\\\"([^\\\"]+)\\\"").findAll(workbook.toString(Charsets.UTF_8)).map{it.groupValues[1]}.toList()
     private fun readZip(input:InputStream):Map<String,ByteArray> = buildMap{ZipInputStream(input.buffered()).use{zip->while(true){val e=zip.nextEntry?:break;if(!e.isDirectory){val out=ByteArrayOutputStream();zip.copyTo(out);put(e.name,out.toByteArray())}}}}
     private fun entry(zip:ZipOutputStream,name:String,value:String){zip.putNextEntry(ZipEntry(name));zip.write(value.toByteArray(Charsets.UTF_8));zip.closeEntry()}

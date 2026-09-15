@@ -109,11 +109,11 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
             item { FinalOwnerCard(current, accounts, transactions, people, !current.isClosed, onOwner) { quickOwner = true; quickPerson = null; quickEntity = null } }
             item {
-                Box(Modifier.fillMaxWidth().height(48.dp)) {
-                    Text("الأطراف", modifier = Modifier.align(Alignment.CenterEnd), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("الأطراف", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                        Row(Modifier.width(176.dp).height(48.dp).align(Alignment.CenterEnd), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }
+                        Row(Modifier.width(176.dp).height(48.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.AutoMirrored.Filled.Sort, null) }
                             TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }
                         }
                     }
