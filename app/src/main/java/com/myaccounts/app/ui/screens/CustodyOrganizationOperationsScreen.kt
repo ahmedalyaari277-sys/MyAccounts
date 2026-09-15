@@ -156,7 +156,7 @@ private fun OrganizationTransactionDialog(
                     OutlinedTextField(SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date(date)), {}, Modifier.fillMaxWidth(), label = { Text("التاريخ") }, readOnly = true, singleLine = true, enabled = !saving, trailingIcon = { IconButton(enabled = !saving, onClick = { val d = Calendar.getInstance().apply { timeInMillis = date }; DatePickerDialog(context, { _, y, m, day -> d.set(y, m, day, 12, 0, 0); d.set(Calendar.MILLISECOND, 0); date = d.timeInMillis }, d.get(Calendar.YEAR), d.get(Calendar.MONTH), d.get(Calendar.DAY_OF_MONTH)).show() }) { Icon(Icons.Default.CalendarToday, "اختيار التاريخ") } })
                     Text("التصنيف", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Box(Modifier.fillMaxWidth()) {
-                        OutlinedTextField(category, { category = it; categoryMenu = true }, Modifier.fillMaxWidth().orgKeepFocusedVisible(), label = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving)
+                        OutlinedTextField(category, { category = it; categoryMenu = false }, Modifier.fillMaxWidth().orgKeepFocusedVisible(), label = { Text("اختر تصنيفًا أو اكتب تصنيفًا جديدًا") }, singleLine = true, enabled = !saving)
                         DropdownMenu(expanded = categoryMenu && categories.isNotEmpty(), onDismissRequest = { categoryMenu = false }) {
                             categories.forEach { value -> DropdownMenuItem(text = { Text(value) }, onClick = { category = value; categoryMenu = false }) }
                             DropdownMenuItem(text = { Text("جديد") }, onClick = { category = ""; categoryMenu = false })

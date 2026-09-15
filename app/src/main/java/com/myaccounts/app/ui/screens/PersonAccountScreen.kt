@@ -84,45 +84,24 @@ fun PersonAccountScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SummaryCard(title = "بيانات الشخص") {
-                Text(
-                    person.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (person.phone.isNotBlank()) {
-                    Text(
-                        "الهاتف: ${person.phone}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (person.address.isNotBlank()) {
-                    Text(
-                        "العنوان: ${person.address}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (person.notes.isNotBlank()) {
-                    Text(
-                        "الملاحظات: ${person.notes}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            if (accounts.isNotEmpty()) {
-                SummaryCard(title = "ملخص الأرصدة") {
-                    accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->
-                        BalanceAmount(
-                            amount = formatBalance(account.balanceMinor),
-                            status = balanceStatus(account.balanceMinor),
-                            label = account.currencyCode,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+            InformationCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        if (person.phone.isNotBlank()) Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (person.address.isNotBlank()) Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        if (person.notes.isNotBlank()) Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                    }
+                    if (accounts.isNotEmpty()) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("الأرصدة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(account.currencyCode, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    BalanceAmount(amount = formatBalance(account.balanceMinor), status = balanceStatus(account.balanceMinor), label = "")
+                                }
+                            }
+                        }
                     }
                 }
             }

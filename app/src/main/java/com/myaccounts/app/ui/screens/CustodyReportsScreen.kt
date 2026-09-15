@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -124,11 +125,11 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                 SummaryCard(title = "مركز تقارير العُهَد") {
                     Text("التقارير مستقلة عن دفتر الحسابات وتقرأ من بيانات العهد فقط.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        reportModeButton("أصحاب العُهَد", reportMode == 0, Modifier.weight(1f)) { reportMode = 0; personId = null }
-                        reportModeButton("الأرصدة", reportMode == 1, Modifier.weight(1f)) { reportMode = 1 }
-                        reportModeButton("العمليات", reportMode == 2, Modifier.weight(1f)) { reportMode = 2 }
+                        FilterChip(reportMode == 0, { reportMode = 0; personId = null }, label = { Text("أصحاب العُهَد") })
+                        FilterChip(reportMode == 1, { reportMode = 1 }, label = { Text("الأرصدة") })
+                        FilterChip(reportMode == 2, { reportMode = 2 }, label = { Text("العمليات") })
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> SecondaryButton(code, { currency = code }, Modifier.weight(1f), enabled = !busy) } }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> FilterChip(currency == code, { currency = code }, label = { Text(if (code == "ALL") "الكل" else code) }, enabled = !busy) } }
                     Text("العملة الحالية: ${currencyName(currency)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -166,18 +167,18 @@ private fun CustodyReportContent(custody: CustodyEntity, people: List<CustodyPer
         }
         InformationCard {
             Text("الفترة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("كل الحساب", { onPeriod(0) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("اليوم", { onPeriod(1) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الأسبوع", { onPeriod(2) }, Modifier.weight(1f), enabled = !busy); SecondaryButton("الشهر", { onPeriod(3) }, Modifier.weight(1f), enabled = !busy) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(period == 0, { onPeriod(0) }, label = { Text("كل الحساب") }, enabled = !busy); FilterChip(period == 1, { onPeriod(1) }, label = { Text("اليوم") }, enabled = !busy); FilterChip(period == 2, { onPeriod(2) }, label = { Text("الأسبوع") }, enabled = !busy); FilterChip(period == 3, { onPeriod(3) }, label = { Text("الشهر") }, enabled = !busy) }
             StatusChip(when (period) { 1 -> "اليوم"; 2 -> "هذا الأسبوع"; 3 -> "هذا الشهر"; else -> "كل الحساب" })
         }
         InformationCard {
             Text("نوع الحركة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach { (code, label) -> SecondaryButton(if (code == "ALL") "الكل" else label, { onType(code) }, Modifier.weight(1f), enabled = !busy) } }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach { (code, label) -> SecondaryButton(label, { onType(code) }, Modifier.weight(1f), enabled = !busy) } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(if (code == "ALL") "الكل" else label) }, enabled = !busy) } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(label) }, enabled = !busy) } }
             StatusChip(typeName(currentType))
         }
         InformationCard {
             Text("الشخص / الطرف", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { SecondaryButton("الكل", { onPerson(null) }, Modifier.weight(1f), enabled = !busy); people.take(3).forEach { person -> SecondaryButton(person.name, { onPerson(person.id) }, Modifier.weight(1f), enabled = !busy) } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null, { onPerson(null) }, label = { Text("الكل") }, enabled = !busy); people.take(3).forEach { person -> FilterChip(currentPersonId == person.id, { onPerson(person.id) }, label = { Text(person.name) }, enabled = !busy) } }
             currentPersonId?.let { id -> people.firstOrNull { it.id == id }?.let { StatusChip(it.name) } }
         }
         InformationCard {

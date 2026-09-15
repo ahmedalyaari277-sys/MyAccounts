@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -107,7 +108,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
             else LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)) {
                 items(transactions, key = { it.id }) { transaction -> Phase5TransactionCard(transaction, transactionViewModel, { transactionToEdit = transaction }, { transactionToDelete = transaction }, { transactionForAttachments = transaction }) }
             }
-            if (embedded) androidx.compose.material3.Button(onClick = { showAddTransaction = true }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("إضافة عملية", style = MaterialTheme.typography.labelLarge) }
+            if (embedded) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { FloatingActionButton(onClick = { showAddTransaction = true }, modifier = Modifier.size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }
         }
     }
 
