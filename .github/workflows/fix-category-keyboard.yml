@@ -1,7 +1,8 @@
 name: Fix custody category keyboard
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
