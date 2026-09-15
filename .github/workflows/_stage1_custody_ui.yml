@@ -1,0 +1,58 @@
+name: Stage 1 Custody UI Repair
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(ui):') && !startsWith(github.event.head_commit.message, 'chore(ui):') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply stage 1 repairs
+        shell: python
+        run: |
+          from pathlib import Path
+          root=Path('.')
+          def edit(path, fn):
+              p=root/path; s=p.read_text(encoding='utf-8'); n=fn(s)
+              if n==s: raise SystemExit(f'NO CHANGE: {path}')
+              p.write_text(n,encoding='utf-8'); print('UPDATED',path)
+          def rep(s,old,new,path):
+              if old not in s: raise SystemExit(f'PATTERN NOT FOUND: {path}')
+              if s.count(old)!=1: raise SystemExit(f'PATTERN NOT UNIQUE: {path}: {s.count(old)}')
+              return s.replace(old,new)
+
+          def home(s):
+              s=rep(s,'import androidx.compose.foundation.layout.Arrangement\n','import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'import androidx.compose.material.icons.filled.MoreVert\n','import androidx.compose.material.icons.filled.MoreVert\nimport androidx.compose.material.icons.filled.Sort\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")\n','private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")\n\nprivate enum class CustodySortOrder { LATEST_TRANSACTION, ALPHABETICAL }\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'    var adding by remember { mutableStateOf(false) }\n    var showMoreMenu by remember { mutableStateOf(false) }\n','    var adding by remember { mutableStateOf(false) }\n    var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST_TRANSACTION) }\n    var showSortMenu by remember { mutableStateOf(false) }\n    var showMoreMenu by remember { mutableStateOf(false) }\n\n    val displayedCustodies = when (sortOrder) {\n        CustodySortOrder.LATEST_TRANSACTION -> custodies\n        CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() }\n    }\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }\n                    IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }\n','                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }\n                    Box {\n                        IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }\n                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {\n                            DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = CustodySortOrder.LATEST_TRANSACTION; showSortMenu = false })\n                            DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })\n                        }\n                    }\n                    IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }\n','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'items(custodies, key = { it.id }) { custody ->','items(displayedCustodies, key = { it.id }) { custody ->','CustodyHomeWithArchiveScreen.kt')
+              s=rep(s,'            FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "إضافة عهدة") }','            FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }','CustodyHomeWithArchiveScreen.kt')
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt',home)
+
+          def detail(s):
+              s=rep(s,'            if (!current.isClosed) IconButton(onClick = { addPerson = true }, modifier = Modifier.semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, contentDescription = "إضافة طرف") }\n','', 'CustodyCompactScreenFinal.kt')
+              s=rep(s,'                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        Row(Modifier.width(176.dp).height(48.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {\n                            IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                            TextButton(enabled = !current.isClosed, onClick = { addPerson = true }, modifier = Modifier.width(112.dp).height(48.dp).semantics { contentDescription = "إضافة طرف" }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(2.dp)); Text("إضافة", maxLines = 1) }\n                        }\n                    }','                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {\n                        IconButton(onClick = { sortMenu = true }, modifier = Modifier.size(48.dp).semantics { contentDescription = "ترتيب الأطراف" }) { Icon(Icons.Default.Sort, null) }\n                    }','CustodyCompactScreenFinal.kt')
+              s=rep(s,'        })\n    }) { padding ->\n','        },\n        floatingActionButton = {\n            FloatingActionButton(onClick = { if (!current.isClosed) addPerson = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة طرف") }\n        }\n    ) { padding ->\n','CustodyCompactScreenFinal.kt')
+              return s
+          edit('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt',detail)
+      - name: Build verification
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Commit repairs
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyHomeWithArchiveScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt
+          git diff --cached --quiet && exit 1
+          git commit -m 'fix(ui): align custody sort and add actions'
+          git push
