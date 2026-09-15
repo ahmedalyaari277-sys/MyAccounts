@@ -15,7 +15,7 @@ object GlobalExcelDataManager {
     const val MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     const val SUGGESTED_FILE_NAME = "MyAccounts_All_Data.xlsx"
     data class ExportSummary(val accountPeople:Int,val accountAccounts:Int,val accountTransactions:Int,val custodyCustodies:Int,val custodyPeople:Int,val custodyAccounts:Int,val custodyTransactions:Int)
-    data class ImportPreview(val account:ExcelDataManager.ImportPreview,val custody:CustodyTwoSheetExcelDataManager.ImportPreview){ val isValid:Boolean get()=account.isValid&&custody.isValid }
+    data class ImportPreview(val account:ExcelDataManager.ImportPreview,val custody:CustodyExcelDataManager.ImportPreview){ val isValid:Boolean get()=account.isValid&&custody.isValid }
     data class ImportSummary(val account:ExcelDataManager.ImportSummary,val custody:CustodyExcelDataManager.ImportSummary)
 
     private fun fileUri(context: Context, file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -115,7 +115,7 @@ object GlobalExcelDataManager {
         require(text.contains("<worksheet")) { "ورقة Excel لا تحتوي على عنصر worksheet." }
         return text.toByteArray(Charsets.UTF_8)
     }
-    private fun sheetNames(workbook:ByteArray): List<String> = Regex("<sheet\\b[^>]*name=\\\"([^\\\"]+)\\\"").findAll(workbook.toString(Charsets.UTF_8)).map{it.groupValues[1]}.toList()
+    private fun sheetNames(workbook:ByteArray): List<String> = Regex("<sheet\\b[^>]*name=\"([^\"]+)\"").findAll(workbook.toString(Charsets.UTF_8)).map{it.groupValues[1]}.toList()
     private fun readZip(input:InputStream):Map<String,ByteArray> = buildMap{ZipInputStream(input.buffered()).use{zip->while(true){val e=zip.nextEntry?:break;if(!e.isDirectory){val out=ByteArrayOutputStream();zip.copyTo(out);put(e.name,out.toByteArray())}}}}
     private fun entry(zip:ZipOutputStream,name:String,value:String){zip.putNextEntry(ZipEntry(name));zip.write(value.toByteArray(Charsets.UTF_8));zip.closeEntry()}
     private fun contentTypes()="""<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>"""
