@@ -131,7 +131,7 @@ fun CustodyReportsScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                         FilterChip(reportMode == 1, { reportMode = 1 }, label = { Text("الأرصدة") })
                         FilterChip(reportMode == 2, { reportMode = 2 }, label = { Text("العمليات") })
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> FilterChip(currency == code, { currency = code }, label = { Text(if (code == "ALL") "الكل" else code) }, enabled = !busy) } }
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportCurrencies.forEach { code -> FilterChip(currency == code, { currency = code }, label = { Text(if (code == "ALL") "الكل" else code) }, enabled = !busy) } }
                     Text("العملة الحالية: ${currencyName(currency)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -174,13 +174,13 @@ private fun CustodyReportContent(custody: CustodyEntity, people: List<CustodyPer
         }
         InformationCard {
             Text("نوع الحركة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(if (code == "ALL") "الكل" else label) }, enabled = !busy) } }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(label) }, enabled = !busy) } }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.take(3).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(if (code == "ALL") "الكل" else label) }, enabled = !busy) } }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { reportTypes.drop(3).forEach { (code, label) -> FilterChip(currentType == code, { onType(code) }, label = { Text(label) }, enabled = !busy) } }
             StatusChip(typeName(currentType))
         }
         InformationCard {
             Text("الشخص / الطرف", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null, { onPerson(null) }, label = { Text("الكل") }, enabled = !busy); people.take(3).forEach { person -> FilterChip(currentPersonId == person.id, { onPerson(person.id) }, label = { Text(person.name) }, enabled = !busy) } }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(currentPersonId == null, { onPerson(null) }, label = { Text("الكل") }, enabled = !busy); people.take(3).forEach { person -> FilterChip(currentPersonId == person.id, { onPerson(person.id) }, label = { Text(person.name) }, enabled = !busy) } }
             currentPersonId?.let { id -> people.firstOrNull { it.id == id }?.let { StatusChip(it.name) } }
         }
         InformationCard {
