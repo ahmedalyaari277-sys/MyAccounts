@@ -31,4 +31,4 @@ jobs:
           name: myaccounts-app-debug-current
           path: app/build/outputs/apk/debug/app-debug.apk
 
-# Final APK verification after the complete compact custody report filter repair.
+# Final APK verification after the complete compact custody report filter repair. Verified latest-main trigger.
