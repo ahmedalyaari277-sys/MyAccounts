@@ -1,0 +1,32 @@
+name: Apply custody Excel blank row fix
+on:
+  push:
+    branches:
+      - fix/custody-excel-category-import
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Patch
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('app/src/main/java/com/myaccounts/app/util/CustodyExcelDataManager.kt')
+          s=p.read_text(encoding='utf-8')
+          old='''                            } else if (rowNumber > 1) {\n\n                                result += row(\n                                    rowNumber,\n                                    (0..20).map {\n                                        cells[it].orEmpty()\n                                    }\n                                )\n'''
+          new='''                            } else if (rowNumber > 1) {\n\n                                val values = (0..20).map {\n                                    cells[it].orEmpty()\n                                }\n                                if (values.any { it.isNotBlank() }) {\n                                    result += row(rowNumber, values)\n                                }\n'''
+          if old not in s: raise SystemExit('row block not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/myaccounts/app/util/CustodyExcelDataManager.kt
+          git diff --cached --check
+          git commit -m 'fix(excel): ignore blank custody rows'
+          git push
