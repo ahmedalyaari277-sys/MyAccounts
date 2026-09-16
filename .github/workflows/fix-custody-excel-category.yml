@@ -1,0 +1,83 @@
+name: Apply custody Excel category compatibility fix
+
+on:
+  push:
+    branches:
+      - fix/custody-excel-category-import
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch custody Excel importer/exporter
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/myaccounts/app/util/CustodyExcelDataManager.kt')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  '        "المبلغ",\n        "البيان",\n        "التاريخ"\n',
+                  '        "المبلغ",\n        "البيان",\n        "التاريخ",\n        "التصنيف"\n'
+              ),
+              (
+                  '        val description: String,\n        val date: Long?\n',
+                  '        val description: String,\n        val date: Long?,\n        val category: String\n'
+              ),
+              (
+                  '                description = transaction.description,\n                date = transaction.transactionDate\n',
+                  '                description = transaction.description,\n                date = transaction.transactionDate,\n                category = transaction.categoryName\n'
+              ),
+              (
+                  '                    description = "",\n                    date = null\n',
+                  '                    description = "",\n                    date = null,\n                    category = ""\n'
+              ),
+              (
+                  '                    description = "",\n                    date = null\n',
+                  '                    description = "",\n                    date = null,\n                    category = ""\n'
+              ),
+              (
+                  '                        transactionDate = date,\n                        externalId = row.transactionId\n',
+                  '                        transactionDate = date,\n                        categoryName = row.category,\n                        externalId = row.transactionId\n'
+              ),
+              (
+                  '                                val headers =\n                                    (0..19).map {\n                                        cells[it].orEmpty()\n                                    }\n\n                                require(\n                                    headers == HEADERS\n                                ) {\n                                    "أعمدة ملف Excel للعُهَد غير مطابقة للصيغة المعتمدة."\n                                }\n\n                            } else if (rowNumber > 1) {\n\n                                result += row(\n                                    rowNumber,\n                                    (0..19).map {\n                                        cells[it].orEmpty()\n                                    }\n                                )\n',
+                  '                                val headers =\n                                    (0..20).map {\n                                        cells[it].orEmpty()\n                                    }\n\n                                val legacyHeaders = HEADERS.dropLast(1)\n                                val currentHeaders = HEADERS\n\n                                require(\n                                    headers == currentHeaders ||\n                                        headers.take(20) == legacyHeaders\n                                ) {\n                                    "أعمدة ملف Excel للعُهَد غير مطابقة للصيغة المعتمدة."\n                                }\n\n                            } else if (rowNumber > 1) {\n\n                                result += row(\n                                    rowNumber,\n                                    (0..20).map {\n                                        cells[it].orEmpty()\n                                    }\n                                )\n'
+              ),
+              (
+                  '            date = parseDate(values[19])\n',
+                  '            date = parseDate(values[19]),\n            category = values.getOrNull(20)?.trim().orEmpty()\n'
+              ),
+              (
+                  '                row.date\n                    ?.let {\n                        SimpleDateFormat(\n                            "yyyy-MM-dd",\n                            Locale.US\n                        ).format(Date(it))\n                    }\n                    ?: ""\n',
+                  '                row.date\n                    ?.let {\n                        SimpleDateFormat(\n                            "yyyy-MM-dd",\n                            Locale.US\n                        ).format(Date(it))\n                    }\n                    ?: "",\n                row.category\n'
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Expected source pattern was not found: {old[:120]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          print('CustodyExcelDataManager.kt patched successfully')
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/myaccounts/app/util/CustodyExcelDataManager.kt
+          git diff --cached --check
+          git diff --cached -- app/src/main/java/com/myaccounts/app/util/CustodyExcelDataManager.kt
+          git commit -m 'fix(excel): preserve custody transaction categories and accept legacy files'
+          git push
