@@ -15,7 +15,10 @@ object CustodyTwoSheetExcelDataManager {
     const val MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     const val SUGGESTED_FILE_NAME = "MyAccounts_Custodies.xlsx"
 
-    private fun fileUri(context: Context, file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    private const val CATEGORY_HEADER = "التصنيف"
+
+    private fun fileUri(context: Context, file: File): Uri =
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
     suspend fun exportActive(context: Context, uri: Uri): Result<CustodyExcelDataManager.ExportSummary> = runCatching {
         val temp = File.createTempFile("custody-excel-", ".xlsx", context.cacheDir)
@@ -27,8 +30,9 @@ object CustodyTwoSheetExcelDataManager {
             val categoriesByTransactionId = transactions.associate { it.externalId to it.categoryName.trim() }
             val baseSheet = entries["xl/worksheets/sheet1.xml"] ?: error("ورقة عمليات العُهَد مفقودة.")
             val categorizedSheet = addCategoryColumn(baseSheet, categoriesByTransactionId)
-            context.contentResolver.openOutputStream(uri)?.use { out -> writeSingleSheetWorkbook(out, categorizedSheet) }
-                ?: error("تعذر فتح ملف Excel للكتابة.")
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                writeSingleSheetWorkbook(out, categorizedSheet)
+            } ?: error("تعذر فتح ملف Excel للكتابة.")
             summary
         } finally {
             temp.delete()
@@ -36,28 +40,46 @@ object CustodyTwoSheetExcelDataManager {
     }
 
     fun previewImport(context: Context, uri: Uri): Result<CustodyExcelDataManager.ImportPreview> = runCatching {
-        val entries = readZip(context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف Excel."))
-        require(sheetCount(entries["xl/workbook.xml"] ?: error("ملف Excel غير صالح.")) == 1) { "يجب أن يحتوي ملف العُهَد على Sheet واحد فقط." }
+        val entries = readZip(
+            context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف Excel.")
+        )
+        require(
+            sheetCount(entries["xl/workbook.xml"] ?: error("ملف Excel غير صالح.")) == 1
+        ) { "يجب أن يحتوي ملف العُهَد على Sheet واحد فقط." }
+
         val sheet = entries["xl/worksheets/sheet1.xml"] ?: error("ورقة عمليات العُهَد مفقودة.")
-        val normalizedSheet = removeCategoryColumn(sheet)
+        val sharedStrings = entries["xl/sharedStrings.xml"]?.let(::parseSharedStrings) ?: emptyList()
+        val normalizedSheet = removeCategoryColumn(sheet, sharedStrings)
         val temp = singleSheetFile(context, normalizedSheet)
-        try { CustodyExcelDataManager.previewImport(context, fileUri(context, temp)).getOrThrow() } finally { temp.delete() }
+        try {
+            CustodyExcelDataManager.previewImport(context, fileUri(context, temp)).getOrThrow()
+        } finally {
+            temp.delete()
+        }
     }
 
     suspend fun import(context: Context, uri: Uri): Result<CustodyExcelDataManager.ImportSummary> = runCatching {
-        val entries = readZip(context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف Excel."))
-        require(sheetCount(entries["xl/workbook.xml"] ?: error("ملف Excel غير صالح.")) == 1) { "يجب أن يحتوي ملف العُهَد على Sheet واحد فقط." }
+        val entries = readZip(
+            context.contentResolver.openInputStream(uri) ?: error("تعذر فتح ملف Excel.")
+        )
+        require(
+            sheetCount(entries["xl/workbook.xml"] ?: error("ملف Excel غير صالح.")) == 1
+        ) { "يجب أن يحتوي ملف العُهَد على Sheet واحد فقط." }
+
         val sheet = entries["xl/worksheets/sheet1.xml"] ?: error("ورقة عمليات العُهَد مفقودة.")
         val sharedStrings = entries["xl/sharedStrings.xml"]?.let(::parseSharedStrings) ?: emptyList()
         val categories = parseCategories(sheet, sharedStrings)
-        val normalizedSheet = removeCategoryColumn(sheet)
+        val normalizedSheet = removeCategoryColumn(sheet, sharedStrings)
         val temp = singleSheetFile(context, normalizedSheet)
+
         try {
             val result = CustodyExcelDataManager.import(context, fileUri(context, temp)).getOrThrow()
-            val dao = AppDatabase.getInstance(context).custodyDao()
-            categories.forEach { (externalId, category) ->
-                dao.getTransactionByExternalId(externalId)?.let { transaction ->
-                    dao.updateTransaction(transaction.copy(categoryName = category.trim()))
+            if (categories.isNotEmpty()) {
+                val dao = AppDatabase.getInstance(context).custodyDao()
+                categories.forEach { (externalId, category) ->
+                    dao.getTransactionByExternalId(externalId)?.let { transaction ->
+                        dao.updateTransaction(transaction.copy(categoryName = category.trim()))
+                    }
                 }
             }
             result
@@ -66,28 +88,59 @@ object CustodyTwoSheetExcelDataManager {
         }
     }
 
-    private fun addCategoryColumn(sheet: ByteArray, categoriesByTransactionId: Map<String, String>): ByteArray {
+    private fun addCategoryColumn(
+        sheet: ByteArray,
+        categoriesByTransactionId: Map<String, String>
+    ): ByteArray {
         var text = sheet.toString(Charsets.UTF_8)
-        text = text.replaceFirst("</row>", "<c r=\"U1\" t=\"inlineStr\"><is><t>التصنيف</t></is></c></row>")
+        text = text.replaceFirst(
+            "</row>",
+            "<c r=\"U1\" t=\"inlineStr\"><is><t>$CATEGORY_HEADER</t></is></c></row>"
+        )
         val rowRegex = Regex("<row\\b[^>]*r=\"(\\d+)\"[^>]*>.*?</row>", RegexOption.DOT_MATCHES_ALL)
         text = rowRegex.replace(text) { match ->
             val rowNumber = match.groupValues[1].toIntOrNull() ?: return@replace match.value
             if (rowNumber <= 1) return@replace match.value
             val transactionId = cellValue(match.value, "B").orEmpty().let(::unescape)
             val category = categoriesByTransactionId[transactionId].orEmpty()
-            match.value.replace("</row>", "<c r=\"U$rowNumber\" t=\"inlineStr\"><is><t>${escape(category)}</t></is></c></row>")
+            match.value.replace(
+                "</row>",
+                "<c r=\"U$rowNumber\" t=\"inlineStr\"><is><t>${escape(category)}</t></is></c></row>"
+            )
         }
         return text.toByteArray(Charsets.UTF_8)
     }
 
-    private fun removeCategoryColumn(sheet: ByteArray): ByteArray {
-        return sheet.toString(Charsets.UTF_8)
-            .replace(Regex("<c\\b[^>]*r=\"U\\d+\"[^>]*>.*?</c>", RegexOption.DOT_MATCHES_ALL), "")
-            .toByteArray(Charsets.UTF_8)
+    /**
+     * Accept both the current 20-column workbook and the app's 21-column
+     * custody workbook that contains the optional "التصنيف" column.
+     * The category column is detected from the header instead of assuming U,
+     * so files produced by Excel with a different physical column position
+     * remain importable.
+     */
+    private fun removeCategoryColumn(
+        sheet: ByteArray,
+        sharedStrings: List<String>
+    ): ByteArray {
+        val text = sheet.toString(Charsets.UTF_8)
+        val categoryColumn = findHeaderColumn(text, sharedStrings, CATEGORY_HEADER)
+            ?: return sheet
+
+        val columnRegex = Regex(
+            "<c\\b[^>]*\\br=\"${Regex.escape(categoryColumn)}\\d+\"[^>]*>.*?</c>",
+            RegexOption.DOT_MATCHES_ALL
+        )
+        return columnRegex.replace(text, "").toByteArray(Charsets.UTF_8)
     }
 
-    private fun parseCategories(sheet: ByteArray, sharedStrings: List<String>): Map<String, String> {
+    private fun parseCategories(
+        sheet: ByteArray,
+        sharedStrings: List<String>
+    ): Map<String, String> {
         val text = sheet.toString(Charsets.UTF_8)
+        val categoryColumn = findHeaderColumn(text, sharedStrings, CATEGORY_HEADER)
+            ?: return emptyMap()
+
         val result = linkedMapOf<String, String>()
         Regex("<row\\b[^>]*r=\"(\\d+)\"[^>]*>(.*?)</row>", RegexOption.DOT_MATCHES_ALL)
             .findAll(text)
@@ -95,30 +148,71 @@ object CustodyTwoSheetExcelDataManager {
                 if (rowMatch.groupValues[1] == "1") return@forEach
                 val row = rowMatch.groupValues[2]
                 val transactionId = cellValue(row, "B", sharedStrings).orEmpty().let(::unescape)
-                val category = cellValue(row, "U", sharedStrings).orEmpty().let(::unescape)
+                val category = cellValue(row, categoryColumn, sharedStrings).orEmpty().let(::unescape)
                 if (transactionId.isNotBlank()) result[transactionId] = category
             }
         return result
+    }
+
+    private fun findHeaderColumn(
+        sheetText: String,
+        sharedStrings: List<String>,
+        header: String
+    ): String? {
+        val headerRow = Regex(
+            "<row\\b[^>]*r=\"1\"[^>]*>(.*?)</row>",
+            RegexOption.DOT_MATCHES_ALL
+        ).find(sheetText)?.groupValues?.get(1) ?: return null
+
+        val cellRegex = Regex(
+            "<c\\b[^>]*\\br=\"([A-Z]+)1\"[^>]*>.*?</c>",
+            RegexOption.DOT_MATCHES_ALL
+        )
+        return cellRegex.findAll(headerRow).firstNotNullOfOrNull { match ->
+            val column = match.groupValues[1]
+            val value = cellValue(headerRow, column, sharedStrings)
+                .orEmpty()
+                .let(::unescape)
+                .trim()
+            if (value == header) column else null
+        }
     }
 
     private fun parseSharedStrings(bytes: ByteArray): List<String> {
         val out = mutableListOf<String>()
         val text = bytes.toString(Charsets.UTF_8)
         Regex("<si\\b.*?</si>", RegexOption.DOT_MATCHES_ALL).findAll(text).forEach { si ->
-            out += Regex("<t[^>]*>(.*?)</t>", RegexOption.DOT_MATCHES_ALL).findAll(si.value).joinToString("") { it.groupValues[1] }
+            out += Regex("<t[^>]*>(.*?)</t>", RegexOption.DOT_MATCHES_ALL)
+                .findAll(si.value)
+                .joinToString("") { it.groupValues[1] }
         }
         return out
     }
 
-    private fun cellValue(row: String, column: String, sharedStrings: List<String> = emptyList()): String? {
-        val cell = Regex("<c\\b[^>]*\\br=\"$column\\d+\"[^>]*>(.*?)</c>", RegexOption.DOT_MATCHES_ALL).find(row) ?: return null
+    private fun cellValue(
+        row: String,
+        column: String,
+        sharedStrings: List<String> = emptyList()
+    ): String? {
+        val cell = Regex(
+            "<c\\b[^>]*\\br=\"${Regex.escape(column)}\\d+\"[^>]*>(.*?)</c>",
+            RegexOption.DOT_MATCHES_ALL
+        ).find(row) ?: return null
         val content = cell.groupValues[1]
-        val attributes = Regex("<c\\b([^>]*)>", RegexOption.DOT_MATCHES_ALL).find(cell.value)?.groupValues?.get(1).orEmpty()
-        val type = Regex("(?:^|\\s)t=\"([^\"]+)\"", RegexOption.DOT_MATCHES_ALL).find(attributes)?.groupValues?.get(1).orEmpty()
-        val textValue = Regex("<t[^>]*>(.*?)</t>", RegexOption.DOT_MATCHES_ALL).find(content)?.groupValues?.get(1)
+        val attributes = Regex("<c\\b([^>]*)>", RegexOption.DOT_MATCHES_ALL)
+            .find(cell.value)?.groupValues?.get(1).orEmpty()
+        val type = Regex("(?:^|\\s)t=\"([^\"]+)\"", RegexOption.DOT_MATCHES_ALL)
+            .find(attributes)?.groupValues?.get(1).orEmpty()
+        val textValue = Regex("<t[^>]*>(.*?)</t>", RegexOption.DOT_MATCHES_ALL)
+            .find(content)?.groupValues?.get(1)
         if (textValue != null) return textValue
-        val rawValue = Regex("<v[^>]*>(.*?)</v>", RegexOption.DOT_MATCHES_ALL).find(content)?.groupValues?.get(1) ?: return null
-        return if (type == "s") sharedStrings.getOrNull(rawValue.toIntOrNull() ?: -1) ?: rawValue else rawValue
+        val rawValue = Regex("<v[^>]*>(.*?)</v>", RegexOption.DOT_MATCHES_ALL)
+            .find(content)?.groupValues?.get(1) ?: return null
+        return if (type == "s") {
+            sharedStrings.getOrNull(rawValue.toIntOrNull() ?: -1) ?: rawValue
+        } else {
+            rawValue
+        }
     }
 
     private fun singleSheetFile(context: Context, sheet: ByteArray): File {
@@ -152,7 +246,9 @@ object CustodyTwoSheetExcelDataManager {
         }
     }
 
-    private fun sheetCount(workbook: ByteArray) = Regex("<sheet\\b").findAll(workbook.toString(Charsets.UTF_8)).count()
+    private fun sheetCount(workbook: ByteArray) =
+        Regex("<sheet\\b").findAll(workbook.toString(Charsets.UTF_8)).count()
+
     private fun entry(zip: ZipOutputStream, name: String, value: String) {
         zip.putNextEntry(ZipEntry(name))
         zip.write(value.toByteArray(Charsets.UTF_8))
