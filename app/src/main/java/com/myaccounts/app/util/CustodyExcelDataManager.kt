@@ -50,7 +50,8 @@ object CustodyExcelDataManager {
         "نوع العملية",
         "المبلغ",
         "البيان",
-        "التاريخ"
+        "التاريخ",
+        "التصنيف"
     )
 
     private val SUPPORTED_CURRENCIES = setOf(
@@ -136,7 +137,8 @@ object CustodyExcelDataManager {
         val type: String,
         val amount: Long?,
         val description: String,
-        val date: Long?
+        val date: Long?,
+        val category: String
     )
 
     private fun openInput(
@@ -231,7 +233,8 @@ object CustodyExcelDataManager {
                 type = transaction.type,
                 amount = transaction.amountMinor,
                 description = transaction.description,
-                date = transaction.transactionDate
+                date = transaction.transactionDate,
+                category = transaction.categoryName
             )
         }
 
@@ -263,7 +266,8 @@ object CustodyExcelDataManager {
                     type = "",
                     amount = null,
                     description = "",
-                    date = null
+                    date = null,
+                    category = ""
                 )
             }
         }
@@ -302,7 +306,8 @@ object CustodyExcelDataManager {
                     type = "",
                     amount = null,
                     description = "",
-                    date = null
+                    date = null,
+                    category = ""
                 )
             }
 
@@ -577,6 +582,7 @@ object CustodyExcelDataManager {
                         amountMinor = amount,
                         description = row.description,
                         transactionDate = date,
+                        categoryName = row.category,
                         externalId = row.transactionId
                     )
                 )
@@ -1156,12 +1162,16 @@ object CustodyExcelDataManager {
                             if (rowNumber == 1) {
 
                                 val headers =
-                                    (0..19).map {
+                                    (0..20).map {
                                         cells[it].orEmpty()
                                     }
 
+                                val legacyHeaders = HEADERS.dropLast(1)
+                                val currentHeaders = HEADERS
+
                                 require(
-                                    headers == HEADERS
+                                    headers == currentHeaders ||
+                                        headers.take(20) == legacyHeaders
                                 ) {
                                     "أعمدة ملف Excel للعُهَد غير مطابقة للصيغة المعتمدة."
                                 }
@@ -1170,7 +1180,7 @@ object CustodyExcelDataManager {
 
                                 result += row(
                                     rowNumber,
-                                    (0..19).map {
+                                    (0..20).map {
                                         cells[it].orEmpty()
                                     }
                                 )
@@ -1218,7 +1228,8 @@ object CustodyExcelDataManager {
             type = values[16].trim(),
             amount = parseAmount(values[17]),
             description = values[18].trim(),
-            date = parseDate(values[19])
+            date = parseDate(values[19]),
+            category = values.getOrNull(20)?.trim().orEmpty()
         )
     }
 
@@ -1458,7 +1469,8 @@ object CustodyExcelDataManager {
                             Locale.US
                         ).format(Date(it))
                     }
-                    ?: ""
+                    ?: "",
+                row.category
             )
         }
 
