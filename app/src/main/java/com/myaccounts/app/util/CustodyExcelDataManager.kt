@@ -1178,12 +1178,12 @@ object CustodyExcelDataManager {
 
                             } else if (rowNumber > 1) {
 
-                                result += row(
-                                    rowNumber,
-                                    (0..20).map {
-                                        cells[it].orEmpty()
-                                    }
-                                )
+                                val values = (0..20).map {
+                                    cells[it].orEmpty()
+                                }
+                                if (values.any { it.isNotBlank() }) {
+                                    result += row(rowNumber, values)
+                                }
                             }
                         }
                     }
