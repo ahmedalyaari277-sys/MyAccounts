@@ -32,6 +32,8 @@ interface CustodyDao {
     @Query("SELECT * FROM custody_transactions WHERE id = :id LIMIT 1") suspend fun getTransaction(id: Long): CustodyTransactionEntity?
     @Query("SELECT * FROM custody_persons WHERE id = :id LIMIT 1") suspend fun getPerson(id: Long): CustodyPersonEntity?
     @Query("SELECT * FROM custody_transactions WHERE personId = :personId") suspend fun getTransactionsForPerson(personId: Long): List<CustodyTransactionEntity>
+    @Query("SELECT EXISTS(SELECT 1 FROM custodies WHERE name = :name COLLATE NOCASE AND id != :excludedCustodyId)") suspend fun hasCustodyWithName(name: String, excludedCustodyId: Long): Boolean
+    @Query("SELECT EXISTS(SELECT 1 FROM custody_persons WHERE custodyId = :custodyId AND name = :name COLLATE NOCASE AND id != :excludedPersonId)") suspend fun hasPersonWithNameInCustody(custodyId: Long, name: String, excludedPersonId: Long): Boolean
     @Query("INSERT OR IGNORE INTO custody_accounts(custodyId, holderType, personId, currencyCode, balanceMinor, createdAt, updatedAt) SELECT custodyId, holderType, personId, :currencyCode, 0, :now, :now FROM custody_accounts GROUP BY custodyId, holderType, personId") suspend fun addCurrencyToAllAccounts(currencyCode: String, now: Long = System.currentTimeMillis())
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertCustody(custody: CustodyEntity): Long
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertPerson(person: CustodyPersonEntity): Long
