@@ -52,6 +52,9 @@ interface LedgerDao {
     @Query("SELECT EXISTS(SELECT 1 FROM people WHERE isActive = 1 AND id != :excludedPersonId AND name = :name COLLATE NOCASE)")
     suspend fun hasActivePersonWithName(name: String, excludedPersonId: Long): Boolean
 
+    @Query("SELECT EXISTS(SELECT 1 FROM people WHERE name = :name COLLATE NOCASE AND id != :excludedPersonId)")
+    suspend fun hasPersonWithName(name: String, excludedPersonId: Long): Boolean
+
     @Insert
     fun insertPerson(person: PersonEntity): Long
 
