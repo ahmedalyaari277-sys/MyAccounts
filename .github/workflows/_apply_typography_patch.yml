@@ -1,0 +1,34 @@
+name: apply typography patch
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[auto-ui]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace hardcoded custody metric sizes
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
+          s = p.read_text()
+          old = 'Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = finalStatusColor(status), maxLines = 1); Spacer(Modifier.width(3.dp)); Text(status, fontSize = 9.sp, fontWeight = FontWeight.Medium, color = finalStatusColor(status), maxLines = 1)'
+          new = 'Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = finalStatusColor(status), maxLines = 1); Spacer(Modifier.width(3.dp)); Text(status, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = finalStatusColor(status), maxLines = 1)'
+          if old not in s:
+              raise SystemExit('target typography expression not found')
+          p.write_text(s.replace(old, new))
+          p = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
+          s = p.read_text()
+          s = s.replace('import androidx.compose.ui.unit.sp\n', '')
+          p.write_text(s)
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt
+          git diff --cached --quiet || git commit -m 'style(ui): normalize custody metric typography [auto-ui]'
+          git push
