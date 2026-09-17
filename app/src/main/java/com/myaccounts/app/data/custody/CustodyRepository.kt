@@ -73,21 +73,27 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
     suspend fun createCustody(c: CustodyEntity): Long = db.withTransaction {
         require(c.name.isNotBlank()) { "اسم صاحب العهدة مطلوب" }
         require(c.organizationName.isNotBlank()) { "اسم الجهة مطلوب" }
-        val id = dao.insertCustody(c.copy(name = c.name.trim(), organizationName = c.organizationName.trim()))
+        val cleanName = c.name.trim()
+        require(!dao.hasCustodyWithName(cleanName, 0L)) { "اسم العهدة موجود بالفعل" }
+        val id = dao.insertCustody(c.copy(name = cleanName, organizationName = c.organizationName.trim()))
         dao.insertAccounts(currencies.map { CustodyAccountEntity(custodyId = id, holderType = "OWNER", currencyCode = it) })
         id
     }
     suspend fun updateCustody(c: CustodyEntity) {
         require(c.name.isNotBlank()) { "اسم صاحب العهدة مطلوب" }
         require(c.organizationName.isNotBlank()) { "اسم الجهة مطلوب" }
-        dao.updateCustody(c.copy(name = c.name.trim(), organizationName = c.organizationName.trim()))
+        val cleanName = c.name.trim()
+        require(!dao.hasCustodyWithName(cleanName, c.id)) { "اسم العهدة موجود بالفعل" }
+        dao.updateCustody(c.copy(name = cleanName, organizationName = c.organizationName.trim()))
     }
     suspend fun addPerson(custodyId: Long, p: CustodyPersonEntity): Long = db.withTransaction {
         val custody = dao.getCustody(custodyId) ?: error("العهدة غير موجودة")
         require(!custody.isArchived) { "العهدة مؤرشفة" }
         require(!custody.isClosed) { "العهدة مغلقة ومسواة" }
         require(p.name.isNotBlank()) { "اسم الشخص مطلوب" }
-        val id = dao.insertPerson(p.copy(custodyId = custodyId, name = p.name.trim()))
+        val cleanName = p.name.trim()
+        require(!dao.hasPersonWithNameInCustody(custodyId, cleanName, 0L)) { "اسم الطرف موجود بالفعل في هذه العهدة" }
+        val id = dao.insertPerson(p.copy(custodyId = custodyId, name = cleanName))
         dao.insertAccounts(currencies.map { CustodyAccountEntity(custodyId = custodyId, holderType = "PERSON", personId = id, currencyCode = it) })
         id
     }
@@ -96,7 +102,9 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         val custody = dao.getCustody(p.custodyId) ?: error("العهدة غير موجودة")
         require(!custody.isClosed) { "العهدة مغلقة ومسواة" }
         require(!custody.isArchived) { "العهدة مؤرشفة" }
-        dao.updatePerson(p.copy(name = p.name.trim()))
+        val cleanName = p.name.trim()
+        require(!dao.hasPersonWithNameInCustody(p.custodyId, cleanName, p.id)) { "اسم الطرف موجود بالفعل في هذه العهدة" }
+        dao.updatePerson(p.copy(name = cleanName))
     }
     suspend fun deletePerson(personId: Long) = db.withTransaction {
         val person = dao.getPerson(personId) ?: return@withTransaction
@@ -107,9 +115,7 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         val now = System.currentTimeMillis()
         transactions.forEach { transaction ->
             val ownerAccount = dao.getOwnerAccount(transaction.custodyId, transaction.currencyCode)
-            if (ownerAccount != null) {
-                dao.adjustAccountBalance(ownerAccount.id, -CustodyBalanceRules.ownerCashDelta(transaction.type, transaction.amountMinor), now)
-            }
+            if (ownerAccount != null) dao.adjustAccountBalance(ownerAccount.id, -CustodyBalanceRules.ownerCashDelta(transaction.type, transaction.amountMinor), now)
             val personAccount = dao.getPersonAccount(transaction.custodyId, personId, transaction.currencyCode)
             if (personAccount != null) {
                 val personDelta = CustodyBalanceRules.personCustodyDelta(transaction.type, transaction.amountMinor)
