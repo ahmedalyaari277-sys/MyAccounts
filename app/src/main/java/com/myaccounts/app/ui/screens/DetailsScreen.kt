@@ -25,7 +25,7 @@ fun DetailsScreen(onBack: () -> Unit) {
     Scaffold(topBar = { AppTopBar(title = "تفاصيل التطبيق", onBack = onBack) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             SummaryCard(title = "حساباتي") {
                 Text("حساباتي — دفتر الحسابات", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -42,6 +42,14 @@ fun DetailsScreen(onBack: () -> Unit) {
                 Text("مزايا التطبيق", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
                 Text("• إدارة الأشخاص والحسابات.\n• تسجيل ومتابعة المعاملات.\n• معرفة ما لك وما عليك.\n• التقارير وتصديرها بصيغة PDF وExcel.\n• الأرشفة والاستعادة.\n• النسخ الاحتياطي واستعادة البيانات.\n• حماية التطبيق بالبصمة ورمز الدخول.\n• إضافة عملات جديدة دون تغيير بنية الحسابات.", style = MaterialTheme.typography.bodyLarge)
+            }
+
+            InformationCard {
+                Text("مطور التطبيق", style = MaterialTheme.typography.titleMedium)
+                Text("م. احمد اليعري", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text("الهاتف: +967 773034454", style = MaterialTheme.typography.bodyMedium)
+                Text("البريد الإلكتروني: ahmedalyaari277@gmail.com", style = MaterialTheme.typography.bodyMedium)
+                Text("البريد الإلكتروني: ahmed.mohammed2772010@gmail.com", style = MaterialTheme.typography.bodyMedium)
             }
 
             InformationCard {
