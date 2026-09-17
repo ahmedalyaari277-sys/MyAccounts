@@ -86,6 +86,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
     var sortMenu by remember { mutableStateOf(false) }
     var latestFirst by remember { mutableStateOf(true) }
     var menu by remember { mutableStateOf(false) }
+    var details by remember { mutableStateOf(false) }
     var settlement by remember { mutableStateOf(false) }
     var addPerson by remember { mutableStateOf(false) }
     var quickOwner by remember { mutableStateOf(false) }
@@ -100,6 +101,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
         TopAppBar(title = { Text(current.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(text = { Text("تفاصيل العهدة") }, onClick = { menu = false; details = true })
                 if (!current.isClosed) DropdownMenuItem(text = { Text("إغلاق وتسوية العهدة") }, onClick = { menu = false; settlement = true }) else DropdownMenuItem(text = { Text("إعادة فتح العهدة") }, onClick = { menu = false; vm.reopenCustody(custodyId) })
                 DropdownMenuItem(text = { Text("أرشفة العهدة") }, onClick = { menu = false; vm.archive(custodyId); onBack() })
             }
@@ -142,6 +144,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
         CustodyLedgerOperationDialog(vm = vm, custodyId = custodyId, personId = if (owner) null else if (entity) quickEntity else quickPerson, owner = owner, defaultCurrency = "YER", initialType = if (owner) CustodyTransactionType.RECEIVED_FROM_ORG else CustodyTransactionType.PAID_TO_PERSON, transaction = null, dialogWidth = .94f, onDismiss = { quickOwner = false; quickPerson = null; quickEntity = null }, onFinished = { quickOwner = false; quickPerson = null; quickEntity = null })
     }
     if (settlement) FinalSettlementDialog(vm, current, transactions) { settlement = false }
+    if (details) CustodyDataEditDialog(vm, current, { details = false }, { details = false })
 }
 
 @Composable
