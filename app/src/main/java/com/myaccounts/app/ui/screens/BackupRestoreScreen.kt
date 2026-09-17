@@ -45,10 +45,10 @@ import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.TransferModeDialog
 import com.myaccounts.app.util.BackupScope
 import com.myaccounts.app.util.CompatibleRestoreManager
+import com.myaccounts.app.util.DownloadStorageManager
 import com.myaccounts.app.util.ExcelDataManager
 import com.myaccounts.app.util.ManualSyncManager
 import com.myaccounts.app.util.ScopedBackupManager
-import com.myaccounts.app.util.TransferMode
 import com.myaccounts.app.util.TransferModeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,22 +78,27 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
 
     fun showMessage(text: String, type: BackupFeedbackType) { message = text; feedbackType = type }
 
-    val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) {
-            busy = true
-            coroutineScope.launch(Dispatchers.IO) {
-                if (scope != BackupScope.ACCOUNTS) CustodyAttachmentStore.ensureSchema(context)
-                val result = ScopedBackupManager.createBackup(context, uri, scope)
+    fun createBackupDirectly() {
+        if (busy) return
+        busy = true
+        coroutineScope.launch(Dispatchers.IO) {
+            val uri = runCatching { DownloadStorageManager.createUri(context, ScopedBackupManager.suggestedFileName(scope), "application/octet-stream") }.getOrElse {
                 busy = false
-                result.fold(
-                    onSuccess = {
-                        lastBackupUri = uri
-                        preferences.edit().putString(uriKey, uri.toString()).apply()
-                        showMessage("تم إنشاء نسخة ${scope.title} بنجاح، وتشمل البيانات والمرفقات التابعة للنطاق.", BackupFeedbackType.Success)
-                    },
-                    onFailure = { showMessage("تعذر إنشاء النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
-                )
+                showMessage("تعذر إنشاء ملف النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error)
+                return@launch
             }
+            if (scope != BackupScope.ACCOUNTS) CustodyAttachmentStore.ensureSchema(context)
+            val result = ScopedBackupManager.createBackup(context, uri, scope)
+            if (result.isSuccess) DownloadStorageManager.finish(context, uri) else DownloadStorageManager.delete(context, uri)
+            busy = false
+            result.fold(
+                onSuccess = {
+                    lastBackupUri = uri
+                    preferences.edit().putString(uriKey, uri.toString()).apply()
+                    showMessage("تم إنشاء نسخة ${scope.title} بنجاح، وتشمل البيانات والمرفقات التابعة للنطاق.", BackupFeedbackType.Success)
+                },
+                onFailure = { showMessage("تعذر إنشاء النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}", BackupFeedbackType.Error) }
+            )
         }
     }
 
@@ -150,15 +155,15 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
 
     Scaffold(topBar = { AppTopBar(title = if (scope == BackupScope.ALL) "النسخ الاحتياطي والمزامنة" else "نسخ واستعادة ${scope.title}", onBack = onBack) }) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 6.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium)
                 Text("بيانات النطاق المحدد ومرفقاته.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(ScopedBackupManager.suggestedFileName(scope)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(2.dp))
+                PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createBackupDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
             if (scope == BackupScope.ALL) ExcelTransferControls()
@@ -167,29 +172,29 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = MaterialTheme.typography.titleMedium)
                 Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "مزامنة الآن", onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth())
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("إرسال ومشاركة النسخة", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") })
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "مشاركة النسخة الاحتياطية", onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("استعادة نسخة احتياطية", style = MaterialTheme.typography.titleMedium)
                 Text("تستبدل الاستعادة بيانات هذا النطاق فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
-            if (busy) { Spacer(Modifier.height(4.dp)); CircularProgressIndicator() }
+            if (busy) { Spacer(Modifier.height(2.dp)); CircularProgressIndicator() }
         }
     }
 
@@ -235,19 +240,25 @@ private fun AccountExcelTransferControls() {
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ExcelDataManager.MIME_TYPE)) { uri ->
-        if (uri != null) {
-            busy = true
-            coroutineScope.launch(Dispatchers.IO) {
-                val result = ExcelDataManager.exportActive(context, uri)
+    fun exportAccountsDirectly() {
+        if (busy) return
+        busy = true
+        coroutineScope.launch(Dispatchers.IO) {
+            val uri = runCatching { DownloadStorageManager.createUri(context, ExcelDataManager.SUGGESTED_FILE_NAME, ExcelDataManager.MIME_TYPE) }.getOrElse {
                 busy = false
-                message = result.fold(
-                    onSuccess = { s -> "تم تصدير الحسابات إلى Excel بنجاح.\nالأشخاص: ${s.people}\nالحسابات: ${s.accounts}\nالعمليات: ${s.transactions}" },
-                    onFailure = { "تعذر تصدير الحسابات إلى Excel: ${it.message ?: "خطأ غير معروف"}" }
-                )
+                message = "تعذر إنشاء ملف Excel: ${it.message ?: "خطأ غير معروف"}"
+                return@launch
             }
+            val result = ExcelDataManager.exportActive(context, uri)
+            if (result.isSuccess) DownloadStorageManager.finish(context, uri) else DownloadStorageManager.delete(context, uri)
+            busy = false
+            message = result.fold(
+                onSuccess = { s -> "تم تصدير الحسابات إلى Excel بنجاح.\nالأشخاص: ${s.people}\nالحسابات: ${s.accounts}\nالعمليات: ${s.transactions}" },
+                onFailure = { "تعذر تصدير الحسابات إلى Excel: ${it.message ?: "خطأ غير معروف"}" }
+            )
         }
     }
+
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             pendingImport = uri
@@ -266,11 +277,11 @@ private fun AccountExcelTransferControls() {
     InformationCard(modifier = Modifier.fillMaxWidth()) {
         Text("Excel للحسابات", style = MaterialTheme.typography.titleMedium)
         Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(4.dp))
-        PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
+        PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportAccountsDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(2.dp))
         SecondaryButton(text = "استيراد الحسابات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        if (busy) { Spacer(Modifier.height(4.dp)); CircularProgressIndicator() }
+        if (busy) { Spacer(Modifier.height(2.dp)); CircularProgressIndicator() }
     }
 
     preview?.let { data ->
