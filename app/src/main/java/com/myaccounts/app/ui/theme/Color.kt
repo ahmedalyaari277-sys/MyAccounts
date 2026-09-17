@@ -8,8 +8,9 @@ val PrimaryDark = Color(0xFF6E1421)
 val PrimaryDeep = Color(0xFF4A0D16)
 val PrimarySoft = Color(0xFFF7E4E7)
 
-// Entity names — one consistent blue identity color that remains readable in light and dark themes.
+// Entity names: dark blue in light mode; dark-mode names use the same color as the + button (dark primary).
 val EntityName = Color(0xFF355F8A)
+val EntityNameDark = Color(0xFFF0A5AD)
 
 val Secondary = Color(0xFFC6A15B)
 val SecondaryDark = Color(0xFF9D7A35)
@@ -26,11 +27,11 @@ val Border = Color(0xFFE1D9DA)
 val BorderStrong = Color(0xFFD2C4C6)
 
 // Financial meaning — keep these stable across the application.
-val Due = Color(0xFFC62828)       // عليه / مدين
-val Owed = Color(0xFF18794E)      // له / دائن
-val Neutral = Color(0xFF625D60)   // متوازن
-val Surplus = Color(0xFF18794E)   // فائض
-val Deficit = Color(0xFFC62828)   // عجز
+val Due = Color(0xFFC62828)
+val Owed = Color(0xFF18794E)
+val Neutral = Color(0xFF625D60)
+val Surplus = Color(0xFF18794E)
+val Deficit = Color(0xFFC62828)
 
 // Custody status
 val CustodyOpen = Color(0xFF8F1D2C)
@@ -38,7 +39,7 @@ val CustodyPending = Color(0xFFB7791F)
 val CustodySettled = Color(0xFF18794E)
 val CustodyClosed = Color(0xFF625D60)
 
-// Export formats — semantic colors remain recognizable.
+// Export formats
 val ExcelGreen = Color(0xFF217346)
 val PdfRed = Color(0xFFB91C1C)
 
