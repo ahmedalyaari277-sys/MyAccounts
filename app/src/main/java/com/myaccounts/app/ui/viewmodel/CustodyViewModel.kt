@@ -1,6 +1,7 @@
 package com.myaccounts.app.ui.viewmodel
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.custody.*
@@ -40,14 +41,28 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     fun balance(accountId: Long): StateFlow<Long> = balanceFlows.getOrPut(accountId) { repo.observeBalance(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L) }
     fun attachments(id: Long): List<CustodyTransactionAttachmentEntity> = repo.attachments(id)
     suspend fun archivedCustodies(): List<CustodyEntity> = dao.getAllCustodies(true)
-    fun create(c: CustodyEntity) = viewModelScope.launch { repo.createCustody(c) }
+
+    fun create(c: CustodyEntity) = viewModelScope.launch {
+        runCatching { repo.createCustody(c) }
+            .onFailure { Toast.makeText(getApplication(), it.message ?: "تعذر حفظ العهدة", Toast.LENGTH_LONG).show() }
+    }
     suspend fun createAndWait(c: CustodyEntity): Long = repo.createCustody(c).also { CustodyOrganizationManager.ensure(db, it) }
-    fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch { repo.addPerson(id, p) }
+
+    fun addPerson(id: Long, p: CustodyPersonEntity) = viewModelScope.launch {
+        runCatching { repo.addPerson(id, p) }
+            .onFailure { Toast.makeText(getApplication(), it.message ?: "تعذر حفظ الطرف", Toast.LENGTH_LONG).show() }
+    }
     suspend fun addPersonAndWait(id: Long, p: CustodyPersonEntity): Long = repo.addPerson(id, p)
-    fun updatePerson(p: CustodyPersonEntity) = viewModelScope.launch { repo.updatePerson(p) }
+    fun updatePerson(p: CustodyPersonEntity) = viewModelScope.launch {
+        runCatching { repo.updatePerson(p) }
+            .onFailure { Toast.makeText(getApplication(), it.message ?: "تعذر تعديل الطرف", Toast.LENGTH_LONG).show() }
+    }
     suspend fun updatePersonAndWait(p: CustodyPersonEntity) = repo.updatePerson(p)
     suspend fun deletePersonAndWait(id: Long) = repo.deletePerson(id)
-    fun updateCustody(c: CustodyEntity) = viewModelScope.launch { repo.updateCustody(c); CustodyOrganizationManager.ensure(db, c.id) }
+    fun updateCustody(c: CustodyEntity) = viewModelScope.launch {
+        runCatching { repo.updateCustody(c); CustodyOrganizationManager.ensure(db, c.id) }
+            .onFailure { Toast.makeText(getApplication(), it.message ?: "تعذر تعديل العهدة", Toast.LENGTH_LONG).show() }
+    }
     suspend fun updateCustodyAndWait(c: CustodyEntity) { repo.updateCustody(c); CustodyOrganizationManager.ensure(db, c.id) }
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, categoryName: String, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, categoryName, description, date, attachments) }
     fun addTransaction(id: Long, currency: String, type: String, personId: Long?, amount: Long, description: String, date: Long, attachments: List<CustodyAttachmentStorage.Selected> = emptyList()) = viewModelScope.launch { repo.addTransaction(id, currency, type, personId, amount, "", description, date, attachments) }
