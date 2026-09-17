@@ -92,9 +92,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (accounts.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    accounts.forEach { account ->
-                        CurrencyChip(currency = CurrencyCatalog.name(account.currencyCode), selected = selectedCurrencyCode == account.currencyCode, onClick = { selectedCurrencyCode = account.currencyCode; selectedAccountId = account.id }, modifier = Modifier.weight(1f))
-                    }
+                    accounts.forEach { account -> CurrencyChip(currency = CurrencyCatalog.name(account.currencyCode), selected = selectedCurrencyCode == account.currencyCode, onClick = { selectedCurrencyCode = account.currencyCode; selectedAccountId = account.id }, modifier = Modifier.weight(1f)) }
                 }
             }
             Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -142,11 +140,20 @@ private fun Phase5TransactionCard(transaction: TransactionEntity, transactionVie
     val status = if (isDue) BalanceStatus.Due else BalanceStatus.Owed
     val statusColor = if (isDue) Due else Owed
     Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { StatusChip(text = if (isDue) "عليه" else "له", color = statusColor); Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            BalanceAmount(amount = if (isDue) amount else "-$amount", status = status)
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(if (isDue) amount else "-$amount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = statusColor)
+                    StatusChip(text = if (isDue) "عليه" else "له", color = statusColor)
+                }
+                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (transaction.description.isNotBlank()) Text(transaction.description, style = MaterialTheme.typography.bodyLarge)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { if (attachmentCount > 0) IconButton(onClick = onAttachments) { Icon(Icons.Default.AttachFile, contentDescription = "المرفقات") }; IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }; IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "حذف نهائي") } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (attachmentCount > 0) IconButton(onClick = onAttachments) { Icon(Icons.Default.AttachFile, contentDescription = "المرفقات") }
+                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
+                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "حذف نهائي") }
+            }
         }
     }
 }
