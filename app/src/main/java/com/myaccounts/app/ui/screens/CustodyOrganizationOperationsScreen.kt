@@ -26,7 +26,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.custody.CustodyPersonEntity
@@ -94,7 +93,7 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
                                     Text("صرف", fontWeight = FontWeight.Bold)
                                     Text(SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(tx.transactionDate)), style = MaterialTheme.typography.bodySmall)
                                 }
-                                Text("${orgMoney(tx.amountMinor)} ${tx.currencyCode}", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text("${orgMoney(tx.amountMinor)} ${tx.currencyCode}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 if (tx.categoryName.isNotBlank()) Text("التصنيف: ${tx.categoryName}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                                 if (tx.description.isNotBlank()) Text(tx.description, style = MaterialTheme.typography.bodySmall)
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
