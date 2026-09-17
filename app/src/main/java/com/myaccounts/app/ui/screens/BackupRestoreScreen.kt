@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,11 +42,14 @@ import com.myaccounts.app.ui.components.FeedbackDialogType
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
-import com.myaccounts.app.ui.components.SummaryCard
+import com.myaccounts.app.ui.components.TransferModeDialog
 import com.myaccounts.app.util.BackupScope
+import com.myaccounts.app.util.CompatibleRestoreManager
 import com.myaccounts.app.util.ExcelDataManager
 import com.myaccounts.app.util.ManualSyncManager
 import com.myaccounts.app.util.ScopedBackupManager
+import com.myaccounts.app.util.TransferMode
+import com.myaccounts.app.util.TransferModeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -151,8 +155,8 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             InformationCard(modifier = Modifier.fillMaxWidth()) {
-                Text("النسخ الاحتياطي", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text("بيانات النطاق المحدد ومرفقاته.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium)
+                Text("بيانات النطاق المحدد ومرفقاته.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createDocumentLauncher.launch(ScopedBackupManager.suggestedFileName(scope)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
@@ -161,8 +165,8 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             if (scope == BackupScope.ACCOUNTS) AccountExcelTransferControls()
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
-                Text("المزامنة اليدوية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("المزامنة اليدوية", style = MaterialTheme.typography.titleMedium)
+                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(4.dp))
@@ -170,7 +174,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
-                Text("إرسال ومشاركة النسخة", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                Text("إرسال ومشاركة النسخة", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") })
                 Spacer(Modifier.height(4.dp))
                 SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
@@ -179,8 +183,8 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
-                Text("استعادة نسخة احتياطية", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                Text("تستبدل الاستعادة بيانات هذا النطاق فقط.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                Text("استعادة نسخة احتياطية", style = MaterialTheme.typography.titleMedium)
+                Text("تستبدل الاستعادة بيانات هذا النطاق فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(4.dp))
                 DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
@@ -198,7 +202,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
                 busy = true
                 coroutineScope.launch(Dispatchers.IO) {
                     if (scope != BackupScope.ACCOUNTS) CustodyAttachmentStore.ensureSchema(context)
-                    val result = ScopedBackupManager.restoreBackup(context, uri, scope)
+                    val result = CompatibleRestoreManager.restore(context, uri, scope)
                     busy = false
                     result.fold(
                         onSuccess = { showMessage("تمت استعادة ${scope.title} والمرفقات بنجاح.", BackupFeedbackType.Success) },
@@ -227,8 +231,9 @@ private fun AccountExcelTransferControls() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
+    var preview by remember { mutableStateOf<ExcelDataManager.ImportPreview?>(null) }
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ExcelDataManager.MIME_TYPE)) { uri ->
         if (uri != null) {
@@ -237,17 +242,30 @@ private fun AccountExcelTransferControls() {
                 val result = ExcelDataManager.exportActive(context, uri)
                 busy = false
                 message = result.fold(
-                    onSuccess = { s -> "تم تصدير الحسابات إلى Excel بنجاح. الملف يحتوي Sheet واحد فقط: بيانات الحسابات.\nالأشخاص: ${s.people}\nالحسابات: ${s.accounts}\nالعمليات: ${s.transactions}" },
+                    onSuccess = { s -> "تم تصدير الحسابات إلى Excel بنجاح.\nالأشخاص: ${s.people}\nالحسابات: ${s.accounts}\nالعمليات: ${s.transactions}" },
                     onFailure = { "تعذر تصدير الحسابات إلى Excel: ${it.message ?: "خطأ غير معروف"}" }
                 )
             }
         }
     }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingImport = uri }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            pendingImport = uri
+            busy = true
+            coroutineScope.launch(Dispatchers.IO) {
+                val result = ExcelDataManager.previewImport(context, uri)
+                busy = false
+                result.fold(
+                    onSuccess = { preview = it },
+                    onFailure = { message = "تعذر قراءة ملف Excel للحسابات: ${it.message ?: "الملف غير صالح"}" }
+                )
+            }
+        }
+    }
 
     InformationCard(modifier = Modifier.fillMaxWidth()) {
-        Text("Excel للحسابات", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-        Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Excel للحسابات", style = MaterialTheme.typography.titleMedium)
+        Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
         PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportLauncher.launch(ExcelDataManager.SUGGESTED_FILE_NAME) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(4.dp))
@@ -255,33 +273,34 @@ private fun AccountExcelTransferControls() {
         if (busy) { Spacer(Modifier.height(4.dp)); CircularProgressIndicator() }
     }
 
-    pendingImport?.let { uri ->
-        ConfirmationDialog(
-            title = "تأكيد استيراد الحسابات",
-            message = "سيتم فحص ملف Excel ذي الورقة الواحدة الخاصة بالحسابات فقط. لن تتأثر بيانات العُهَد.",
-            onConfirm = {
+    preview?.let { data ->
+        TransferModeDialog(
+            title = "اختيار طريقة استيراد الحسابات",
+            message = buildString {
+                append("الأشخاص: ${data.people}\n")
+                append("الحسابات: ${data.accounts}\n")
+                append("العمليات: ${data.transactions}\n")
+                if (data.errors.isNotEmpty()) { append("\nأخطاء الملف:\n"); data.errors.take(20).forEach { append("• $it\n") } }
+                if (!data.isValid) append("\nلا يمكن الاستيراد قبل إصلاح الأخطاء الموضحة أعلاه.")
+            },
+            onDismiss = { preview = null; pendingImport = null },
+            onModeSelected = { mode ->
+                if (!data.isValid) return@TransferModeDialog
+                val uri = pendingImport ?: return@TransferModeDialog
+                preview = null
                 pendingImport = null
                 busy = true
                 coroutineScope.launch(Dispatchers.IO) {
-                    val result = runCatching {
-                        val preview = ExcelDataManager.previewImport(context, uri).getOrThrow()
-                        check(preview.isValid) { preview.errors.joinToString("\n") }
-                        ExcelDataManager.import(context, uri).getOrThrow()
-                    }
+                    val result = TransferModeManager.importAccounts(context, uri, mode)
                     busy = false
                     message = result.fold(
-                        onSuccess = { s -> "تم استيراد الحسابات بنجاح.\nالأشخاص: ${s.peopleAdded}\nالحسابات: ${s.accountsAdded}\nالعمليات: ${s.transactionsAdded}" },
-                        onFailure = { "تعذر استيراد الحسابات: ${it.message ?: "ملف غير صالح"}" }
+                        onSuccess = { s -> "تم استيراد الحسابات بنجاح.\nطريقة الاستيراد: ${mode.title}\nالأشخاص: ${s.peopleAdded}\nالحسابات: ${s.accountsAdded}\nالعمليات: ${s.transactionsAdded}" },
+                        onFailure = { "تعذر استيراد الحسابات: ${it.message ?: "الملف غير صالح"}" }
                     )
                 }
-            },
-            onDismiss = { pendingImport = null },
-            confirmText = "استيراد",
-            dismissText = "إلغاء",
-            danger = false
+            }
         )
     }
-    message?.let { text ->
-        FeedbackDialog(text = text, type = if (text.startsWith("تم ")) FeedbackDialogType.Success else FeedbackDialogType.Error, onDismiss = { message = null })
-    }
+
+    message?.let { text -> FeedbackDialog(text = text, type = if (text.startsWith("تم ")) FeedbackDialogType.Success else FeedbackDialogType.Error, onDismiss = { message = null }) }
 }
