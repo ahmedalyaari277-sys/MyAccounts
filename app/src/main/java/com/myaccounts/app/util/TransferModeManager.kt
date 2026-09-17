@@ -22,23 +22,40 @@ object TransferModeManager {
     suspend fun importGlobal(context: Context, uri: Uri, mode: TransferMode): Result<GlobalExcelDataManager.ImportSummary> =
         importWithScope(context, uri, BackupScope.ALL, mode) { GlobalExcelDataManager.import(context, uri).getOrThrow() }
 
-    private suspend fun <T>(context: Context, uri: Uri, scope: BackupScope, mode: TransferMode, importer: suspend () -> T): Result<T> = runCatching {
+    private suspend fun <T> importWithScope(
+        context: Context,
+        uri: Uri,
+        scope: BackupScope,
+        mode: TransferMode,
+        importer: suspend () -> T
+    ): Result<T> = runCatching {
         if (mode == TransferMode.ADD_REMAINING) return@runCatching importer()
         val snapshot = File.createTempFile("myaccounts-transfer-snapshot-", ".myaccounts", context.cacheDir)
         val snapshotUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", snapshot)
         try {
             val snapshotResult = ScopedBackupManager.createBackup(context, snapshotUri, scope)
             val hadData = snapshotResult.isSuccess
-            if (snapshotResult.isFailure && snapshotResult.exceptionOrNull()?.message != "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية.") snapshotResult.getOrThrow()
+            if (snapshotResult.isFailure && snapshotResult.exceptionOrNull()?.message != "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية.") {
+                snapshotResult.getOrThrow()
+            }
             clearScope(context, scope)
-            try { importer() } catch (failure: Throwable) {
+            try {
+                importer()
+            } catch (failure: Throwable) {
                 if (hadData) {
                     val rollback = ScopedBackupManager.restoreBackup(context, snapshotUri, scope)
-                    if (rollback.isFailure) throw IllegalStateException("فشل الاستيراد وفشلت محاولة التراجع: ${rollback.exceptionOrNull()?.message ?: "خطأ غير معروف"}", failure)
+                    if (rollback.isFailure) {
+                        throw IllegalStateException(
+                            "فشل الاستيراد وفشلت محاولة التراجع: ${rollback.exceptionOrNull()?.message ?: "خطأ غير معروف"}",
+                            failure
+                        )
+                    }
                 }
                 throw failure
             }
-        } finally { snapshot.delete() }
+        } finally {
+            snapshot.delete()
+        }
     }
 
     private fun clearScope(context: Context, scope: BackupScope) {
@@ -51,7 +68,9 @@ object TransferModeManager {
                 BackupScope.ALL -> listOf("custody_transaction_attachments", "custody_transactions", "custody_accounts", "custody_persons", "custodies", "transaction_attachments", "transactions", "currency_accounts", "people")
             }.forEach { db.execSQL("DELETE FROM \"$it\"") }
             db.setTransactionSuccessful()
-        } finally { db.endTransaction() }
+        } finally {
+            db.endTransaction()
+        }
         if (scope == BackupScope.ACCOUNTS || scope == BackupScope.ALL) File(context.filesDir, "transaction_attachments").deleteRecursively()
         if (scope == BackupScope.CUSTODY || scope == BackupScope.ALL) File(context.filesDir, "custody_transaction_attachments").deleteRecursively()
     }
