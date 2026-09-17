@@ -5,8 +5,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -119,16 +119,8 @@ fun CustodyHomeWithArchiveScreen(
                     }
                     IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }
                     DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("النسخ الاحتياطي و الاستعادة") },
-                            leadingIcon = { Icon(Icons.Default.Backup, null) },
-                            onClick = { showMoreMenu = false; onBackupRestore() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("الأرشيف") },
-                            leadingIcon = { Icon(Icons.Default.Archive, null) },
-                            onClick = { showMoreMenu = false; onArchive() }
-                        )
+                        DropdownMenuItem(text = { Text("النسخ الاحتياطي و الاستعادة") }, leadingIcon = { Icon(Icons.Default.Backup, null) }, onClick = { showMoreMenu = false; onBackupRestore() })
+                        DropdownMenuItem(text = { Text("الأرشيف") }, leadingIcon = { Icon(Icons.Default.Archive, null) }, onClick = { showMoreMenu = false; onArchive() })
                     }
                 }
             )
@@ -137,38 +129,26 @@ fun CustodyHomeWithArchiveScreen(
             FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }
         }
     ) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (custodies.isEmpty()) item {
-                EmptyState(
-                    type = EmptyStateType.Custody,
-                    title = "لا توجد عُهَد",
-                    description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية."
-                )
+                EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.")
             }
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
                 InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(custody.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodyLarge)
-                                if (custody.phone.isNotBlank()) Text(custody.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(custody.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodyLarge)
+                            Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodyLarge)
+                            if (custody.purpose.isNotBlank()) Text("الغرض: ${custody.purpose}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             custodyHomeCurrencies.forEach { code ->
                                 val balance = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == code }?.balanceMinor ?: 0L
                                 InformationCard(Modifier.padding(0.dp)) {
                                     Text(code, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                                    BalanceAmount(
-                                        amount = when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" },
-                                        status = when { balance > 0 -> BalanceStatus.Due; balance < 0 -> BalanceStatus.Owed; else -> BalanceStatus.Neutral },
-                                        label = code
-                                    )
+                                    BalanceAmount(amount = when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, status = when { balance > 0 -> BalanceStatus.Due; balance < 0 -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }, label = code)
                                 }
                             }
                         }
@@ -178,87 +158,52 @@ fun CustodyHomeWithArchiveScreen(
         }
     }
 
-    if (adding) CustodyCreateDialog(onDismiss = { adding = false }) {
-        vm.create(it)
-        adding = false
-    }
+    if (adding) CustodyCreateDialog(onDismiss = { adding = false }) { vm.create(it); adding = false }
 }
 
 @Composable
 private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var custodyName by remember { mutableStateOf("") }
+    var holderName by remember { mutableStateOf("") }
+    var holderPhone by remember { mutableStateOf("") }
+    var holderAddress by remember { mutableStateOf("") }
+    var holderNotes by remember { mutableStateOf("") }
+    var purpose by remember { mutableStateOf("") }
     var organization by remember { mutableStateOf("") }
     var organizationPhone by remember { mutableStateOf("") }
     var organizationAddress by remember { mutableStateOf("") }
     var organizationNotes by remember { mutableStateOf("") }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.92f).imePadding().navigationBarsPadding(),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 6.dp
-        ) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.92f).imePadding().navigationBarsPadding(), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
             Column(Modifier.fillMaxSize()) {
-                Text(
-                    "إضافة صاحب العهدة وبيانات الجهة",
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("إضافة عهدة", modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 HorizontalDivider()
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .imePadding()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("بيانات صاحب العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم صاحب العهدة") }, singleLine = true)
-                    OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف صاحب العهدة") }, singleLine = true)
-                    OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان صاحب العهدة") }, singleLine = true)
-                    OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات صاحب العهدة") }, minLines = 2)
+                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("بيانات العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(custodyName, { custodyName = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم العهدة") }, supportingText = { Text("اسم مميز للعهدة ولا يتكرر") }, singleLine = true)
+                    OutlinedTextField(purpose, { purpose = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("الغرض من العهدة") }, minLines = 2)
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                    Text("بيانات حامل العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(holderName, { holderName = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم حامل العهدة") }, supportingText = { Text("يمكن أن يكون حامل العهدة نفسه في أكثر من عهدة") }, singleLine = true)
+                    OutlinedTextField(holderPhone, { holderPhone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف حامل العهدة") }, singleLine = true)
+                    OutlinedTextField(holderAddress, { holderAddress = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان حامل العهدة") }, singleLine = true)
+                    OutlinedTextField(holderNotes, { holderNotes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات حامل العهدة") }, minLines = 2)
                     HorizontalDivider(Modifier.padding(vertical = 4.dp))
                     Text("بيانات جهة العهدة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم جهة العهدة") }, singleLine = true)
-                    OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف جهة العهدة") }, singleLine = true)
-                    OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان جهة العهدة") }, singleLine = true)
-                    OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات جهة العهدة") }, minLines = 2)
+                    OutlinedTextField(organization, { organization = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("اسم الجهة") }, singleLine = true)
+                    OutlinedTextField(organizationPhone, { organizationPhone = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("هاتف الجهة") }, singleLine = true)
+                    OutlinedTextField(organizationAddress, { organizationAddress = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("عنوان الجهة") }, singleLine = true)
+                    OutlinedTextField(organizationNotes, { organizationNotes = it }, Modifier.fillMaxWidth().custodyKeepFocusedFieldVisible(), label = { Text("ملاحظات الجهة") }, minLines = 2)
                     Spacer(Modifier.height(12.dp))
                 }
                 HorizontalDivider()
-                Row(
-                    Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
+                Row(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 10.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("إلغاء") }
                     Spacer(Modifier.width(8.dp))
-                    Button(
-                        enabled = name.isNotBlank() && organization.isNotBlank(),
-                        onClick = {
-                            onSave(
-                                CustodyEntity(
-                                    name = name.trim(),
-                                    phone = phone.trim(),
-                                    address = address.trim(),
-                                    notes = notes.trim(),
-                                    organizationName = organization.trim(),
-                                    organizationPhone = organizationPhone.trim(),
-                                    organizationAddress = organizationAddress.trim(),
-                                    organizationNotes = organizationNotes.trim()
-                                )
-                            )
-                        }
-                    ) { Text("حفظ") }
+                    Button(enabled = custodyName.isNotBlank() && holderName.isNotBlank() && organization.isNotBlank(), onClick = {
+                        onSave(CustodyEntity(name = custodyName.trim(), holderName = holderName.trim(), phone = holderPhone.trim(), address = holderAddress.trim(), notes = holderNotes.trim(), purpose = purpose.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim()))
+                    }) { Text("حفظ") }
                 }
             }
         }
