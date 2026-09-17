@@ -23,10 +23,19 @@ class LedgerRepository(
     override fun observeCurrencyAccounts(personId: Long): Flow<List<CurrencyAccountEntity>> = dao.observeCurrencyAccounts(personId)
     override fun observeCurrencyAccount(accountId: Long): Flow<CurrencyAccountEntity?> = dao.observeCurrencyAccount(accountId)
 
-    override suspend fun insertPerson(person: PersonEntity): Long =
-        dao.insertPersonWithCurrencyAccounts(person = person, currencyCodes = CurrencyCatalog.enabledCodes())
+    override suspend fun insertPerson(person: PersonEntity): Long = database.withTransaction {
+        val cleanName = person.name.trim()
+        require(cleanName.isNotBlank()) { "اسم الشخص مطلوب" }
+        require(!dao.hasPersonWithName(cleanName, 0L)) { "اسم الشخص موجود بالفعل" }
+        dao.insertPersonWithCurrencyAccounts(person = person.copy(name = cleanName), currencyCodes = CurrencyCatalog.enabledCodes())
+    }
 
-    override suspend fun updatePerson(person: PersonEntity) = dao.updatePerson(person)
+    override suspend fun updatePerson(person: PersonEntity) = database.withTransaction {
+        val cleanName = person.name.trim()
+        require(cleanName.isNotBlank()) { "اسم الشخص مطلوب" }
+        require(!dao.hasPersonWithName(cleanName, person.id)) { "اسم الشخص موجود بالفعل" }
+        dao.updatePerson(person.copy(name = cleanName))
+    }
 
     override suspend fun deletePerson(personId: Long) {
         dao.archivePerson(personId, System.currentTimeMillis())
