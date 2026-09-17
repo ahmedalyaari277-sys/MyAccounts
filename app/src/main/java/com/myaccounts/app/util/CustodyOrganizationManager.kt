@@ -16,11 +16,14 @@ object CustodyOrganizationManager {
         val byExternalId = dao.getPersonByExternalId(custodyId, externalId)
         val fallback = dao.getEntityPerson(custodyId)?.takeIf { it.name.trim() == custody.organizationName.trim() }
         val existing = byExternalId ?: fallback
+        val cleanName = custody.organizationName.trim()
+        val excludedPersonId = existing?.id ?: 0L
+        require(!dao.hasPersonWithNameInCustody(custodyId, cleanName, excludedPersonId)) { "اسم جهة العهدة موجود بالفعل كطرف في هذه العهدة" }
         val person = if (existing == null) {
-            val id = dao.insertPerson(CustodyPersonEntity(custodyId = custodyId, name = custody.organizationName.trim(), phone = custody.organizationPhone.trim(), address = custody.organizationAddress.trim(), notes = custody.organizationNotes.trim(), partyType = "ENTITY", externalId = externalId))
+            val id = dao.insertPerson(CustodyPersonEntity(custodyId = custodyId, name = cleanName, phone = custody.organizationPhone.trim(), address = custody.organizationAddress.trim(), notes = custody.organizationNotes.trim(), partyType = "ENTITY", externalId = externalId))
             dao.getPerson(id) ?: error("تعذر إنشاء طرف الجهة")
         } else {
-            val updated = existing.copy(name = custody.organizationName.trim(), phone = custody.organizationPhone.trim(), address = custody.organizationAddress.trim(), notes = custody.organizationNotes.trim(), partyType = "ENTITY", isArchived = false, externalId = externalId)
+            val updated = existing.copy(name = cleanName, phone = custody.organizationPhone.trim(), address = custody.organizationAddress.trim(), notes = custody.organizationNotes.trim(), partyType = "ENTITY", isArchived = false, externalId = externalId)
             if (updated != existing) dao.updatePerson(updated)
             updated
         }
