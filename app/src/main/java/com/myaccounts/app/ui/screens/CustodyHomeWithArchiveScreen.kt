@@ -2,6 +2,7 @@ package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,6 +63,8 @@ import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.EmptyState
 import com.myaccounts.app.ui.components.EmptyStateType
 import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.theme.EntityName
+import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 
 private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")
@@ -103,14 +106,15 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     }, floatingActionButton = {
         FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }
     }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
+                val entityNameColor = if (isSystemInDarkTheme()) EntityNameDark else EntityName
                 InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(custody.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = com.myaccounts.app.ui.theme.EntityName)
+                            Text(custody.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = entityNameColor)
                             Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodySmall)
                             Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
                             if (custody.purpose.isNotBlank()) Text("الغرض: ${custody.purpose}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -121,8 +125,8 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                                 val status = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
                                 val color = when (status) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                                    Text(code, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color)
+                                    Text(code, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
                                 }
                             }
                         }
