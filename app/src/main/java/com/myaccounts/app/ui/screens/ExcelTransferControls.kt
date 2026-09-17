@@ -25,8 +25,8 @@ import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.TransferModeDialog
+import com.myaccounts.app.util.DownloadStorageManager
 import com.myaccounts.app.util.GlobalExcelDataManager
-import com.myaccounts.app.util.TransferMode
 import com.myaccounts.app.util.TransferModeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,19 +39,23 @@ fun ExcelTransferControls() {
     var preview by remember { mutableStateOf<GlobalExcelDataManager.ImportPreview?>(null) }
     var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
-    var pendingMode by remember { mutableStateOf(false) }
 
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(GlobalExcelDataManager.MIME_TYPE)) { uri ->
-        if (uri != null) {
-            busy = true
-            scope.launch(Dispatchers.IO) {
-                val result = GlobalExcelDataManager.exportActive(context, uri)
+    fun exportGlobalDirectly() {
+        if (busy) return
+        busy = true
+        scope.launch(Dispatchers.IO) {
+            val uri = runCatching { DownloadStorageManager.createUri(context, GlobalExcelDataManager.SUGGESTED_FILE_NAME, GlobalExcelDataManager.MIME_TYPE) }.getOrElse {
                 busy = false
-                message = result.fold(
-                    onSuccess = { s -> "تم تصدير كامل التطبيق إلى Excel.\nالحسابات: ${s.accountPeople} أشخاص، ${s.accountAccounts} حسابات، ${s.accountTransactions} عمليات.\nالعُهَد: ${s.custodyCustodies} عهد، ${s.custodyPeople} أطراف، ${s.custodyTransactions} عمليات.\n\nالملف يحتوي Sheetين فقط: الحسابات والعُهَد." },
-                    onFailure = { "تعذر تصدير Excel: ${it.message ?: "خطأ غير معروف"}" }
-                )
+                message = "تعذر إنشاء ملف Excel: ${it.message ?: "خطأ غير معروف"}"
+                return@launch
             }
+            val result = GlobalExcelDataManager.exportActive(context, uri)
+            if (result.isSuccess) DownloadStorageManager.finish(context, uri) else DownloadStorageManager.delete(context, uri)
+            busy = false
+            message = result.fold(
+                onSuccess = { s -> "تم تصدير كامل التطبيق إلى Excel.\nالحسابات: ${s.accountPeople} أشخاص، ${s.accountAccounts} حسابات، ${s.accountTransactions} عمليات.\nالعُهَد: ${s.custodyCustodies} عهد، ${s.custodyPeople} أطراف، ${s.custodyTransactions} عمليات.\n\nالملف يحتوي Sheetين فقط: الحسابات والعُهَد." },
+                onFailure = { "تعذر تصدير Excel: ${it.message ?: "خطأ غير معروف"}" }
+            )
         }
     }
 
@@ -69,10 +73,10 @@ fun ExcelTransferControls() {
 
     InformationCard(modifier = Modifier.fillMaxWidth()) {
         Text("استيراد وتصدير Excel", style = MaterialTheme.typography.titleMedium)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("الملف العام يشمل بيانات الحسابات والعُهَد معًا، في Sheetين فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            PrimaryButton(text = "تصدير كامل التطبيق إلى Excel", onClick = { exportLauncher.launch(GlobalExcelDataManager.SUGGESTED_FILE_NAME) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(2.dp))
+            PrimaryButton(text = "تصدير كامل التطبيق إلى Excel", onClick = { exportGlobalDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             SecondaryButton(text = "استيراد كامل التطبيق من Excel", onClick = { importLauncher.launch(arrayOf(GlobalExcelDataManager.MIME_TYPE, "application/zip")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             if (busy) CircularProgressIndicator()
         }
@@ -91,7 +95,6 @@ fun ExcelTransferControls() {
             onDismiss = { preview = null; pendingImportUri = null },
             onModeSelected = { mode ->
                 if (!data.isValid) return@TransferModeDialog
-                pendingMode = false
                 val uri = pendingImportUri ?: return@TransferModeDialog
                 preview = null; pendingImportUri = null; busy = true
                 scope.launch(Dispatchers.IO) {
