@@ -104,7 +104,19 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         require(!custody.isClosed) { "العهدة مغلقة ومسواة" }
         require(!custody.isArchived) { "العهدة مؤرشفة" }
         val transactions = dao.getTransactionsForPerson(personId)
-        transactions.forEach { attachmentStore.deleteForTransaction(it.id) }
+        val now = System.currentTimeMillis()
+        transactions.forEach { transaction ->
+            val ownerAccount = dao.getOwnerAccount(transaction.custodyId, transaction.currencyCode)
+            if (ownerAccount != null) {
+                dao.adjustAccountBalance(ownerAccount.id, -CustodyBalanceRules.ownerCashDelta(transaction.type, transaction.amountMinor), now)
+            }
+            val personAccount = dao.getPersonAccount(transaction.custodyId, personId, transaction.currencyCode)
+            if (personAccount != null) {
+                val personDelta = CustodyBalanceRules.personCustodyDelta(transaction.type, transaction.amountMinor)
+                if (personDelta != 0L) dao.adjustAccountBalance(personAccount.id, -personDelta, now)
+            }
+            attachmentStore.deleteForTransaction(transaction.id)
+        }
         dao.deleteTransactionsForPerson(personId)
         dao.deleteAccountsForPerson(personId)
         dao.deletePerson(personId)
