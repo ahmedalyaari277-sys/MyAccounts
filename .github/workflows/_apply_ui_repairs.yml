@@ -1,3 +1,4 @@
+# final build trigger after verified UI/storage/restore changes
 name: Apply Pending UI Repairs
 on:
   push:
