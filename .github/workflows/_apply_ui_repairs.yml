@@ -36,18 +36,30 @@ jobs:
             raise SystemExit('No custody report filter was patched')
           if s != old:
             p.write_text(s, encoding='utf-8')
-          else:
-            print('All targeted report filter rows were already patched.')
+
+          p = Path('app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('import androidx.compose.ui.unit.dp\nimport androidx.compose.ui.unit.sp\n', 'import androidx.compose.ui.unit.dp\n')
+          s = s.replace('import androidx.compose.foundation.clickable\n', 'import androidx.compose.foundation.clickable\nimport androidx.compose.foundation.isSystemInDarkTheme\n')
+          s = s.replace('import com.myaccounts.app.ui.theme.Due\n', 'import com.myaccounts.app.ui.theme.Due\nimport com.myaccounts.app.ui.theme.EntityName\nimport com.myaccounts.app.ui.theme.EntityNameDark\n')
+          old_metric = 'Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = finalStatusColor(status), maxLines = 1); Spacer(Modifier.width(3.dp)); Text(status, fontSize = 9.sp, fontWeight = FontWeight.Medium, color = finalStatusColor(status), maxLines = 1)'
+          new_metric = 'Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = finalStatusColor(status), maxLines = 1); Spacer(Modifier.width(3.dp)); Text(status, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = finalStatusColor(status), maxLines = 1)'
+          if old_metric not in s:
+            raise SystemExit('Custody metric typography target not found')
+          s = s.replace(old_metric, new_metric, 1)
+          s = s.replace('Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium);', 'Text(custody.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName);', 1)
+          s = s.replace('Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium);', 'Text(person.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName);', 1)
+          p.write_text(s, encoding='utf-8')
       - name: Build verification
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Commit repairs
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt
+          git add app/src/main/java/com/myaccounts/app/ui/screens/CustodyReportsScreen.kt app/src/main/java/com/myaccounts/app/ui/screens/CustodyCompactScreenFinal.kt
           if git diff --cached --quiet; then
-            echo 'No report filter source changes required.'
+            echo 'No UI source changes required.'
           else
-            git commit -m 'fix(ui): make all custody report filters horizontally scrollable'
+            git commit -m 'fix(ui): normalize custody entity typography and colors'
             git push
           fi
