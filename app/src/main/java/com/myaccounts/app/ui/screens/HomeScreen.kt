@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,16 +66,7 @@ private enum class PersonSortOrder { LATEST_TRANSACTION, ALPHABETICAL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    personsList: List<PersonWithAccounts>,
-    onAddPerson: (String, String, String, String) -> Unit,
-    onPersonClick: (Long) -> Unit,
-    onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) },
-    onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null,
-    onReportsClick: () -> Unit = {},
-    onArchiveClick: () -> Unit = {},
-    onBackupRestoreClick: () -> Unit = {}
-) {
+fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, String, String, String) -> Unit, onPersonClick: (Long) -> Unit, onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) }, onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null, onReportsClick: () -> Unit = {}, onArchiveClick: () -> Unit = {}, onBackupRestoreClick: () -> Unit = {}) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
     var quickTransactionPersonId by remember { mutableStateOf<Long?>(null) }
@@ -84,29 +76,25 @@ fun HomeScreen(
     val filteredList = personsList.filter { item -> item.person.name.contains(searchQuery, ignoreCase = true) || item.person.phone.contains(searchQuery) || item.person.address.contains(searchQuery, ignoreCase = true) || item.person.notes.contains(searchQuery, ignoreCase = true) }
     val displayedList = when (sortOrder) { PersonSortOrder.LATEST_TRANSACTION -> filteredList; PersonSortOrder.ALPHABETICAL -> filteredList.sortedBy { it.person.name.lowercase() } }
     val quickPerson = personsList.firstOrNull { it.person.id == quickTransactionPersonId }
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            AppTopBar(title = "حساباتي", actions = {
-                IconButton(onClick = onReportsClick) { Icon(Icons.Default.Assessment, contentDescription = "التقارير") }
-                Box {
-                    IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, contentDescription = "ترتيب الأشخاص") }
-                    DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                        DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = PersonSortOrder.LATEST_TRANSACTION; showSortMenu = false })
-                        DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = PersonSortOrder.ALPHABETICAL; showSortMenu = false })
-                    }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
+        AppTopBar(title = "حساباتي", actions = {
+            IconButton(onClick = onReportsClick) { Icon(Icons.Default.Assessment, contentDescription = "التقارير") }
+            Box {
+                IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, contentDescription = "ترتيب الأشخاص") }
+                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                    DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = PersonSortOrder.LATEST_TRANSACTION; showSortMenu = false })
+                    DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = PersonSortOrder.ALPHABETICAL; showSortMenu = false })
                 }
-                Box {
-                    IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "المزيد من الخيارات") }
-                    DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
-                        DropdownMenuItem(modifier = Modifier.semantics { contentDescription = "فتح النسخ الاحتياطي والاستعادة" }, text = { Text("النسخ الاحتياطي والاستعادة") }, leadingIcon = { Icon(Icons.Default.Backup, contentDescription = null) }, onClick = { showMoreMenu = false; onBackupRestoreClick() })
-                        DropdownMenuItem(text = { Text("الأرشيف") }, leadingIcon = { Icon(Icons.Default.Archive, contentDescription = null) }, onClick = { showMoreMenu = false; onArchiveClick() })
-                    }
+            }
+            Box {
+                IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "المزيد من الخيارات") }
+                DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                    DropdownMenuItem(modifier = Modifier.semantics { contentDescription = "فتح النسخ الاحتياطي والاستعادة" }, text = { Text("النسخ الاحتياطي والاستعادة") }, leadingIcon = { Icon(Icons.Default.Backup, contentDescription = null) }, onClick = { showMoreMenu = false; onBackupRestoreClick() })
+                    DropdownMenuItem(text = { Text("الأرشيف") }, leadingIcon = { Icon(Icons.Default.Archive, contentDescription = null) }, onClick = { showMoreMenu = false; onArchiveClick() })
                 }
-            })
-        }
-    ) { paddingValues ->
+            }
+        })
+    }) { paddingValues ->
         Box(Modifier.fillMaxSize().padding(paddingValues)) {
             Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 88.dp)) {
                 SearchField(query = searchQuery, onQueryChange = { searchQuery = it }, placeholder = "بحث بالاسم أو الهاتف أو العنوان أو الملاحظات")
@@ -115,16 +103,13 @@ fun HomeScreen(
                     EmptyState(type = EmptyStateType.People, title = if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث", description = if (searchQuery.isBlank()) "اضغط (+) لإضافة أول شخص" else "جرّب تعديل عبارة البحث")
                 } else {
                     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(displayedList, key = { it.person.id }) { item ->
-                            PersonCard(item, onClick = { onPersonClick(item.person.id) }, onQuickTransaction = { if (onQuickTransactionSave != null) quickTransactionPersonId = item.person.id else onQuickTransactionClick(item.person.id, "") })
-                        }
+                        items(displayedList, key = { it.person.id }) { item -> PersonCard(item, onClick = { onPersonClick(item.person.id) }, onQuickTransaction = { if (onQuickTransactionSave != null) quickTransactionPersonId = item.person.id else onQuickTransactionClick(item.person.id, "") }) }
                     }
                 }
             }
             FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة شخص") }
         }
     }
-
     if (showAddDialog) AddPersonDialog(onDismiss = { showAddDialog = false }, onSave = { name, phone, address, notes -> onAddPerson(name, phone, address, notes); showAddDialog = false })
     if (quickPerson != null && onQuickTransactionSave != null) {
         Dialog(onDismissRequest = { quickTransactionPersonId = null }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
