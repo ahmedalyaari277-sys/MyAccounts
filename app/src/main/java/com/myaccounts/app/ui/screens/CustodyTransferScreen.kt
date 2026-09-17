@@ -20,9 +20,10 @@ import com.myaccounts.app.data.custody.CustodyAttachmentStore
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import com.myaccounts.app.util.BackupScope
-import com.myaccounts.app.util.CustodyBackupManager
+import com.myaccounts.app.util.CompatibleRestoreManager
 import com.myaccounts.app.util.CustodyReportExporter
 import com.myaccounts.app.util.CustodyTwoSheetExcelDataManager
+import com.myaccounts.app.util.DownloadStorageManager
 import com.myaccounts.app.util.ManualSyncManager
 import com.myaccounts.app.util.ReportShareUtil
 import com.myaccounts.app.util.ScopedBackupManager
@@ -48,29 +49,23 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     var lastBackupUri by remember { mutableStateOf<Uri?>(null) }
     var syncFolderUri by remember { mutableStateOf(preferences.getString(SYNC_FOLDER_URI, null)?.let(Uri::parse)) }
 
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(CustodyTwoSheetExcelDataManager.MIME_TYPE)) { uri ->
-        if (uri != null) {
-            busy = true
-            scope.launch(Dispatchers.IO) {
-                val r = CustodyTwoSheetExcelDataManager.exportActive(context, uri)
-                message = r.fold({ "تم تصدير ${it.custodies} عهدة و${it.transactions} عملية إلى Excel. الملف يحتوي Sheet واحد فقط: بيانات العُهَد، ويشمل التصنيف داخل نفس الورقة." }, { "تعذر تصدير بيانات العُهَد: ${it.message ?: "خطأ غير معروف"}" })
+    fun exportCustodyDirectly() {
+        if (busy) return
+        busy = true
+        scope.launch(Dispatchers.IO) {
+            val uri = runCatching { DownloadStorageManager.createUri(context, CustodyTwoSheetExcelDataManager.SUGGESTED_FILE_NAME, CustodyTwoSheetExcelDataManager.MIME_TYPE) }.getOrElse {
                 busy = false
+                message = "تعذر إنشاء ملف Excel: ${it.message ?: "خطأ غير معروف"}"
+                return@launch
             }
+            val r = CustodyTwoSheetExcelDataManager.exportActive(context, uri)
+            if (r.isSuccess) DownloadStorageManager.finish(context, uri) else DownloadStorageManager.delete(context, uri)
+            message = r.fold({ "تم تصدير ${it.custodies} عهدة و${it.transactions} عملية إلى Excel. الملف يحتوي Sheet واحد فقط: بيانات العُهَد، ويشمل التصنيف داخل نفس الورقة." }, { "تعذر تصدير بيانات العُهَد: ${it.message ?: "خطأ غير معروف"}" })
+            busy = false
         }
     }
+
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingImport = uri }
-    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) {
-            busy = true
-            scope.launch(Dispatchers.IO) {
-                CustodyAttachmentStore.ensureSchema(context)
-                val r = ScopedBackupManager.createBackup(context, uri, BackupScope.CUSTODY)
-                if (r.isSuccess) lastBackupUri = uri
-                message = r.fold({ "تم إنشاء النسخة الاحتياطية للعُهَد بنجاح، وتشمل بيانات العُهَد ومرفقاتها." }, { "تعذر إنشاء النسخة الاحتياطية للعُهَد: ${it.message ?: "خطأ غير معروف"}" })
-                busy = false
-            }
-        }
-    }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) pendingRestore = uri }
     val syncFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -82,6 +77,24 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
             } catch (e: Exception) { message = "تعذر حفظ مجلد المزامنة: ${e.message ?: "خطأ غير معروف"}" }
         }
     }
+
+    fun createCustodyBackupDirectly() {
+        if (busy) return
+        busy = true
+        scope.launch(Dispatchers.IO) {
+            CustodyAttachmentStore.ensureSchema(context)
+            val uri = runCatching { DownloadStorageManager.createUri(context, ScopedBackupManager.suggestedFileName(BackupScope.CUSTODY), "application/octet-stream") }.getOrElse {
+                busy = false
+                message = "تعذر إنشاء ملف النسخة الاحتياطية: ${it.message ?: "خطأ غير معروف"}"
+                return@launch
+            }
+            val r = ScopedBackupManager.createBackup(context, uri, BackupScope.CUSTODY)
+            if (r.isSuccess) { DownloadStorageManager.finish(context, uri); lastBackupUri = uri } else DownloadStorageManager.delete(context, uri)
+            message = r.fold({ "تم إنشاء النسخة الاحتياطية للعُهَد بنجاح، وتشمل بيانات العُهَد ومرفقاتها." }, { "تعذر إنشاء النسخة الاحتياطية للعُهَد: ${it.message ?: "خطأ غير معروف"}" })
+            busy = false
+        }
+    }
+
     fun syncNow() {
         val folder = syncFolderUri
         if (folder == null) { message = "اختر مجلد المزامنة أولاً."; return }
@@ -96,19 +109,19 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("النسخ الاحتياطي و الاستعادة") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "رجوع") } }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             item { Text("النسخ الاحتياطي و الاستعادة", style = MaterialTheme.typography.titleLarge) }
-            item { Text("هذه الشاشة خاصة بالعُهَد فقط. لا تتعامل مع بيانات دفتر الحسابات، والنسخة الاحتياطية تشمل مرفقات العُهَد.") }
-            item { Button(enabled = !busy, onClick = { exportLauncher.launch(CustodyTwoSheetExcelDataManager.SUGGESTED_FILE_NAME) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
+            item { Text("هذه الشاشة خاصة بالعُهَد فقط. لا تتعامل مع بيانات دفتر الحسابات، والنسخة الاحتياطية تشمل مرفقات العُهَد.", style = MaterialTheme.typography.bodySmall) }
+            item { Button(enabled = !busy, onClick = { exportCustodyDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
             item { OutlinedButton(enabled = !busy, onClick = { importLauncher.launch(arrayOf(CustodyTwoSheetExcelDataManager.MIME_TYPE)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileUpload, null); Text("استيراد العُهَد من Excel") } }
-            item { Button(enabled = !busy, onClick = { backupLauncher.launch(ScopedBackupManager.suggestedFileName(BackupScope.CUSTODY)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("نسخ احتياطي للعُهَد فقط") } }
+            item { Button(enabled = !busy, onClick = { createCustodyBackupDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("نسخ احتياطي للعُهَد فقط") } }
             item { OutlinedButton(enabled = !busy, onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Restore, null); Text("استعادة نسخة العُهَد") } }
             item {
                 Text("المزامنة اليدوية للعُهَد", style = MaterialTheme.typography.titleMedium)
                 Text(if (syncFolderUri == null) "اختر مجلدًا لحفظ نسخة مزامنة للعُهَد." else "تم اختيار مجلد مزامنة للعُهَد.", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 OutlinedButton(enabled = !busy, onClick = { syncFolderLauncher.launch(null) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Folder, null); Text("اختيار مجلد المزامنة") }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 OutlinedButton(enabled = !busy && syncFolderUri != null, onClick = { syncNow() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Text("مزامنة العُهَد الآن") }
             }
             item { OutlinedButton(enabled = !busy && lastBackupUri != null, onClick = { val uri = lastBackupUri ?: return@OutlinedButton; try { val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية للعُهَد"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(intent, "مشاركة نسخة العُهَد")) } catch (e: Exception) { message = "تعذرت مشاركة نسخة العُهَد: ${e.message ?: "خطأ غير معروف"}" } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("مشاركة آخر نسخة للعُهَد") } }
@@ -120,7 +133,7 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     }
 
     pendingImport?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingImport = null }, title = { Text("تأكيد استيراد العُهَد") }, text = { Text("سيتم فحص ملف Excel ذي الورقة الواحدة الخاصة بالعُهَد ثم استيراد بياناتها فقط. لن تتأثر بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingImport = null; busy = true; scope.launch(Dispatchers.IO) { val r = runCatching { val p = CustodyTwoSheetExcelDataManager.previewImport(context, uri).getOrThrow(); check(p.isValid) { p.errors.joinToString("\n") }; CustodyAttachmentStore.ensureSchema(context); val snapshot = File.createTempFile("myaccounts-custody-import-snapshot-", ".myaccounts", context.cacheDir); val snapshotUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", snapshot); try { val snapshotResult = ScopedBackupManager.createBackup(context, snapshotUri, BackupScope.CUSTODY); if (snapshotResult.isFailure && snapshotResult.exceptionOrNull()?.message != "لم يتم العثور على أي بيانات لحفظها في النسخة الاحتياطية.") snapshotResult.getOrThrow(); try { CustodyTwoSheetExcelDataManager.import(context, uri).getOrThrow() } catch (failure: Throwable) { val rollback = ScopedBackupManager.restoreBackup(context, snapshotUri, BackupScope.CUSTODY); if (rollback.isFailure) throw IllegalStateException("فشل استيراد بيانات العُهَد وفشلت محاولة التراجع عن التغييرات: ${rollback.exceptionOrNull()?.message ?: "خطأ غير معروف"}", failure); throw failure } } finally { snapshot.delete() } }; message = r.fold({ "تم الاستيراد: ${it.custodiesAdded} عهدة، ${it.peopleAdded} أشخاص، ${it.accountsAdded} حسابات، ${it.transactionsAdded} عمليات." }, { "تعذر استيراد بيانات العُهَد: ${it.message ?: "ملف غير صالح"}" }); busy = false } }) { Text("استيراد") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingImport = null }) { Text("إلغاء") } }) }
-    pendingRestore?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingRestore = null }, title = { Text("تأكيد استعادة العُهَد") }, text = { Text("سيتم استبدال بيانات العُهَد الحالية بالبيانات الموجودة في النسخة المحددة، مع إعادة المرفقات التابعة لها. كما يدعم التطبيق النسخ القديمة الخاصة بالعُهَد عند الحاجة. لن يتم تعديل بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null; busy = true; scope.launch(Dispatchers.IO) { CustodyAttachmentStore.ensureSchema(context); val scoped = ScopedBackupManager.restoreBackup(context, uri, BackupScope.CUSTODY); val result = if (scoped.isSuccess) scoped else CustodyBackupManager.restoreBackup(context, uri).map { Unit }; message = result.fold({ "تمت استعادة العُهَد والمرفقات بنجاح." }, { "تعذرت استعادة نسخة العُهَد: ${it.message ?: "الملف غير صالح"}" }); busy = false } }) { Text("استعادة") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null }) { Text("إلغاء") } }) }
+    pendingRestore?.let { uri -> AlertDialog(onDismissRequest = { if (!busy) pendingRestore = null }, title = { Text("تأكيد استعادة العُهَد") }, text = { Text("سيتم استبدال بيانات العُهَد الحالية بالبيانات الموجودة في النسخة المحددة، مع إعادة المرفقات التابعة لها. كما يدعم التطبيق النسخ القديمة الخاصة بالعُهَد عند الحاجة. لن يتم تعديل بيانات دفتر الحسابات.") }, confirmButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null; busy = true; scope.launch(Dispatchers.IO) { CustodyAttachmentStore.ensureSchema(context); val result = CompatibleRestoreManager.restore(context, uri, BackupScope.CUSTODY); message = result.fold({ "تمت استعادة العُهَد والمرفقات بنجاح." }, { "تعذرت استعادة نسخة العُهَد: ${it.message ?: "الملف غير صالح"}" }); busy = false } }) { Text("استعادة") } }, dismissButton = { TextButton(enabled = !busy, onClick = { pendingRestore = null }) { Text("إلغاء") } }) }
     message?.let { t -> AlertDialog(onDismissRequest = { message = null }, text = { Text(t) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }) }
 }
 
@@ -129,11 +142,11 @@ private fun CustodyTransferCard(custody: CustodyEntity, vm: CustodyViewModel, on
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val tx by vm.transactions(custody.id).collectAsState(initial = emptyList())
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(custody.name, style = MaterialTheme.typography.titleMedium)
-        Text("الجهة: ${custody.organizationName}")
+        Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
         Button(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = CustodyReportExporter.exportExcel(context, custody, tx, "ALL"); onMessage(r.fold({ "تم إنشاء Excel للعهدة ${custody.name}." }, { "تعذر إنشاء Excel: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير Excel لهذه العهدة") }
-        OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = CustodyReportExporter.exportPdf(context, custody, tx, "ALL"); onMessage(r.fold({ "تم إنشاء PDF للعهدة ${custody.name}." }, { "تعذر إنشاء PDF: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.PictureAsPdf, null); Text("تصدير PDF للعهدة ${custody.name}" ) }
+        OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = CustodyReportExporter.exportPdf(context, custody, tx, "ALL"); onMessage(r.fold({ "تم إنشاء PDF للعهدة ${custody.name}." }, { "تعذر إنشاء PDF: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.PictureAsPdf, null); Text("تصدير PDF للعهدة ${custody.name}") }
         OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = ReportShareUtil.shareGeneratedReport(context, "MyAccounts_تقرير_عهدة", PDF_MIME, true) { CustodyReportExporter.exportPdf(context, custody, tx, "ALL") }; onMessage(r.fold({ "تم فتح خيارات مشاركة تقرير ${custody.name}." }, { "تعذرت مشاركة التقرير: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("إنشاء التقرير ومشاركته") }
     }
 }
