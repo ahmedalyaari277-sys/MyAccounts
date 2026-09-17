@@ -1,6 +1,7 @@
 package com.myaccounts.app.ui.viewmodel
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.PersonEntity
@@ -41,15 +42,23 @@ class LedgerViewModel(
     fun addPerson(name: String, phone: String = "", address: String = "", notes: String = "") {
         if (name.isBlank()) return
         viewModelScope.launch {
-            repository.insertPerson(PersonEntity(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()))
+            runCatching {
+                repository.insertPerson(PersonEntity(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()))
+            }.onFailure {
+                Toast.makeText(application, it.message ?: "تعذر حفظ الشخص", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
     fun updatePerson(personId: Long, name: String, phone: String, address: String, notes: String) {
         if (name.isBlank()) return
         viewModelScope.launch {
-            val currentPerson = _personsWithAccounts.value.firstOrNull { it.person.id == personId }?.person
-            if (currentPerson != null) repository.updatePerson(currentPerson.copy(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()))
+            runCatching {
+                val currentPerson = _personsWithAccounts.value.firstOrNull { it.person.id == personId }?.person
+                if (currentPerson != null) repository.updatePerson(currentPerson.copy(name = name.trim(), phone = phone.trim(), address = address.trim(), notes = notes.trim()))
+            }.onFailure {
+                Toast.makeText(application, it.message ?: "تعذر تعديل الشخص", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
