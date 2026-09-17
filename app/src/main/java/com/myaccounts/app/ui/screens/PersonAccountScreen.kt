@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,13 +30,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.ui.components.AppTopBar
-import com.myaccounts.app.ui.components.BalanceAmount
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.DangerButton
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.StatusChip
+import com.myaccounts.app.ui.theme.EntityName
+import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.ui.viewmodel.TransactionViewModel
 import java.math.BigDecimal
 
@@ -47,6 +49,7 @@ fun PersonAccountScreen(personWithAccounts: PersonWithAccounts, onBack: () -> Un
     val person = personWithAccounts.person
     val accounts = personWithAccounts.accounts
     val initialAccount = accounts.firstOrNull()
+    val entityNameColor = if (isSystemInDarkTheme()) EntityNameDark else EntityName
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
         AppTopBar(title = person.name, onBack = onBack, actions = {
             IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
@@ -57,7 +60,7 @@ fun PersonAccountScreen(personWithAccounts: PersonWithAccounts, onBack: () -> Un
             InformationCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = com.myaccounts.app.ui.theme.EntityName)
+                        Text(person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = entityNameColor)
                         if (person.phone.isNotBlank()) Text("الهاتف: ${person.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (person.address.isNotBlank()) Text("العنوان: ${person.address}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                         if (person.notes.isNotBlank()) Text("الملاحظات: ${person.notes}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
@@ -69,8 +72,8 @@ fun PersonAccountScreen(personWithAccounts: PersonWithAccounts, onBack: () -> Un
                                 accounts.sortedBy { currencyOrder(it.currencyCode) }.forEach { account ->
                                     val balanceColor = when (balanceStatus(account.balanceMinor)) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                                        Text(account.currencyCode, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text(formatBalance(account.balanceMinor), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = balanceColor)
+                                        Text(account.currencyCode, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(formatBalance(account.balanceMinor), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = balanceColor)
                                     }
                                 }
                             }
