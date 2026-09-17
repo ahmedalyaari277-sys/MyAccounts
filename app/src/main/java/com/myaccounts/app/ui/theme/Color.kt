@@ -8,8 +8,8 @@ val PrimaryDark = Color(0xFF6E1421)
 val PrimaryDeep = Color(0xFF4A0D16)
 val PrimarySoft = Color(0xFFF7E4E7)
 
-// Entity names — consistent dark-blue identity color for people, parties and custody names.
-val EntityName = Color(0xFF1F3A5F)
+// Entity names — one consistent blue identity color that remains readable in light and dark themes.
+val EntityName = Color(0xFF355F8A)
 
 val Secondary = Color(0xFFC6A15B)
 val SecondaryDark = Color(0xFF9D7A35)
