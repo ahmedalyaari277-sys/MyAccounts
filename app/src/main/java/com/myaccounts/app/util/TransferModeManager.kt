@@ -22,7 +22,7 @@ object TransferModeManager {
     suspend fun importGlobal(context: Context, uri: Uri, mode: TransferMode): Result<GlobalExcelDataManager.ImportSummary> =
         importWithScope(context, uri, BackupScope.ALL, mode) { GlobalExcelDataManager.import(context, uri).getOrThrow() }
 
-    private suspend fun <T> importWithScope(context: Context, uri: Uri, scope: BackupScope, mode: TransferMode, importer: suspend () -> T): Result<T> = runCatching {
+    private suspend fun <T>(context: Context, uri: Uri, scope: BackupScope, mode: TransferMode, importer: suspend () -> T): Result<T> = runCatching {
         if (mode == TransferMode.ADD_REMAINING) return@runCatching importer()
         val snapshot = File.createTempFile("myaccounts-transfer-snapshot-", ".myaccounts", context.cacheDir)
         val snapshotUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", snapshot)
@@ -52,5 +52,7 @@ object TransferModeManager {
             }.forEach { db.execSQL("DELETE FROM \"$it\"") }
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
+        if (scope == BackupScope.ACCOUNTS || scope == BackupScope.ALL) File(context.filesDir, "transaction_attachments").deleteRecursively()
+        if (scope == BackupScope.CUSTODY || scope == BackupScope.ALL) File(context.filesDir, "custody_transaction_attachments").deleteRecursively()
     }
 }
