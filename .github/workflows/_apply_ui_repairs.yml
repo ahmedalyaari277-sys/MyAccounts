@@ -60,6 +60,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No UI source changes required.'
           else
-            git commit -m 'fix(ui): normalize custody entity typography and colors'
+            git commit -m 'style(ui): normalize custody entity typography and colors'
             git push
           fi
