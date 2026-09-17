@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.ui.components.AppTopBar
@@ -59,6 +60,8 @@ import com.myaccounts.app.ui.components.EmptyState
 import com.myaccounts.app.ui.components.EmptyStateType
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.SearchField
+import com.myaccounts.app.ui.theme.EntityName
+import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
 
@@ -122,12 +125,13 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
 
 @Composable
 private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Unit, onQuickTransaction: () -> Unit) {
+    val entityNameColor = if (isSystemInDarkTheme()) EntityNameDark else EntityName
     InformationCard(Modifier.clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onQuickTransaction) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة", tint = MaterialTheme.colorScheme.primary) }
             Spacer(Modifier.width(6.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                Text(personWithAccounts.person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = com.myaccounts.app.ui.theme.EntityName)
+                Text(personWithAccounts.person.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = entityNameColor)
                 if (personWithAccounts.person.phone.isNotBlank()) Text(personWithAccounts.person.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.width(6.dp))
@@ -148,8 +152,8 @@ private fun CurrencyBalance(modifier: Modifier, currency: String, balance: Long)
     val status = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
     val color = when (status) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        Text(currency, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(formatBalance(balance), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color)
+        Text(currency, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(formatBalance(balance), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
     }
 }
 
