@@ -71,20 +71,24 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
     fun attachments(transactionId: Long): List<CustodyTransactionAttachmentEntity> = attachmentStore.list(transactionId)
 
     suspend fun createCustody(c: CustodyEntity): Long = db.withTransaction {
-        require(c.name.isNotBlank()) { "اسم صاحب العهدة مطلوب" }
+        require(c.name.isNotBlank()) { "اسم العهدة مطلوب" }
+        require(c.holderName.isNotBlank()) { "اسم حامل العهدة مطلوب" }
         require(c.organizationName.isNotBlank()) { "اسم الجهة مطلوب" }
         val cleanName = c.name.trim()
+        val cleanHolderName = c.holderName.trim()
         require(!dao.hasCustodyWithName(cleanName, 0L)) { "اسم العهدة موجود بالفعل" }
-        val id = dao.insertCustody(c.copy(name = cleanName, organizationName = c.organizationName.trim()))
+        val id = dao.insertCustody(c.copy(name = cleanName, holderName = cleanHolderName, organizationName = c.organizationName.trim()))
         dao.insertAccounts(currencies.map { CustodyAccountEntity(custodyId = id, holderType = "OWNER", currencyCode = it) })
         id
     }
     suspend fun updateCustody(c: CustodyEntity) {
-        require(c.name.isNotBlank()) { "اسم صاحب العهدة مطلوب" }
+        require(c.name.isNotBlank()) { "اسم العهدة مطلوب" }
+        require(c.holderName.isNotBlank()) { "اسم حامل العهدة مطلوب" }
         require(c.organizationName.isNotBlank()) { "اسم الجهة مطلوب" }
         val cleanName = c.name.trim()
+        val cleanHolderName = c.holderName.trim()
         require(!dao.hasCustodyWithName(cleanName, c.id)) { "اسم العهدة موجود بالفعل" }
-        dao.updateCustody(c.copy(name = cleanName, organizationName = c.organizationName.trim()))
+        dao.updateCustody(c.copy(name = cleanName, holderName = cleanHolderName, organizationName = c.organizationName.trim()))
     }
     suspend fun addPerson(custodyId: Long, p: CustodyPersonEntity): Long = db.withTransaction {
         val custody = dao.getCustody(custodyId) ?: error("العهدة غير موجودة")
