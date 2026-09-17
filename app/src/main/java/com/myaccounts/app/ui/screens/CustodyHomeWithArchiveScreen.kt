@@ -58,7 +58,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.components.AppTopBar
-import com.myaccounts.app.ui.components.BalanceAmount
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.EmptyState
 import com.myaccounts.app.ui.components.EmptyStateType
@@ -66,89 +65,64 @@ import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 
 private val custodyHomeCurrencies = listOf("YER", "SAR", "USD")
-
 private enum class CustodySortOrder { LATEST_TRANSACTION, ALPHABETICAL }
 
 @Composable
 private fun Modifier.custodyKeepFocusedFieldVisible(): Modifier {
     val requester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
-    return bringIntoViewRequester(requester).onFocusEvent {
-        if (it.isFocused) scope.launch {
-            kotlinx.coroutines.delay(180)
-            requester.bringIntoView()
-        }
-    }
+    return bringIntoViewRequester(requester).onFocusEvent { if (it.isFocused) scope.launch { kotlinx.coroutines.delay(180); requester.bringIntoView() } }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustodyHomeWithArchiveScreen(
-    vm: CustodyViewModel,
-    onBack: () -> Unit,
-    onOpen: (Long) -> Unit,
-    onArchive: () -> Unit,
-    onReports: () -> Unit,
-    onBackupRestore: () -> Unit,
-    onTransfer: () -> Unit
-) {
+fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onArchive: () -> Unit, onReports: () -> Unit, onBackupRestore: () -> Unit, onTransfer: () -> Unit) {
     val custodies by vm.custodies.collectAsState()
     var adding by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
+    val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST_TRANSACTION -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
 
-    val displayedCustodies = when (sortOrder) {
-        CustodySortOrder.LATEST_TRANSACTION -> custodies
-        CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() }
-    }
-
-    Scaffold(
-        topBar = {
-            AppTopBar(
-                title = "العُهَد",
-                onBack = onBack,
-                actions = {
-                    IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }
-                    Box {
-                        IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
-                        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                            DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = CustodySortOrder.LATEST_TRANSACTION; showSortMenu = false })
-                            DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
-                        }
-                    }
-                    IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }
-                    DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
-                        DropdownMenuItem(text = { Text("النسخ الاحتياطي و الاستعادة") }, leadingIcon = { Icon(Icons.Default.Backup, null) }, onClick = { showMoreMenu = false; onBackupRestore() })
-                        DropdownMenuItem(text = { Text("الأرشيف") }, leadingIcon = { Icon(Icons.Default.Archive, null) }, onClick = { showMoreMenu = false; onArchive() })
-                    }
+    Scaffold(topBar = {
+        AppTopBar(title = "العُهَد", onBack = onBack, actions = {
+            IconButton(onClick = onReports) { Icon(Icons.Default.Assessment, "التقارير") }
+            Box {
+                IconButton(onClick = { showSortMenu = true }) { Icon(Icons.Default.Sort, "ترتيب العُهَد") }
+                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                    DropdownMenuItem(text = { Text("حسب أحدث عملية") }, onClick = { sortOrder = CustodySortOrder.LATEST_TRANSACTION; showSortMenu = false })
+                    DropdownMenuItem(text = { Text("حسب الأبجدية") }, onClick = { sortOrder = CustodySortOrder.ALPHABETICAL; showSortMenu = false })
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }
-        }
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (custodies.isEmpty()) item {
-                EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.")
             }
+            IconButton(onClick = { showMoreMenu = true }) { Icon(Icons.Default.MoreVert, "المزيد من الخيارات") }
+            DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+                DropdownMenuItem(text = { Text("النسخ الاحتياطي و الاستعادة") }, leadingIcon = { Icon(Icons.Default.Backup, null) }, onClick = { showMoreMenu = false; onBackupRestore() })
+                DropdownMenuItem(text = { Text("الأرشيف") }, leadingIcon = { Icon(Icons.Default.Archive, null) }, onClick = { showMoreMenu = false; onArchive() })
+            }
+        })
+    }, floatingActionButton = {
+        FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }
+    }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
                 InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(custody.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodyLarge)
-                            Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodyLarge)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            Text(custody.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = com.myaccounts.app.ui.theme.EntityName)
+                            Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodySmall)
+                            Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
                             if (custody.purpose.isNotBlank()) Text("الغرض: ${custody.purpose}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             custodyHomeCurrencies.forEach { code ->
                                 val balance = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == code }?.balanceMinor ?: 0L
-                                InformationCard(Modifier.padding(0.dp)) {
-                                    Text(code, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                                    BalanceAmount(amount = when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, status = when { balance > 0 -> BalanceStatus.Due; balance < 0 -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }, label = code)
+                                val status = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
+                                val color = when (status) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                                    Text(code, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color)
                                 }
                             }
                         }
@@ -157,7 +131,6 @@ fun CustodyHomeWithArchiveScreen(
             }
         }
     }
-
     if (adding) CustodyCreateDialog(onDismiss = { adding = false }) { vm.create(it); adding = false }
 }
 
@@ -173,7 +146,6 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
     var organizationPhone by remember { mutableStateOf("") }
     var organizationAddress by remember { mutableStateOf("") }
     var organizationNotes by remember { mutableStateOf("") }
-
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.92f).imePadding().navigationBarsPadding(), shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
             Column(Modifier.fillMaxSize()) {
@@ -201,9 +173,7 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
                 Row(Modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 10.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("إلغاء") }
                     Spacer(Modifier.width(8.dp))
-                    Button(enabled = custodyName.isNotBlank() && holderName.isNotBlank() && organization.isNotBlank(), onClick = {
-                        onSave(CustodyEntity(name = custodyName.trim(), holderName = holderName.trim(), phone = holderPhone.trim(), address = holderAddress.trim(), notes = holderNotes.trim(), purpose = purpose.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim()))
-                    }) { Text("حفظ") }
+                    Button(enabled = custodyName.isNotBlank() && holderName.isNotBlank() && organization.isNotBlank(), onClick = { onSave(CustodyEntity(name = custodyName.trim(), holderName = holderName.trim(), phone = holderPhone.trim(), address = holderAddress.trim(), notes = holderNotes.trim(), purpose = purpose.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())) }) { Text("حفظ") }
                 }
             }
         }
