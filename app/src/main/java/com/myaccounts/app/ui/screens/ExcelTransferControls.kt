@@ -19,17 +19,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.myaccounts.app.ui.components.ConfirmationDialog
 import com.myaccounts.app.ui.components.FeedbackDialog
 import com.myaccounts.app.ui.components.FeedbackDialogType
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
+import com.myaccounts.app.ui.components.TransferModeDialog
 import com.myaccounts.app.util.GlobalExcelDataManager
+import com.myaccounts.app.util.TransferMode
+import com.myaccounts.app.util.TransferModeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-
-enum class ExcelFeedbackType { Success, Error }
 
 @Composable
 fun ExcelTransferControls() {
@@ -39,9 +39,7 @@ fun ExcelTransferControls() {
     var preview by remember { mutableStateOf<GlobalExcelDataManager.ImportPreview?>(null) }
     var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
-    var feedbackType by remember { mutableStateOf(ExcelFeedbackType.Success) }
-
-    fun showMessage(text: String, type: ExcelFeedbackType) { message = text; feedbackType = type }
+    var pendingMode by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(GlobalExcelDataManager.MIME_TYPE)) { uri ->
         if (uri != null) {
@@ -49,9 +47,9 @@ fun ExcelTransferControls() {
             scope.launch(Dispatchers.IO) {
                 val result = GlobalExcelDataManager.exportActive(context, uri)
                 busy = false
-                result.fold(
-                    onSuccess = { summary -> showMessage("تم تصدير كامل التطبيق إلى Excel.\nالحسابات: ${summary.accountPeople} أشخاص، ${summary.accountAccounts} حسابات، ${summary.accountTransactions} عمليات.\nالعُهَد: ${summary.custodyCustodies} عهد، ${summary.custodyPeople} أطراف، ${summary.custodyTransactions} عمليات.\n\nالملف يحتوي Sheetين فقط: الحسابات والعُهَد.", ExcelFeedbackType.Success) },
-                    onFailure = { showMessage("تعذر تصدير Excel: ${it.message ?: "خطأ غير معروف"}", ExcelFeedbackType.Error) }
+                message = result.fold(
+                    onSuccess = { s -> "تم تصدير كامل التطبيق إلى Excel.\nالحسابات: ${s.accountPeople} أشخاص، ${s.accountAccounts} حسابات، ${s.accountTransactions} عمليات.\nالعُهَد: ${s.custodyCustodies} عهد، ${s.custodyPeople} أطراف، ${s.custodyTransactions} عمليات.\n\nالملف يحتوي Sheetين فقط: الحسابات والعُهَد." },
+                    onFailure = { "تعذر تصدير Excel: ${it.message ?: "خطأ غير معروف"}" }
                 )
             }
         }
@@ -64,7 +62,7 @@ fun ExcelTransferControls() {
             scope.launch(Dispatchers.IO) {
                 val result = GlobalExcelDataManager.previewImport(context, uri)
                 busy = false
-                result.fold(onSuccess = { preview = it }, onFailure = { showMessage("تعذر قراءة ملف Excel العام: ${it.message ?: "الملف غير صالح"}", ExcelFeedbackType.Error) })
+                result.fold(onSuccess = { preview = it }, onFailure = { message = "تعذر قراءة ملف Excel العام: ${it.message ?: "الملف غير صالح"}" })
             }
         }
     }
@@ -81,36 +79,32 @@ fun ExcelTransferControls() {
     }
 
     preview?.let { data ->
-        ConfirmationDialog(
-            title = "مراجعة ملف Excel العام",
+        TransferModeDialog(
+            title = "اختيار طريقة استيراد كامل التطبيق",
             message = buildString {
                 append("الحسابات — أشخاص: ${data.account.people}، حسابات: ${data.account.accounts}، عمليات: ${data.account.transactions}\n")
                 append("العُهَد — عهد: ${data.custody.custodies}، أطراف: ${data.custody.people}، حسابات: ${data.custody.accounts}، عمليات: ${data.custody.transactions}\n")
-                if (data.account.errors.isNotEmpty()) { append("\nأخطاء الحسابات:\n"); data.account.errors.take(6).forEach { append("• $it\n") } }
-                if (data.custody.errors.isNotEmpty()) { append("\nأخطاء العُهَد:\n"); data.custody.errors.take(6).forEach { append("• $it\n") } }
-                if (data.isValid) append("\nسيتم استيراد القسمين بعد اجتياز الفحص.")
-            },
-            onConfirm = {
-                if (!data.isValid) return@ConfirmationDialog
-                val uri = pendingImportUri ?: return@ConfirmationDialog
-                preview = null; pendingImportUri = null; busy = true
-                scope.launch(Dispatchers.IO) {
-                    val result = GlobalExcelDataManager.import(context, uri)
-                    busy = false
-                    result.fold(
-                        onSuccess = { summary -> showMessage("تم استيراد كامل التطبيق بنجاح.\nالحسابات: أضيف ${summary.account.peopleAdded} أشخاص و${summary.account.accountsAdded} حسابات و${summary.account.transactionsAdded} عمليات.\nالعُهَد: أضيف ${summary.custody.custodiesAdded} عهد و${summary.custody.peopleAdded} أطراف و${summary.custody.transactionsAdded} عمليات.", ExcelFeedbackType.Success) },
-                        onFailure = { showMessage("تعذر الاستيراد: ${it.message ?: "الملف غير صالح"}", ExcelFeedbackType.Error) }
-                    )
-                }
+                if (data.account.errors.isNotEmpty()) { append("\nأخطاء الحسابات:\n"); data.account.errors.take(20).forEach { append("• $it\n") } }
+                if (data.custody.errors.isNotEmpty()) { append("\nأخطاء العُهَد:\n"); data.custody.errors.take(20).forEach { append("• $it\n") } }
+                if (!data.isValid) append("\nلا يمكن الاستيراد قبل إصلاح الأخطاء الموضحة أعلاه.")
             },
             onDismiss = { preview = null; pendingImportUri = null },
-            confirmText = if (data.isValid) "استيراد" else "غير صالح",
-            dismissText = "إلغاء",
-            danger = false
+            onModeSelected = { mode ->
+                if (!data.isValid) return@TransferModeDialog
+                pendingMode = false
+                val uri = pendingImportUri ?: return@TransferModeDialog
+                preview = null; pendingImportUri = null; busy = true
+                scope.launch(Dispatchers.IO) {
+                    val result = TransferModeManager.importGlobal(context, uri, mode)
+                    busy = false
+                    message = result.fold(
+                        onSuccess = { s -> "تم استيراد كامل التطبيق بنجاح.\nطريقة الاستيراد: ${mode.title}\nالحسابات: أضيف ${s.account.peopleAdded} أشخاص و${s.account.accountsAdded} حسابات و${s.account.transactionsAdded} عمليات.\nالعُهَد: أضيف ${s.custody.custodiesAdded} عهد و${s.custody.peopleAdded} أطراف و${s.custody.transactionsAdded} عمليات." },
+                        onFailure = { "تعذر الاستيراد: ${it.message ?: "الملف غير صالح"}" }
+                    )
+                }
+            }
         )
     }
 
-    message?.let { text ->
-        FeedbackDialog(text = text, type = if (feedbackType == ExcelFeedbackType.Success) FeedbackDialogType.Success else FeedbackDialogType.Error, onDismiss = { message = null })
-    }
+    message?.let { text -> FeedbackDialog(text = text, type = if (text.startsWith("تم ")) FeedbackDialogType.Success else FeedbackDialogType.Error, onDismiss = { message = null }) }
 }
