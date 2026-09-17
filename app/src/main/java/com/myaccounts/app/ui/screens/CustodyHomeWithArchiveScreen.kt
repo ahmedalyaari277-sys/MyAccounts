@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -124,9 +125,19 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                                 val balance = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == code }?.balanceMinor ?: 0L
                                 val status = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
                                 val color = when (status) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                                    Text(code, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = MaterialTheme.shapes.small,
+                                    tonalElevation = 1.dp,
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+                                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                                    ) {
+                                        Text(code, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
+                                    }
                                 }
                             }
                         }
