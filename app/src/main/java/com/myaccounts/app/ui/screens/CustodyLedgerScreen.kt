@@ -101,7 +101,7 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
     if (showEditCustody) CustodyDataEditDialog(vm, current, onDismiss = { showEditCustody = false }, onSaved = { showEditCustody = false })
 }
 
-@Composable private fun SummaryBalance(title: String, value: Long, status: String) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(title, fontWeight = FontWeight.Medium); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Text(money(kotlin.math.abs(value)), fontWeight = FontWeight.Bold, color = balanceColor(value)); Text(status, style = MaterialTheme.typography.bodySmall, color = balanceColor(value)) } } }
+@Composable private fun SummaryBalance(title: String, value: Long, status: String) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Text(money(kotlin.math.abs(value)), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = balanceColor(value)); Text(status, style = MaterialTheme.typography.bodySmall, color = balanceColor(value)) } } }
 
 @Composable
 fun CustodyLedgerOperationDialog(vm: CustodyViewModel, custodyId: Long, personId: Long?, owner: Boolean, defaultCurrency: String, initialType: String, transaction: CustodyTransactionEntity?, dialogWidth: Float = .92f, onDismiss: () -> Unit, onFinished: () -> Unit) {
