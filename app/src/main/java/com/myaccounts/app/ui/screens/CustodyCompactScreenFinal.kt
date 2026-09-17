@@ -100,7 +100,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
     val sortedOthers = if (latestFirst) filteredOthers.sortedByDescending { latestByPerson[it.id] ?: 0L } else filteredOthers.sortedBy { it.name.trim().lowercase(Locale.getDefault()) }
     val shown = listOfNotNull(fixedEntity) + sortedOthers
     Scaffold(modifier = Modifier.semantics { contentDescription = "شاشة تفاصيل العهدة" }, topBar = {
-        TopAppBar(title = { Text(current.name, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
+        TopAppBar(title = { Text(current.name, fontWeight = FontWeight.Bold, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text("تفاصيل العهدة") }, onClick = { menu = false; details = true })
