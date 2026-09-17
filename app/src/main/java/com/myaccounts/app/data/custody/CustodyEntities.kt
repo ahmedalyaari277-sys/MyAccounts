@@ -9,9 +9,11 @@ import java.util.UUID
 data class CustodyEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    val holderName: String = "",
     val phone: String = "",
     val address: String = "",
     val notes: String = "",
+    val purpose: String = "",
     val organizationName: String,
     val organizationPhone: String = "",
     val organizationAddress: String = "",
