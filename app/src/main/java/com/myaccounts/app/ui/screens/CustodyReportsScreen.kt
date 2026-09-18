@@ -77,7 +77,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
    else if(reportType=="SUMMARY")data.forEachIndexed{i,d->item(key="summary_"+i){CustodySummaryPreview(d,currency)}}
    else data.forEach{d->items(d.transactions,key={it.id}){t->
     val person=d.people.firstOrNull{it.id==t.personId}?.name
-    CustodyOperationCard(operationType=typeName(t.type),amount=money(t.amountMinor)+" "+t.currencyCode,currency=t.currencyCode,date=SimpleDateFormat("dd/MM/yyyy HH:mm",Locale("ar")).format(Date(t.transactionDate)),description=listOfNotNull(d.custody.name,person,t.description.ifBlank{null}).joinToString(" — "),tone=tone(t.type))
+    CustodyOperationCard(operationType=typeName(t.type),amount=money(t.amountMinor)+" "+currencyDisplayName(t.currencyCode),currency=t.currencyCode,date=SimpleDateFormat("dd/MM/yyyy HH:mm",Locale("ar")).format(Date(t.transactionDate)),description=listOfNotNull(d.custody.name,person,t.description.ifBlank{null}).joinToString(" — "),tone=tone(t.type))
    }}
    if(data.isEmpty())item{EmptyState(EmptyStateType.Reports,"لا توجد عُهَد","لا توجد بيانات متاحة لإصدار التقرير.")}
   }
