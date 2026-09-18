@@ -69,6 +69,7 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
     fun observePersonTransactions(id: Long, personId: Long, currency: String): Flow<List<CustodyTransactionEntity>> = dao.observePersonTransactions(id, personId, currency)
     fun observeBalance(id: Long): Flow<Long> = dao.observeBalance(id)
     fun attachments(transactionId: Long): List<CustodyTransactionAttachmentEntity> = attachmentStore.list(transactionId)
+    suspend fun reportSnapshots(ids: List<Long>): List<CustodyReportSnapshot> = withContext(Dispatchers.IO) { ids.mapNotNull { id -> dao.getCustody(id)?.let { CustodyReportSnapshot(it, dao.getAllPersons(id), dao.getAllTransactions(id, false)) } } }
 
     suspend fun createCustody(c: CustodyEntity): Long = db.withTransaction {
         require(c.name.isNotBlank()) { "اسم العهدة مطلوب" }
