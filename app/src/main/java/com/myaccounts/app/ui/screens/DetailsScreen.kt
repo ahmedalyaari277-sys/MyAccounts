@@ -19,6 +19,7 @@ import com.myaccounts.app.data.currency.CurrencyCatalog
 import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.SummaryCard
+import com.myaccounts.app.ui.components.currencyDisplayName
 
 @Composable
 fun DetailsScreen(onBack: () -> Unit) {
@@ -34,7 +35,7 @@ fun DetailsScreen(onBack: () -> Unit) {
 
             InformationCard {
                 Text("العملات المفعلة", style = MaterialTheme.typography.titleMedium)
-                Text(CurrencyCatalog.enabledCodes().joinToString("، "), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(CurrencyCatalog.enabledCodes().joinToString("، ") { currencyDisplayName(it) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("يمكن إدارة العملات من شاشة الإعدادات.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
