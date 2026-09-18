@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.ui.components.currencyDisplayName
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
 import java.util.Date
