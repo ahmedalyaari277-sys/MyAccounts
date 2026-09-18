@@ -37,6 +37,7 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) { repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
     fun accounts(id: Long): StateFlow<List<CustodyAccountEntity>> = accountFlows.getOrPut(id) { repo.observeAccounts(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
     fun transactions(id: Long): StateFlow<List<CustodyTransactionEntity>> = transactionFlows.getOrPut(id) { repo.observeTransactions(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
+    suspend fun reportSnapshots(ids: List<Long>): List<CustodyReportSnapshot> = repo.reportSnapshots(ids)
     fun personTransactions(id: Long, personId: Long, currency: String): StateFlow<List<CustodyTransactionEntity>> { val key = "$id:$personId:$currency"; return personTransactionFlows.getOrPut(key) { repo.observePersonTransactions(id, personId, currency).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) } }
     fun balance(accountId: Long): StateFlow<Long> = balanceFlows.getOrPut(accountId) { repo.observeBalance(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L) }
     fun attachments(id: Long): List<CustodyTransactionAttachmentEntity> = repo.attachments(id)
