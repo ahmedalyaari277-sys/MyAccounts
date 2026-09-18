@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
@@ -22,6 +23,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -72,23 +75,51 @@ fun SettingsScreen(
             item {
                 InformationCard {
                     Text("المظهر", style = MaterialTheme.typography.titleMedium)
-                    Text(when (appearanceMode) { AppearanceMode.LIGHT -> "الوضع الفاتح"; AppearanceMode.DARK -> "الوضع الداكن"; AppearanceMode.SYSTEM -> "حسب إعدادات النظام" }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    AppearanceOption("فاتح", appearanceMode == AppearanceMode.LIGHT) { onAppearanceModeChange(AppearanceMode.LIGHT) }
-                    AppearanceOption("داكن", appearanceMode == AppearanceMode.DARK) { onAppearanceModeChange(AppearanceMode.DARK) }
-                    AppearanceOption("حسب النظام", appearanceMode == AppearanceMode.SYSTEM) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
+                    Text(when (appearanceMode) { AppearanceMode.LIGHT -> "الوضع الفاتح"; AppearanceMode.DARK -> "الوضع الداكن"; AppearanceMode.SYSTEM -> "حسب إعدادات النظام" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AppearanceOption("فاتح", appearanceMode == AppearanceMode.LIGHT, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.LIGHT) }
+                        AppearanceOption("داكن", appearanceMode == AppearanceMode.DARK, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.DARK) }
+                        AppearanceOption("حسب النظام", appearanceMode == AppearanceMode.SYSTEM, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
+                    }
                 }
             }
             item {
                 InformationCard {
                     Text("العملات", style = MaterialTheme.typography.titleMedium)
                     Text("العملات المفعلة متاحة للحسابات والتعاملات والتقارير والعُهَد.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    CurrencyCatalog.definitions.forEach { currency ->
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(currency.name, style = MaterialTheme.typography.bodyLarge)
-                                Text(currency.code, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CurrencyCatalog.definitions.forEach { currency ->
+                            Row(
+                                modifier = Modifier
+                                    .clickable {
+                                        defaultCurrency = currency.code
+                                        CurrencyCatalog.setDefault(currency.code)
+                                    }
+                                    .padding(horizontal = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = defaultCurrency == currency.code,
+                                    onClick = {
+                                        defaultCurrency = currency.code
+                                        CurrencyCatalog.setDefault(currency.code)
+                                    }
+                                )
+                                Column {
+                                    Text(currency.code, style = MaterialTheme.typography.bodyMedium)
+                                    Text(currency.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
-                            RadioButton(selected = defaultCurrency == currency.code, onClick = { defaultCurrency = currency.code; CurrencyCatalog.setDefault(currency.code) })
                         }
                     }
                     Text("العملة الافتراضية للحسابات الجديدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -147,8 +178,16 @@ private fun AddCurrencyDialog(onDismiss: () -> Unit, onAdded: (String, String) -
 }
 
 @Composable
-private fun AppearanceOption(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = selected, onClick = onClick); TextButton(onClick = onClick, modifier = Modifier.weight(1f)) { Text(label, modifier = Modifier.fillMaxWidth()) } }
+private fun AppearanceOption(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+    }
 }
 
 @Composable
