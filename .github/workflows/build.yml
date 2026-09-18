@@ -35,6 +35,7 @@ jobs:
       # Verification trigger: rebuild after section-scoped Excel transfer correction.
       # Verification trigger: final unified UI batch.
       # Verification trigger: retry after compiler fix.
+      # Verification trigger: include final custody party fixes.
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Upload APK
