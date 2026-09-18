@@ -37,11 +37,9 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
  var busy by remember{mutableStateOf(false)}
  var message by remember{mutableStateOf<String?>(null)}
  val selected=if(custodyId==null)custodies else custodies.filter{it.id==custodyId}
- val data=selected.map{c->
-  val tx by vm.transactions(c.id).collectAsState(initial=emptyList())
-  val people by vm.persons(c.id).collectAsState(initial=emptyList())
-  CustodyReportData(c,people,tx).filter(currency,period)
- }
+ var snapshots by remember { mutableStateOf<List<CustodyReportSnapshot>>(emptyList()) }
+ LaunchedEffect(selected.map { it.id }) { snapshots = vm.reportSnapshots(selected.map { it.id }) }
+ val data=snapshots.map{CustodyReportData(it.custody,it.people,it.transactions).filter(currency,period)}
  fun runExport(pdf:Boolean){
   if(busy)return
   busy=true
@@ -95,7 +93,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
  message?.let{m->AlertDialog(onDismissRequest={message=null},text={Text(m)},confirmButton={TextButton({message=null}){Text("موافق")}})}
 }
 
-data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPersonEntity>,val transactions:List<CustodyTransactionEntity>){
+private data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPersonEntity>,val transactions:List<CustodyTransactionEntity>){
  fun filter(currency:String,period:String):CustodyReportData{
   val now=System.currentTimeMillis()
   val start=when(period){"TODAY"->dayStart(now);"WEEK"->Calendar.getInstance().apply{timeInMillis=dayStart(now);set(Calendar.DAY_OF_WEEK,firstDayOfWeek)}.timeInMillis;"MONTH"->Calendar.getInstance().apply{timeInMillis=dayStart(now);set(Calendar.DAY_OF_MONTH,1)}.timeInMillis;else->null}
