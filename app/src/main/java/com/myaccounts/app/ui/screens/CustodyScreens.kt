@@ -146,7 +146,6 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
     var addPerson by remember { mutableStateOf(false) }
     var addTransaction by remember { mutableStateOf(false) }
     var transactionType by remember { mutableStateOf(CustodyTransactionType.RECEIVED_FROM_ORG) }
-    var showReport by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     val current = custody ?: return
     val ownerAccount = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == currency }
@@ -160,7 +159,6 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
                 actions = {
                     IconButton(onClick = { menuExpanded = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(text = { Text("تقرير العهدة") }, onClick = { menuExpanded = false; showReport = true })
                         DropdownMenuItem(text = { Text("أرشفة العهدة") }, onClick = { menuExpanded = false; vm.archive(id); onBack() })
                     }
                 }
@@ -235,7 +233,6 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
             addTransaction = false
         }
     }
-    if (showReport) CustodyReportDialog(current, accounts, transactions, onDismiss = { showReport = false })
 }
 
 @Composable
@@ -321,36 +318,3 @@ private fun OperationChoice(label: String, selected: Boolean, onClick: () -> Uni
     }
 }
 
-@Composable
-private fun CustodyReportDialog(custody: CustodyEntity, accounts: List<CustodyAccountEntity>, transactions: List<CustodyTransactionEntity>, onDismiss: () -> Unit) {
-    var currency by remember { mutableStateOf("YER") }
-    val owner = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == currency }
-    val rows = transactions.filter { it.currencyCode == currency }.sortedBy { it.transactionDate }
-    val balance = rows.filter { it.accountId == owner?.id }.sumOf { ownerDelta(it.type, it.amountMinor) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("تقرير العهدة") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                item {
-                    Text(custody.name, fontWeight = FontWeight.Bold)
-                    Text("الجهة: ${custody.organizationName}")
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) }) }
-                    }
-                    Text("الرصيد: ${signed(balance)}", fontWeight = FontWeight.Bold)
-                }
-                items(rows, key = { it.id }) { transaction ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(8.dp)) {
-                            Text(typeName(transaction.type), fontWeight = FontWeight.Bold)
-                            Text("${money(transaction.amountMinor)} $currency")
-                            if (transaction.description.isNotBlank()) Text(transaction.description)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق") } }
-    )
-}
