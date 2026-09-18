@@ -37,6 +37,7 @@ import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.ui.components.SummaryCard
+import com.myaccounts.app.ui.components.currencyDisplayName
 import com.myaccounts.app.ui.theme.AppearanceMode
 
 private const val PIN_LENGTH = 9
@@ -116,7 +117,7 @@ fun SettingsScreen(
                                     }
                                 )
                                 Column {
-                                    Text(currency.code, style = MaterialTheme.typography.bodyMedium)
+                                    Text(currencyDisplayName(currency.code), style = MaterialTheme.typography.bodyMedium)
                                     Text(currency.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
