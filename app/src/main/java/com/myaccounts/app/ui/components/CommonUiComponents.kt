@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
@@ -28,6 +29,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -56,6 +59,14 @@ import com.myaccounts.app.ui.theme.Owed
 import com.myaccounts.app.ui.theme.Secondary
 import com.myaccounts.app.ui.theme.Success
 import com.myaccounts.app.ui.theme.Warning
+
+fun currencyDisplayName(code: String): String = when (code) {
+    "ALL" -> "جميع العملات"
+    "YER" -> "الريال اليمني"
+    "SAR" -> "الريال السعودي"
+    "USD" -> "الدولار الأمريكي"
+    else -> code
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -186,7 +197,7 @@ fun CurrencyChip(
         selected = selected,
         onClick = onClick,
         modifier = modifier,
-        label = { Text(currency, style = MaterialTheme.typography.labelLarge) }
+        label = { Text(currencyDisplayName(currency), style = MaterialTheme.typography.labelLarge) }
     )
 }
 
@@ -302,6 +313,7 @@ fun CustodyOperationCard(
     currency: String,
     date: String? = null,
     description: String? = null,
+    status: String? = null,
     tone: CustodyOperationTone = CustodyOperationTone.Neutral,
     modifier: Modifier = Modifier,
     actions: @Composable () -> Unit = {}
@@ -323,9 +335,10 @@ fun CustodyOperationCard(
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(operationType, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                StatusChip(text = currency, color = accent)
+                StatusChip(text = currencyDisplayName(currency), color = accent)
             }
             Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
+            if (status != null) StatusChip(status, color = accent)
             if (!description.isNullOrBlank()) Text(description, style = MaterialTheme.typography.bodyLarge)
             if (!date.isNullOrBlank()) Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions() }
@@ -451,5 +464,31 @@ fun AttachmentSection(
         Text(title, style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(1.dp))
         content()
+    }
+}
+
+@Composable
+fun CompactFilterRow(
+    label: String,
+    value: String,
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(0.8f))
+        Box(modifier = Modifier.weight(1.5f)) {
+            OutlinedButton(onClick = { expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(value, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = "اختيار")
+                }
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { (key, text) -> DropdownMenuItem(text = { Text(text) }, onClick = { expanded = false; onSelected(key) }) }
+            }
+        }
     }
 }
