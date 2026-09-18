@@ -63,23 +63,15 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
  Scaffold(topBar={AppTopBar(if(custodyId==null)"تقارير العُهَد" else "تقرير العهدة",onBack)}){padding->
   LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal=16.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
    item{
-    SummaryCard(title = if(custodyId==null)"مركز التقارير" else "حساب العهدة"){
-     Text(if(custodyId==null)"عرض العهد والعملات دون جمع العملات المختلفة." else "تقرير هذه العهدة بنفس بنية تقرير حساب الشخص.",style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     if(custodyId!=null)selected.firstOrNull()?.let{c->Text(c.name,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold);Text("الجهة: "+c.organizationName+"  •  الحامل: "+c.holderName,style=MaterialTheme.typography.bodySmall)}
-     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){reportCurrencies.forEach{c->FilterChip(currency==c,{currency=c},label={Text(if(c=="ALL")"الكل" else c)},enabled=!busy)}}
+    InformationCard{
+     CompactFilterRow(label="العملة",value=currencyDisplayName(currency),options=listOf("ALL" to "جميع العملات","YER" to "الريال اليمني","SAR" to "الريال السعودي","USD" to "الدولار الأمريكي"),onSelected={currency=it},enabled=!busy)
+     CompactFilterRow(label="الفترة",value=periodName(period),options=listOf("ALL" to "كل الحساب","TODAY" to "اليوم","WEEK" to "الأسبوع","MONTH" to "الشهر"),onSelected={period=it},enabled=!busy)
+     CompactFilterRow(label="نوع التقرير",value=when(reportType){"PEOPLE"->"أصحاب العُهَد";"DETAILED"->"العمليات";else->"الأرصدة"},options=listOf("PEOPLE" to "أصحاب العُهَد","DETAILED" to "العمليات","SUMMARY" to "الأرصدة"),onSelected={reportType=it},enabled=!busy)
+     if(custodyId!=null) selected.firstOrNull()?.let{c->Text(c.name,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold);Text("الجهة: "+c.organizationName+"  •  الحامل: "+c.holderName,style=MaterialTheme.typography.bodySmall)}
+     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){PrimaryButton("Excel",{runExport(false)},Modifier.weight(1f),enabled=!busy);PrimaryButton("PDF",{runExport(true)},Modifier.weight(1f),enabled=!busy)}
+     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){SecondaryButton("مشاركة Excel",{share(false)},Modifier.weight(1f),enabled=!busy);SecondaryButton("مشاركة PDF",{share(true)},Modifier.weight(1f),enabled=!busy)}
     }
    }
-   item{InformationCard{Text("الفترة",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold);Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){reportPeriods.forEach{p->FilterChip(period==p,{period=p},label={Text(periodName(p))},enabled=!busy)}}}}
-   item{InformationCard{
-    Text("نوع التقرير",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-     FilterChip(reportType=="PEOPLE",{reportType="PEOPLE"},label={Text("أصحاب العُهَد")})
-     FilterChip(reportType=="DETAILED",{reportType="DETAILED"},label={Text("العمليات")})
-     FilterChip(reportType=="SUMMARY",{reportType="SUMMARY"},label={Text("الأرصدة")})
-    }
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){PrimaryButton("Excel",{runExport(false)},Modifier.weight(1f),enabled=!busy);PrimaryButton("PDF",{runExport(true)},Modifier.weight(1f),enabled=!busy)}
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){SecondaryButton("مشاركة Excel",{share(false)},Modifier.weight(1f),enabled=!busy);SecondaryButton("مشاركة PDF",{share(true)},Modifier.weight(1f),enabled=!busy)}
-   }}
    item{CustodyOverallPreview(data,currency)}
    if(reportType=="PEOPLE")data.forEachIndexed{i,d->item(key="people_"+i){CustodyPeoplePreview(d,currency)}}
    else if(reportType=="SUMMARY")data.forEachIndexed{i,d->item(key="summary_"+i){CustodySummaryPreview(d,currency)}}
@@ -105,7 +97,7 @@ data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPe
 @Composable private fun CustodyOverallPreview(data:List<CustodyReportData>,currency:String){
  val codes=if(currency=="ALL")listOf("YER","SAR","USD")else listOf(currency)
  SummaryCard(title = "ملخص الأرصدة"){
-  Row(Modifier.fillMaxWidth()){Text("البيان",Modifier.weight(1.3f),fontWeight=FontWeight.Bold);codes.forEach{Text(it,Modifier.weight(1f),fontWeight=FontWeight.Bold)}}
+  Row(Modifier.fillMaxWidth()){Text("البيان",Modifier.weight(1.3f),fontWeight=FontWeight.Bold);codes.forEach{Text(currencyDisplayName(it),Modifier.weight(1f),fontWeight=FontWeight.Bold)}}
   summaryRow("إجمالي الاستلام",codes){c->data.sumOf{d->d.transactions.filter{it.currencyCode==c&&it.type==CustodyTransactionType.RECEIVED_FROM_ORG}.sumOf{it.amountMinor}}}
   summaryRow("إجمالي الصرف",codes){c->data.sumOf{d->d.transactions.filter{it.currencyCode==c&&it.type==CustodyTransactionType.PAID_TO_PERSON}.sumOf{it.amountMinor}}}
   summaryRow("مرتجع من الأشخاص",codes){c->data.sumOf{d->d.transactions.filter{it.currencyCode==c&&it.type==CustodyTransactionType.RETURNED_FROM_PERSON}.sumOf{it.amountMinor}}}
@@ -128,7 +120,7 @@ data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPe
  val codes=if(currency=="ALL")listOf("YER","SAR","USD")else listOf(currency)
  SummaryCard(title = d.custody.name){
   Text("الجهة: "+d.custody.organizationName+"  •  الحامل: "+d.custody.holderName,style=MaterialTheme.typography.bodySmall)
-  codes.forEach{c->val rows=d.transactions.filter{it.currencyCode==c};InformationCard{Text(c,fontWeight=FontWeight.Bold);val cash=rows.sumOf{CustodyBalanceRules.ownerCashDelta(it.type,it.amountMinor)};val org=rows.sumOf{CustodyBalanceRules.ownerOrgDebtDelta(it.type,it.amountMinor)};val people=rows.sumOf{CustodyBalanceRules.ownerPeopleDebtDelta(it.type,it.amountMinor)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){BalanceAmount("نقد "+money(kotlin.math.abs(cash)),if(cash>0)BalanceStatus.Owed else if(cash<0)BalanceStatus.Due else BalanceStatus.Neutral);BalanceAmount("ذمم "+money(kotlin.math.abs(org+people)),if(org+people>0)BalanceStatus.Due else if(org+people<0)BalanceStatus.Owed else BalanceStatus.Neutral)}}}
+  codes.forEach{c->val rows=d.transactions.filter{it.currencyCode==c};InformationCard{Text(currencyDisplayName(c),fontWeight=FontWeight.Bold);val cash=rows.sumOf{CustodyBalanceRules.ownerCashDelta(it.type,it.amountMinor)};val org=rows.sumOf{CustodyBalanceRules.ownerOrgDebtDelta(it.type,it.amountMinor)};val people=rows.sumOf{CustodyBalanceRules.ownerPeopleDebtDelta(it.type,it.amountMinor)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){BalanceAmount("نقد "+money(kotlin.math.abs(cash)),if(cash>0)BalanceStatus.Owed else if(cash<0)BalanceStatus.Due else BalanceStatus.Neutral);BalanceAmount("ذمم "+money(kotlin.math.abs(org+people)),if(org+people>0)BalanceStatus.Due else if(org+people<0)BalanceStatus.Owed else BalanceStatus.Neutral)}}}
  }
 }
 private fun typeName(t:String)=when(t){CustodyTransactionType.RECEIVED_FROM_ORG->"استلام من الجهة";CustodyTransactionType.PAID_TO_PERSON->"صرف للشخص";CustodyTransactionType.RETURNED_FROM_PERSON->"مرتجع من الشخص";CustodyTransactionType.RETURNED_TO_ORG->"مرتجع للجهة";CustodyTransactionType.ORG_LOAN_FROM_OWNER->"ذمة للجهة من الحامل";CustodyTransactionType.ORG_LOAN_REPAYMENT->"سداد ذمة الجهة";CustodyTransactionType.PERSON_LOAN_TO_OWNER->"اقتراض من الشخص";CustodyTransactionType.OWNER_REPAY_PERSON_LOAN->"سداد قرض الشخص";else->t}
