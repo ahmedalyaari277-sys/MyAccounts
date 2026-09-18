@@ -63,7 +63,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
  Scaffold(topBar={AppTopBar(if(custodyId==null)"تقارير العُهَد" else "تقرير العهدة",onBack)}){padding->
   LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal=16.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
    item{
-    SummaryCard(if(custodyId==null)"مركز التقارير" else "حساب العهدة"){
+    SummaryCard(title = if(custodyId==null)"مركز التقارير" else "حساب العهدة"){
      Text(if(custodyId==null)"عرض العهد والعملات دون جمع العملات المختلفة." else "تقرير هذه العهدة بنفس بنية تقرير حساب الشخص.",style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
      if(custodyId!=null)selected.firstOrNull()?.let{c->Text(c.name,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold);Text("الجهة: "+c.organizationName+"  •  الحامل: "+c.holderName,style=MaterialTheme.typography.bodySmall)}
      Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)){reportCurrencies.forEach{c->FilterChip(currency==c,{currency=c},label={Text(if(c=="ALL")"الكل" else c)},enabled=!busy)}}
@@ -104,7 +104,7 @@ data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPe
 
 @Composable private fun CustodyOverallPreview(data:List<CustodyReportData>,currency:String){
  val codes=if(currency=="ALL")listOf("YER","SAR","USD")else listOf(currency)
- SummaryCard("ملخص الأرصدة"){
+ SummaryCard(title = "ملخص الأرصدة"){
   Row(Modifier.fillMaxWidth()){Text("البيان",Modifier.weight(1.3f),fontWeight=FontWeight.Bold);codes.forEach{Text(it,Modifier.weight(1f),fontWeight=FontWeight.Bold)}}
   summaryRow("إجمالي الاستلام",codes){c->data.sumOf{d->d.transactions.filter{it.currencyCode==c&&it.type==CustodyTransactionType.RECEIVED_FROM_ORG}.sumOf{it.amountMinor}}}
   summaryRow("إجمالي الصرف",codes){c->data.sumOf{d->d.transactions.filter{it.currencyCode==c&&it.type==CustodyTransactionType.PAID_TO_PERSON}.sumOf{it.amountMinor}}}
@@ -118,7 +118,7 @@ data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPe
 @Composable private fun summaryRow(label:String,codes:List<String>,value:(String)->Long){Row(Modifier.fillMaxWidth().padding(vertical=3.dp)){Text(label,Modifier.weight(1.3f),style=MaterialTheme.typography.bodySmall);codes.forEach{c->Text(money(value(c)),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,fontWeight=FontWeight.Bold)}}}
 @Composable private fun CustodyPeoplePreview(d:CustodyReportData,currency:String){
  val codes=if(currency=="ALL")listOf("YER","SAR","USD")else listOf(currency)
- SummaryCard(d.custody.name){
+ SummaryCard(title = d.custody.name){
   Text("الجهة: "+d.custody.organizationName+"  •  الحامل: "+d.custody.holderName,style=MaterialTheme.typography.bodySmall)
   Row(Modifier.fillMaxWidth()){Text("الطرف",Modifier.weight(1.2f),fontWeight=FontWeight.Bold);codes.forEach{Text(it,Modifier.weight(1f),fontWeight=FontWeight.Bold)}}
   d.people.forEach{p->Row(Modifier.fillMaxWidth().padding(vertical=3.dp)){Text(p.name,Modifier.weight(1.2f),maxLines=1);codes.forEach{c->val custody=d.transactions.filter{it.personId==p.id&&it.currencyCode==c}.sumOf{CustodyBalanceRules.personCustodyDelta(it.type,it.amountMinor)};val debt=d.transactions.filter{it.personId==p.id&&it.currencyCode==c}.sumOf{CustodyBalanceRules.personDebtDelta(it.type,it.amountMinor)};Text(money(custody)+" / "+money(debt),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)}}}
