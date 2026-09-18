@@ -164,7 +164,7 @@ private fun OrganizationTransactionDialog(
                     if (categories.isNotEmpty()) Text("التصنيفات الموجودة في هذه العهدة: ${categories.joinToString("، ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth().orgKeepFocusedVisible(), label = { Text("التفاصيل") }, minLines = 1, enabled = !saving)
                     Text("العملة", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { organizationCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(code) }, modifier = Modifier.weight(1f)) } }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { organizationCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { if (!saving) currency = code }, label = { Text(currencyDisplayName(code)) }, modifier = Modifier.weight(1f)) } }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 }
                 Row(Modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
