@@ -1,5 +1,6 @@
 package com.myaccounts.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -67,7 +68,7 @@ fun CustodyHomeScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(custodies, key = { it.id }) { custody ->
-                Card(modifier = Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
+                Card(modifier = Modifier.fillMaxWidth().clickable { onOpen(custody.id) }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(custody.name, fontWeight = FontWeight.Bold)
                         Text("الجهة: ${custody.organizationName}")
@@ -176,7 +177,7 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
                 }
             }
             item {
-                Card(Modifier.fillMaxWidth()) {
+                Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.padding(12.dp)) {
                         Text("حساب صاحب العهدة — $currency", fontWeight = FontWeight.Bold)
                         Text(signed(ownerBalance), fontWeight = FontWeight.Bold)
@@ -197,7 +198,7 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
             }
             items(people, key = { it.id }) { person ->
                 val balance = transactions.filter { it.personId == person.id && it.currencyCode == currency }.sumOf { personDelta(it.type, it.amountMinor) }
-                Card(Modifier.fillMaxWidth()) {
+                Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(person.name)
                         Text(signed(balance), fontWeight = FontWeight.Bold)
