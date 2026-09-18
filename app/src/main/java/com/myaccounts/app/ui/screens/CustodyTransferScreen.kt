@@ -109,17 +109,15 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("النسخ الاحتياطي و الاستعادة") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "رجوع") } }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            item { Text("النسخ الاحتياطي و الاستعادة", style = MaterialTheme.typography.titleLarge) }
-            item { Text("هذه الشاشة خاصة بالعُهَد فقط. لا تتعامل مع بيانات دفتر الحسابات، والنسخة الاحتياطية تشمل مرفقات العُهَد.", style = MaterialTheme.typography.bodySmall) }
-            item { Button(enabled = !busy, onClick = { exportCustodyDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        item { Button(enabled = !busy, onClick = { exportCustodyDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
             item { OutlinedButton(enabled = !busy, onClick = { importLauncher.launch(arrayOf(CustodyTwoSheetExcelDataManager.MIME_TYPE)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileUpload, null); Text("استيراد العُهَد من Excel") } }
             item { Button(enabled = !busy, onClick = { createCustodyBackupDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("نسخ احتياطي للعُهَد فقط") } }
             item { OutlinedButton(enabled = !busy, onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Restore, null); Text("استعادة نسخة العُهَد") } }
             item {
                 Text("المزامنة اليدوية للعُهَد", style = MaterialTheme.typography.titleMedium)
                 Text(if (syncFolderUri == null) "اختر مجلدًا لحفظ نسخة مزامنة للعُهَد." else "تم اختيار مجلد مزامنة للعُهَد.", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 OutlinedButton(enabled = !busy, onClick = { syncFolderLauncher.launch(null) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Folder, null); Text("اختيار مجلد المزامنة") }
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(enabled = !busy && syncFolderUri != null, onClick = { syncNow() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Text("مزامنة العُهَد الآن") }
@@ -142,7 +140,7 @@ private fun CustodyTransferCard(custody: CustodyEntity, vm: CustodyViewModel, on
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val tx by vm.transactions(custody.id).collectAsState(initial = emptyList())
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(custody.name, style = MaterialTheme.typography.titleMedium)
         Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
         Button(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = CustodyReportExporter.exportExcel(context, custody, tx, "ALL"); onMessage(r.fold({ "تم إنشاء Excel للعهدة ${custody.name}." }, { "تعذر إنشاء Excel: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير Excel لهذه العهدة") }
