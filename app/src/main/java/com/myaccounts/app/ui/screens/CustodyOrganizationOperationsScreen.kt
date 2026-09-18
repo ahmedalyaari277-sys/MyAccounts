@@ -32,6 +32,9 @@ import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyTransactionEntity
 import com.myaccounts.app.data.custody.CustodyTransactionType
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.ui.components.CustodyOperationCard
+import com.myaccounts.app.ui.components.CustodyOperationTone
+import com.myaccounts.app.ui.components.currencyDisplayName
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -87,21 +90,19 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
             } else {
                 LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(rows, key = { it.id }) { tx ->
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(12.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("صرف", fontWeight = FontWeight.Bold)
-                                    Text(SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(tx.transactionDate)), style = MaterialTheme.typography.bodySmall)
-                                }
-                                Text("${orgMoney(tx.amountMinor)} ${tx.currencyCode}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                if (tx.categoryName.isNotBlank()) Text("التصنيف: ${tx.categoryName}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                                if (tx.description.isNotBlank()) Text(tx.description, style = MaterialTheme.typography.bodySmall)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                    IconButton(enabled = !current.isClosed, onClick = { editing = tx }) { Icon(Icons.Default.Edit, "تعديل") }
-                                    IconButton(enabled = !current.isClosed, onClick = { deleting = tx }) { Icon(Icons.Default.Delete, "حذف") }
-                                }
+                        CustodyOperationCard(
+                            operationType = "صرف",
+                            amount = orgMoney(tx.amountMinor),
+                            currency = tx.currencyCode,
+                            date = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(tx.transactionDate)),
+                            description = listOfNotNull(tx.categoryName.ifBlank { null }, tx.description.ifBlank { null }).joinToString(" — "),
+                            status = "صرف للجهة",
+                            tone = CustodyOperationTone.PayToPerson,
+                            actions = {
+                                IconButton(enabled = !current.isClosed, onClick = { editing = tx }) { Icon(Icons.Default.Edit, "تعديل") }
+                                IconButton(enabled = !current.isClosed, onClick = { deleting = tx }) { Icon(Icons.Default.Delete, "حذف") }
                             }
-                        }
+                        )
                     }
                 }
             }
