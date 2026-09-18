@@ -21,17 +21,14 @@ import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
 import com.myaccounts.app.util.BackupScope
 import com.myaccounts.app.util.CompatibleRestoreManager
-import com.myaccounts.app.util.CustodyReportExporter
 import com.myaccounts.app.util.CustodyTwoSheetExcelDataManager
 import com.myaccounts.app.util.DownloadStorageManager
 import com.myaccounts.app.util.ManualSyncManager
-import com.myaccounts.app.util.ReportShareUtil
 import com.myaccounts.app.util.ScopedBackupManager
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-private const val PDF_MIME = "application/pdf"
 private const val BACKUP_PREFS = "myaccounts_backup_preferences"
 private const val SYNC_FOLDER_URI = "sync_folder_uri"
 
@@ -123,8 +120,6 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
                 OutlinedButton(enabled = !busy && syncFolderUri != null, onClick = { syncNow() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Text("مزامنة العُهَد الآن") }
             }
             item { OutlinedButton(enabled = !busy && lastBackupUri != null, onClick = { val uri = lastBackupUri ?: return@OutlinedButton; try { val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية للعُهَد"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(intent, "مشاركة نسخة العُهَد")) } catch (e: Exception) { message = "تعذرت مشاركة نسخة العُهَد: ${e.message ?: "خطأ غير معروف"}" } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("مشاركة آخر نسخة للعُهَد") } }
-            item { Text("التقارير والمشاركة", style = MaterialTheme.typography.titleMedium) }
-            items(custodies, key = { it.id }) { c -> CustodyTransferCard(c, vm, { message = it }, { busy = it }) }
             if (custodies.isEmpty()) item { Text("لا توجد عُهَد نشطة.") }
             if (busy) item { CircularProgressIndicator() }
         }
@@ -135,16 +130,3 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     message?.let { t -> AlertDialog(onDismissRequest = { message = null }, text = { Text(t) }, confirmButton = { TextButton(onClick = { message = null }) { Text("موافق") } }) }
 }
 
-@Composable
-private fun CustodyTransferCard(custody: CustodyEntity, vm: CustodyViewModel, onMessage: (String) -> Unit, onBusy: (Boolean) -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val tx by vm.transactions(custody.id).collectAsState(initial = emptyList())
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(custody.name, style = MaterialTheme.typography.titleMedium)
-        Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
-        Button(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = CustodyReportExporter.exportExcel(context, custody, tx, "ALL"); onMessage(r.fold({ "تم إنشاء Excel للعهدة ${custody.name}." }, { "تعذر إنشاء Excel: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير Excel لهذه العهدة") }
-        OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = CustodyReportExporter.exportPdf(context, custody, tx, "ALL"); onMessage(r.fold({ "تم إنشاء PDF للعهدة ${custody.name}." }, { "تعذر إنشاء PDF: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.PictureAsPdf, null); Text("تصدير PDF للعهدة ${custody.name}") }
-        OutlinedButton(enabled = tx.isNotEmpty(), onClick = { onBusy(true); scope.launch(Dispatchers.IO) { val r = ReportShareUtil.shareGeneratedReport(context, "MyAccounts_تقرير_عهدة", PDF_MIME, true) { CustodyReportExporter.exportPdf(context, custody, tx, "ALL") }; onMessage(r.fold({ "تم فتح خيارات مشاركة تقرير ${custody.name}." }, { "تعذرت مشاركة التقرير: ${it.message ?: "خطأ غير معروف"}" })); onBusy(false) } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("إنشاء التقرير ومشاركته") }
-    }
-}
