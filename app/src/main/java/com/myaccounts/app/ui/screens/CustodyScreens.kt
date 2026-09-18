@@ -170,14 +170,14 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     custodyCurrencies.forEach { code ->
-                        FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) })
+                        FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(currencyDisplayName(code)) })
                     }
                 }
             }
             item {
                 Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("حساب صاحب العهدة — $currency", fontWeight = FontWeight.Bold)
+                        Text("حساب صاحب العهدة — ${currencyDisplayName(currency)}", fontWeight = FontWeight.Bold)
                         Text(signed(ownerBalance), fontWeight = FontWeight.Bold)
                     }
                 }
@@ -208,7 +208,7 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(10.dp)) {
                         Text(typeName(transaction.type), fontWeight = FontWeight.Bold)
-                        Text("${money(transaction.amountMinor)} $currency")
+                        Text("${money(transaction.amountMinor)} ${currencyDisplayName(currency)}")
                         if (transaction.description.isNotBlank()) Text(transaction.description)
                         Text(SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(transaction.transactionDate)), style = MaterialTheme.typography.bodySmall)
                     }
@@ -285,7 +285,7 @@ private fun CustodyTransactionDialog(
                 item { OperationChoice("مرتجع للجهة / تصفية", type == CustodyTransactionType.RETURNED_TO_ORG) { type = CustodyTransactionType.RETURNED_TO_ORG; personId = null } }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(code) }) }
+                        custodyCurrencies.forEach { code -> FilterChip(selected = currency == code, onClick = { currency = code }, label = { Text(currencyDisplayName(code)) }) }
                     }
                 }
                 if (needsPerson) {
