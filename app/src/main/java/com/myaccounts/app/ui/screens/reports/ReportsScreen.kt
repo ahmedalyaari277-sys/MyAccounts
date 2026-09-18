@@ -32,6 +32,7 @@ import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.BalanceAmount
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.CurrencyChip
+import com.myaccounts.app.ui.components.CompactFilterRow
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.PrimaryButton
 import com.myaccounts.app.ui.components.SecondaryButton
@@ -139,41 +140,13 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                SummaryCard(title = "مركز التقارير") {
-                    Text(if (state.selectedCurrencyCode == "ALL") "عرض العملات الثلاث بشكل مستقل دون جمعها." else "عملة التقرير: ${currencyName(state.selectedCurrencyCode)}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CurrencyChip("الكل", state.selectedCurrencyCode == "ALL", { viewModel.selectCurrency("ALL") }, Modifier.weight(1f))
-                        CurrencyChip("YER", state.selectedCurrencyCode == "YER", { viewModel.selectCurrency("YER") }, Modifier.weight(1f))
-                        CurrencyChip("SAR", state.selectedCurrencyCode == "SAR", { viewModel.selectCurrency("SAR") }, Modifier.weight(1f))
-                        CurrencyChip("USD", state.selectedCurrencyCode == "USD", { viewModel.selectCurrency("USD") }, Modifier.weight(1f))
-                    }
-                }
-            }
-            item {
                 InformationCard {
-                    Text("الفترة", style = MaterialTheme.typography.titleMedium)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(period == Period.ALL, { selectPeriod(Period.ALL) }, label = { Text("كل الحساب") })
-                        FilterChip(period == Period.TODAY, { selectPeriod(Period.TODAY) }, label = { Text("اليوم") })
-                        FilterChip(period == Period.WEEK, { selectPeriod(Period.WEEK) }, label = { Text("الأسبوع") })
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(period == Period.MONTH, { selectPeriod(Period.MONTH) }, label = { Text("الشهر") })
-                        FilterChip(period == Period.CUSTOM, { selectPeriod(Period.CUSTOM) }, label = { Text("مخصصة") })
-                    }
+                    CompactFilterRow(label = "العملة", value = currencyName(state.selectedCurrencyCode), options = listOf("ALL" to "جميع العملات", "YER" to "الريال اليمني", "SAR" to "الريال السعودي", "USD" to "الدولار الأمريكي"), onSelected = { viewModel.selectCurrency(it) }, enabled = !busy && !state.isLoading)
+                    CompactFilterRow(label = "الفترة", value = when (period) { Period.ALL -> "كل الحساب"; Period.TODAY -> "اليوم"; Period.WEEK -> "الأسبوع"; Period.MONTH -> "الشهر"; Period.CUSTOM -> "مخصصة" }, options = listOf("ALL" to "كل الحساب", "TODAY" to "اليوم", "WEEK" to "الأسبوع", "MONTH" to "الشهر", "CUSTOM" to "مخصصة"), onSelected = { selectPeriod(Period.valueOf(it)) }, enabled = !busy && !state.isLoading)
+                    CompactFilterRow(label = "نوع التقرير", value = when (reportType) { ReportType.PEOPLE -> "الأشخاص"; ReportType.DETAILED -> "العمليات"; ReportType.SUMMARY -> "الأرصدة" }, options = listOf("PEOPLE" to "الأشخاص", "DETAILED" to "العمليات", "SUMMARY" to "الأرصدة"), onSelected = { reportType = ReportType.valueOf(it) }, enabled = !busy && !state.isLoading)
                     if (period == Period.CUSTOM) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SecondaryButton("من: ${formatDate(customStart)}", { showStart = true }, Modifier.weight(1f))
-                        SecondaryButton("إلى: ${formatDate(customEnd)}", { showEnd = true }, Modifier.weight(1f))
-                    }
-                }
-            }
-            item {
-                InformationCard {
-                    Text("نوع التقرير", style = MaterialTheme.typography.titleMedium)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(reportType == ReportType.PEOPLE, { reportType = ReportType.PEOPLE }, label = { Text("الأشخاص") })
-                        FilterChip(reportType == ReportType.DETAILED, { reportType = ReportType.DETAILED }, label = { Text("العمليات") })
-                        FilterChip(reportType == ReportType.SUMMARY, { reportType = ReportType.SUMMARY }, label = { Text("الأرصدة") })
+                        SecondaryButton("من: " + formatDate(customStart), { showStart = true }, Modifier.weight(1f))
+                        SecondaryButton("إلى: " + formatDate(customEnd), { showEnd = true }, Modifier.weight(1f))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PrimaryButton("Excel", { export(false) }, Modifier.weight(1f), enabled = !busy && !state.isLoading)
