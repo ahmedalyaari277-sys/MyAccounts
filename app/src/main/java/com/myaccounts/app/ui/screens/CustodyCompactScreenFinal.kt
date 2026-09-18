@@ -79,7 +79,7 @@ private fun Modifier.keepFocusedFieldVisible(): Modifier {
 }
 
 @Composable
-fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () -> Unit, onPerson: (Long) -> Unit, onOwner: () -> Unit) {
+fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () -> Unit, onPerson: (Long) -> Unit, onOwner: () -> Unit, onReports: () -> Unit) {
     val custody by vm.custody(custodyId).collectAsState()
     val people by vm.persons(custodyId).collectAsState()
     val accounts by vm.accounts(custodyId).collectAsState()
@@ -104,7 +104,7 @@ fun CustodyCompactScreenFinal(vm: CustodyViewModel, custodyId: Long, onBack: () 
         TopAppBar(title = { Text(current.name, fontWeight = FontWeight.Bold, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "المزيد") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("تفاصيل العهدة") }, onClick = { menu = false; details = true })
+                DropdownMenuItem(text = { Text("تفاصيل العهدة") }, onClick = { menu = false; details = true })\n                DropdownMenuItem(text = { Text("التقارير") }, onClick = { menu = false; onReports() })
                 if (!current.isClosed) DropdownMenuItem(text = { Text("إغلاق وتسوية العهدة") }, onClick = { menu = false; settlement = true }) else DropdownMenuItem(text = { Text("إعادة فتح العهدة") }, onClick = { menu = false; vm.reopenCustody(custodyId) })
                 DropdownMenuItem(text = { Text("أرشفة العهدة") }, onClick = { menu = false; vm.archive(custodyId); onBack() })
             }
