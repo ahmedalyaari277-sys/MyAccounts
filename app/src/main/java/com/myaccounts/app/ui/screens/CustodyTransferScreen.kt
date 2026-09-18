@@ -3,6 +3,7 @@ package com.myaccounts.app.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Patterns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,10 @@ import androidx.core.content.FileProvider
 import com.myaccounts.app.data.custody.CustodyAttachmentStore
 import com.myaccounts.app.data.custody.CustodyEntity
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.ui.components.AppTopBar
+import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.components.PrimaryButton
+import com.myaccounts.app.ui.components.SecondaryButton
 import com.myaccounts.app.util.BackupScope
 import com.myaccounts.app.util.CompatibleRestoreManager
 import com.myaccounts.app.util.CustodyTwoSheetExcelDataManager
@@ -31,6 +36,7 @@ import kotlinx.coroutines.launch
 
 private const val BACKUP_PREFS = "myaccounts_backup_preferences"
 private const val SYNC_FOLDER_URI = "sync_folder_uri"
+private const val BACKUP_EMAIL = "backup_email"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +50,7 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
     var pendingRestore by remember { mutableStateOf<Uri?>(null) }
     var lastBackupUri by remember { mutableStateOf<Uri?>(null) }
+    var email by remember { mutableStateOf(preferences.getString(BACKUP_EMAIL, "") ?: "") }
     var syncFolderUri by remember { mutableStateOf(preferences.getString(SYNC_FOLDER_URI, null)?.let(Uri::parse)) }
 
     fun exportCustodyDirectly() {
@@ -105,21 +112,51 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("النسخ الاحتياطي و الاستعادة") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "رجوع") } }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        item { Button(enabled = !busy, onClick = { exportCustodyDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("تصدير جميع العُهَد إلى Excel") } }
-            item { OutlinedButton(enabled = !busy, onClick = { importLauncher.launch(arrayOf(CustodyTwoSheetExcelDataManager.MIME_TYPE)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileUpload, null); Text("استيراد العُهَد من Excel") } }
-            item { Button(enabled = !busy, onClick = { createCustodyBackupDirectly() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Backup, null); Text("نسخ احتياطي للعُهَد فقط") } }
-            item { OutlinedButton(enabled = !busy, onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Restore, null); Text("استعادة نسخة العُهَد") } }
-            item {
-                Text("المزامنة اليدوية للعُهَد", style = MaterialTheme.typography.titleMedium)
-                Text(if (syncFolderUri == null) "اختر مجلدًا لحفظ نسخة مزامنة للعُهَد." else "تم اختيار مجلد مزامنة للعُهَد.", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(2.dp))
-                OutlinedButton(enabled = !busy, onClick = { syncFolderLauncher.launch(null) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Folder, null); Text("اختيار مجلد المزامنة") }
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(enabled = !busy && syncFolderUri != null, onClick = { syncNow() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Text("مزامنة العُهَد الآن") }
-            }
-            item { OutlinedButton(enabled = !busy && lastBackupUri != null, onClick = { val uri = lastBackupUri ?: return@OutlinedButton; try { val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية للعُهَد"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }; context.startActivity(Intent.createChooser(intent, "مشاركة نسخة العُهَد")) } catch (e: Exception) { message = "تعذرت مشاركة نسخة العُهَد: ${e.message ?: "خطأ غير معروف"}" } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Share, null); Text("مشاركة آخر نسخة للعُهَد") } }
+    fun shareBackup() {
+        val uri = lastBackupUri ?: run { message = "أنشئ أو نفذ مزامنة لنسخة احتياطية أولاً."; return }
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية للعُهَد"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            context.startActivity(Intent.createChooser(intent, "مشاركة النسخة الاحتياطية"))
+        } catch (e: Exception) { message = "تعذرت مشاركة النسخة الاحتياطية: " + (e.message ?: "خطأ غير معروف") }
+    }
+
+    fun sendBackupByEmail() {
+        val uri = lastBackupUri ?: run { message = "أنشئ نسخة احتياطية أولاً."; return }
+        val normalized = email.trim()
+        if (!Patterns.EMAIL_ADDRESS.matcher(normalized).matches()) { message = "أدخل عنوان بريد إلكتروني صحيحًا."; return }
+        preferences.edit().putString(BACKUP_EMAIL, normalized).apply()
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply { type = "application/octet-stream"; putExtra(Intent.EXTRA_EMAIL, arrayOf(normalized)); putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, "نسخة احتياطية للعُهَد"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            context.startActivity(Intent.createChooser(intent, "إرسال النسخة الاحتياطية بالبريد"))
+        } catch (e: Exception) { message = "تعذر فتح تطبيق البريد أو المشاركة: " + (e.message ?: "خطأ غير معروف") }
+    }
+
+    Scaffold(topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            item { InformationCard {
+                Text("Excel للعُهَد", style = MaterialTheme.typography.titleMedium)
+                Text("تصدير واستيراد بيانات العُهَد دون المساس بدفتر الحسابات.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PrimaryButton("تصدير جميع العُهَد إلى Excel", { exportCustodyDirectly() }, Modifier.fillMaxWidth(), enabled = !busy)
+                SecondaryButton("استيراد العُهَد من Excel", { importLauncher.launch(arrayOf(CustodyTwoSheetExcelDataManager.MIME_TYPE)) }, Modifier.fillMaxWidth(), enabled = !busy)
+            } }
+            item { InformationCard {
+                Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium)
+                Text("بيانات العُهَد ومرفقاتها.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PrimaryButton("إنشاء نسخة احتياطية", { createCustodyBackupDirectly() }, Modifier.fillMaxWidth(), enabled = !busy)
+                SecondaryButton("استعادة نسخة احتياطية", { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, Modifier.fillMaxWidth(), enabled = !busy)
+            } }
+            item { InformationCard {
+                Text("المزامنة اليدوية", style = MaterialTheme.typography.titleMedium)
+                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SecondaryButton("اختيار مجلد المزامنة", { syncFolderLauncher.launch(null) }, Modifier.fillMaxWidth(), enabled = !busy)
+                SecondaryButton("مزامنة الآن", { syncNow() }, Modifier.fillMaxWidth(), enabled = !busy && syncFolderUri != null)
+            } }
+            item { InformationCard {
+                Text("إرسال ومشاركة النسخة", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") })
+                SecondaryButton("إرسال النسخة الاحتياطية بالبريد", { sendBackupByEmail() }, Modifier.fillMaxWidth(), enabled = !busy && lastBackupUri != null)
+                SecondaryButton("مشاركة النسخة الاحتياطية", { shareBackup() }, Modifier.fillMaxWidth(), enabled = !busy && lastBackupUri != null)
+            } }
             if (custodies.isEmpty()) item { Text("لا توجد عُهَد نشطة.") }
             if (busy) item { CircularProgressIndicator() }
         }
