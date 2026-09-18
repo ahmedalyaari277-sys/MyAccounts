@@ -9,104 +9,177 @@ import android.graphics.pdf.PdfDocument
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import com.myaccounts.app.data.custody.CustodyEntity
-import com.myaccounts.app.data.custody.CustodyTransactionEntity
-import com.myaccounts.app.data.custody.CustodyTransactionType
+import com.myaccounts.app.data.custody.*
+import com.myaccounts.app.ui.screens.CustodyReportData
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 object CustodyReportExporter {
-    fun exportPdf(context: Context, custody: CustodyEntity, transactions: List<CustodyTransactionEntity>, currency: String): Result<String> = runCatching {
-        val filtered = transactions.filter { currency == "ALL" || it.currencyCode == currency }.sortedBy { it.transactionDate }
-        val doc = PdfDocument()
-        val chunks = if (filtered.isEmpty()) listOf(emptyList()) else filtered.chunked(24)
-        chunks.forEachIndexed { pageIndex, chunk ->
-            val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, pageIndex + 1).create())
-            val canvas = page.canvas
-            val title = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 18f; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.RIGHT }
-            val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 8f; textAlign = Paint.Align.RIGHT }
-            val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 9f; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.RIGHT }
-            var y = 42f
-            canvas.drawText("تقرير العهدة — ${custody.name}", 560f, y, title)
-            y += 22f
-            canvas.drawText("الجهة: ${custody.organizationName}", 560f, y, text)
-            canvas.drawText("العملة: ${if (currency == "ALL") "كل العملات" else currencyName(currency)}", 300f, y, text)
-            y += 28f
-            canvas.drawText("التاريخ", 560f, y, bold); canvas.drawText("النوع", 470f, y, bold); canvas.drawText("التصنيف", 380f, y, bold); canvas.drawText("المبلغ", 275f, y, bold); canvas.drawText("البيان", 115f, y, bold)
-            y += 18f
-            chunk.forEach { t ->
-                canvas.drawText(date(t.transactionDate), 560f, y, text)
-                canvas.drawText(typeName(t.type), 470f, y, text)
-                canvas.drawText(t.categoryName.ifBlank { "—" }.take(16), 380f, y, text)
-                canvas.drawText("${amount(t.amountMinor)} ${t.currencyCode}", 275f, y, text)
-                canvas.drawText(t.description.ifBlank { "—" }.take(22), 115f, y, text)
-                canvas.drawLine(35f, y + 6f, 560f, y + 6f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.LTGRAY; strokeWidth = 1f })
-                y += 28f
+    fun export(context: Context,title: String,data: List<CustodyReportData>,currency: String,reportType: String,pdf: Boolean): Result<String> =
+        if(pdf) exportPdf(context,title,data,currency,reportType) else exportExcel(context,title,data,currency,reportType)
+
+    private fun exportPdf(context: Context,title: String,data: List<CustodyReportData>,currency: String,reportType: String): Result<String> = runCatching {
+        val doc=PdfDocument()
+        val pages=if(reportType=="DETAILED") detailedPages(data,currency) else listOf(data)
+        val chunks=if(pages.isEmpty()) listOf(emptyList()) else pages
+        chunks.forEachIndexed{index,chunk->
+            val page=doc.startPage(PdfDocument.PageInfo.Builder(842,595,index+1).create())
+            val c=page.canvas
+            var y=34f
+            val titlePaint=paint(18,Color.rgb(25,25,25),true)
+            val textPaint=paint(9,Color.rgb(45,45,45),false)
+            val headPaint=paint(9,Color.rgb(25,25,25),true)
+            val green=paint(9,Color.rgb(0,125,70),true)
+            val red=paint(9,Color.rgb(190,35,35),true)
+            val line=linePaint()
+            c.drawText(title,807f,y,titlePaint); y+=22
+            c.drawText("العملة: "+currencyName(currency),807f,y,textPaint)
+            c.drawText("الفترة: حسب الاختيار في الشاشة",500f,y,textPaint)
+            c.drawText("إصدار: "+date(System.currentTimeMillis()),260f,y,textPaint); y+=16
+            c.drawLine(35f,y,807f,y,line); y+=20
+            when(reportType){
+                "PEOPLE"->{ 
+                    y=pdfPeople(c,y,chunk,currency,headPaint,green,red,line)
+                }
+                "SUMMARY"->{
+                    y=pdfSummary(c,y,chunk,currency,headPaint,green,red,line)
+                }
+                else->{
+                    y=pdfDetailed(c,y,chunk as List<CustodyReportData>,headPaint,green,red,line)
+                }
             }
-            if (chunk.isEmpty()) canvas.drawText("لا توجد عمليات ضمن الاختيار.", 560f, y, text)
-            canvas.drawText("صفحة ${pageIndex + 1} من ${chunks.size}", 560f, 810f, text)
+            c.drawLine(35f,560f,807f,560f,line)
+            c.drawText("صفحة "+(index+1)+" من "+chunks.size,807f,578f,textPaint)
             doc.finishPage(page)
         }
-        savePdf(context, doc, "MyAccounts_تقرير_عهدة_${safe(custody.name)}_${stamp()}.pdf")
+        savePdf(context,doc,"MyAccounts_"+safe(title)+"_"+stamp()+".pdf")
     }
 
-    fun exportExcel(context: Context, custody: CustodyEntity, transactions: List<CustodyTransactionEntity>, currency: String): Result<String> = runCatching {
-        val filtered = transactions.filter { currency == "ALL" || it.currencyCode == currency }.sortedBy { it.transactionDate }
-        val rows = mutableListOf<String>()
-        rows += row(1, listOf(cell("تقرير العهدة", 1)))
-        rows += row(2, listOf(cell("صاحب العهدة: ${custody.name}", 2), cell("الجهة: ${custody.organizationName}", 2), cell("العملة: ${if (currency == "ALL") "كل العملات" else currencyName(currency)}", 2)))
-        rows += row(3, listOf(cell("التاريخ", 2), cell("النوع", 2), cell("العملة", 2), cell("المبلغ", 2), cell("التصنيف", 2), cell("البيان", 2), cell("المعرف", 2)))
-        filtered.forEachIndexed { index, t -> rows += row(index + 4, listOf(cell(date(t.transactionDate)), cell(typeName(t.type)), cell(t.currencyCode), number(t.amountMinor), cell(t.categoryName), cell(t.description), cell(t.externalId))) }
-        if (filtered.isEmpty()) rows += row(4, listOf(cell("لا توجد عمليات ضمن الاختيار.")))
-        val sheet = """<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="12" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/><col min="5" max="5" width="24" customWidth="1"/><col min="6" max="6" width="42" customWidth="1"/><col min="7" max="7" width="38" customWidth="1"/></cols><sheetData>${rows.joinToString("")}</sheetData><autoFilter ref="A3:G${maxOf(3, filtered.size + 3)}"/></worksheet>"""
-        saveXlsx(context, sheet, "MyAccounts_تقرير_عهدة_${safe(custody.name)}_${stamp()}.xlsx")
-    }
+    private fun detailedPages(data: List<CustodyReportData>,currency:String): List<List<CustodyReportData>> = data.chunked(1)
 
-    private fun savePdf(context: Context, doc: PdfDocument, name: String): String {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply { put(MediaStore.Downloads.DISPLAY_NAME, name); put(MediaStore.Downloads.MIME_TYPE, "application/pdf"); put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts"); put(MediaStore.Downloads.IS_PENDING, 1) }
-            val resolver = context.contentResolver
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("تعذر إنشاء PDF")
-            try { resolver.openOutputStream(uri).use { out -> requireNotNull(out); doc.writeTo(out) }; resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null) } catch (e: Throwable) { resolver.delete(uri, null, null); throw e }
-            return "تم حفظ PDF في مجلد التنزيلات/MyAccounts"
+    private fun pdfPeople(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,currency:String,h:Paint,green:Paint,red:Paint,line:Paint):Float{
+        var y=y0
+        val codes=codes(currency)
+        data.forEach{d->
+            c.drawText(d.custody.name,807f,y,h); y+=17
+            c.drawText("الجهة: "+d.custody.organizationName+"   الحامل: "+d.custody.holderName,807f,y,paint(8,Color.DKGRAY,false)); y+=16
+            val xs=if(codes.size==1) floatArrayOf(790f,560f,430f,300f,170f) else floatArrayOf(790f,650f,510f,370f,230f,90f)
+            c.drawText("الطرف",xs[0],y,h)
+            if(codes.size==1){c.drawText("العملة",xs[1],y,h);c.drawText("العهدة",xs[2],y,green);c.drawText("الذمة",xs[3],y,red)}
+            else{c.drawText("YER عهدة",xs[1],y,green);c.drawText("YER ذمة",xs[2],y,red);c.drawText("SAR عهدة",xs[3],y,green);c.drawText("SAR ذمة",xs[4],y,red);c.drawText("USD",xs[5],y,green)}
+            y+=14;c.drawLine(35f,y,807f,y,line);y+=15
+            d.people.forEach{p->
+                c.drawText(p.name.take(18),xs[0],y,paint(8,Color.DKGRAY,false))
+                if(codes.size==1){
+                    val cde=codes[0];val tx=d.transactions.filter{it.personId==p.id&&it.currencyCode==cde}
+                    c.drawText(cde,xs[1],y,paint(8,Color.DKGRAY,false));c.drawText(money(tx.sumOf{CustodyBalanceRules.personCustodyDelta(it.type,it.amountMinor)}),xs[2],y,green);c.drawText(money(tx.sumOf{CustodyBalanceRules.personDebtDelta(it.type,it.amountMinor)}),xs[3],y,red)
+                }else{
+                    val vals=codes.map{cde->val tx=d.transactions.filter{it.personId==p.id&&it.currencyCode==cde};tx.sumOf{CustodyBalanceRules.personCustodyDelta(it.type,it.amountMinor)} to tx.sumOf{CustodyBalanceRules.personDebtDelta(it.type,it.amountMinor)}}
+                    c.drawText(money(vals[0].first),xs[1],y,green);c.drawText(money(vals[0].second),xs[2],y,red);c.drawText(money(vals[1].first),xs[3],y,green);c.drawText(money(vals[1].second),xs[4],y,red);c.drawText(money(vals[2].first)+" / "+money(vals[2].second),xs[5],y,green)
+                }
+                c.drawLine(35f,y+6,807f,y+6,line);y+=20
+                if(y>535f)return y
+            }
         }
-        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts").apply { if (!exists()) mkdirs() }
-        val file = File(dir, name); FileOutputStream(file).use { doc.writeTo(it) }; return file.absolutePath
+        return y
     }
 
-    private fun saveXlsx(context: Context, sheet: String, name: String): String {
-        val writer: (OutputStream) -> Unit = { out -> ZipOutputStream(out).use { z ->
-            entry(z, "[Content_Types].xml", """<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>""")
-            entry(z, "_rels/.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>""")
-            entry(z, "xl/workbook.xml", """<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="تقرير العهدة" sheetId="1" r:id="rId1"/></sheets></workbook>""")
-            entry(z, "xl/_rels/workbook.xml.rels", """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>""")
-            entry(z, "xl/worksheets/sheet1.xml", sheet)
-        } }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply { put(MediaStore.Downloads.DISPLAY_NAME, name); put(MediaStore.Downloads.MIME_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/MyAccounts"); put(MediaStore.Downloads.IS_PENDING, 1) }
-            val resolver = context.contentResolver; val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("تعذر إنشاء Excel")
-            try { resolver.openOutputStream(uri).use { out -> requireNotNull(out); writer(out) }; resolver.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null) } catch (e: Throwable) { resolver.delete(uri, null, null); throw e }
-            return "تم حفظ Excel في مجلد التنزيلات/MyAccounts"
+    private fun pdfSummary(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,currency:String,h:Paint,green:Paint,red:Paint,line:Paint):Float{
+        var y=y0;val codes=codes(currency)
+        c.drawText("البيان",790f,y,h)
+        var x=620f
+        codes.forEach{cde->c.drawText(cde+" نقد",x,y,green);x-=130;c.drawText(cde+" ذمة",x,y,red);x-=130}
+        y+=15;c.drawLine(35f,y,807f,y,line);y+=18
+        val labels=listOf("إجمالي الاستلام","إجمالي الصرف","مرتجع من الأشخاص","مرتجع للجهة","ذمة الجهة","ذمم الأطراف","المتبقي النقدي","الفائض","العجز")
+        labels.forEach{label->
+            c.drawText(label,790f,y,h);x=620f
+            codes.forEach{cde->
+                val vals=totals(data,cde)
+                val v=when(label){"إجمالي الاستلام"->vals.received;"إجمالي الصرف"->vals.paid;"مرتجع من الأشخاص"->vals.returnedFromPerson;"مرتجع للجهة"->vals.returnedToOrg;"ذمة الجهة"->vals.orgDebt;"ذمم الأطراف"->vals.peopleDebt;"المتبقي النقدي"->vals.cash;"الفائض"->vals.surplus;else->vals.deficit}
+                c.drawText(money(v),x,y,if(label=="العجز")red else if(label=="الفائض"||label=="المتبقي النقدي")green else h);x-=130
+                c.drawText(if(label=="ذمة الجهة"||label=="ذمم الأطراف")money(v) else "",x,y,red);x-=130
+            }
+            c.drawLine(35f,y+5,807f,y+5,line);y+=20
         }
-        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "MyAccounts").apply { if (!exists()) mkdirs() }; val file = File(dir, name); FileOutputStream(file).use(writer); return file.absolutePath
+        return y
     }
 
-    private fun entry(z: ZipOutputStream, path: String, value: String) { z.putNextEntry(ZipEntry(path)); z.write(value.toByteArray(Charsets.UTF_8)); z.closeEntry() }
-    private fun row(n: Int, cells: List<String>) = "<row r=\"$n\">${cells.joinToString("")}</row>"
-    private fun cell(v: String, style: Int = 0) = "<c t=\"inlineStr\" s=\"$style\"><is><t xml:space=\"preserve\">${escape(v)}</t></is></c>"
-    private fun number(v: Long) = "<c t=\"n\"><v>${BigDecimal(v).movePointLeft(2).toPlainString()}</v></c>"
-    private fun escape(v: String) = v.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
-    private fun amount(v: Long) = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
-    private fun date(v: Long) = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("ar")).format(Date(v))
-    private fun stamp() = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    private fun safe(v: String) = v.replace(Regex("[^\u0600-\u06FFA-Za-z0-9_-]+"), "_").take(60)
-    private fun currencyName(v: String) = when (v) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> v }
-    private fun typeName(v: String) = when (v) { CustodyTransactionType.RECEIVED_FROM_ORG -> "استلام من الجهة"; CustodyTransactionType.PAID_TO_PERSON -> "صرف للشخص"; CustodyTransactionType.RETURNED_FROM_PERSON -> "مرتجع من الشخص"; CustodyTransactionType.RETURNED_TO_ORG -> "مرتجع للجهة"; else -> v }
+    private fun pdfDetailed(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,h:Paint,green:Paint,red:Paint,line:Paint):Float{
+        var y=y0;c.drawText("العهدة",790f,y,h);c.drawText("التاريخ",680f,y,h);c.drawText("النوع",570f,y,h);c.drawText("الطرف",430f,y,h);c.drawText("العملة",300f,y,h);c.drawText("المبلغ",220f,y,h);c.drawText("البيان",90f,y,h);y+=15;c.drawLine(35f,y,807f,y,line);y+=18
+        data.flatMap{d->d.transactions.map{d to it}}.forEach{(d,t)->
+            val person=d.people.firstOrNull{it.id==t.personId}?.name?:d.custody.holderName
+            c.drawText(d.custody.name.take(15),790f,y,paint(7,Color.DKGRAY,false));c.drawText(date(t.transactionDate),680f,y,paint(7,Color.DKGRAY,false));c.drawText(typeName(t.type).take(18),570f,y,paint(7,Color.DKGRAY,false));c.drawText(person.take(16),430f,y,paint(7,Color.DKGRAY,false));c.drawText(t.currencyCode,300f,y,paint(7,Color.DKGRAY,false))
+            val positive=t.type==CustodyTransactionType.RECEIVED_FROM_ORG||t.type==CustodyTransactionType.RETURNED_FROM_PERSON||t.type==CustodyTransactionType.ORG_LOAN_REPAYMENT||t.type==CustodyTransactionType.PERSON_LOAN_TO_OWNER
+            c.drawText(money(t.amountMinor),220f,y,if(positive)green else red);c.drawText(t.description.ifBlank{"—"}.take(22),90f,y,paint(7,Color.DKGRAY,false));c.drawLine(35f,y+5,807f,y+5,line);y+=18
+            if(y>535f)return y
+        };return y
+    }
+
+    private fun exportExcel(context:Context,title:String,data:List<CustodyReportData>,currency:String,reportType:String):Result<String> = runCatching{
+        val rows=if(reportType=="PEOPLE") peopleRows(data,currency) else if(reportType=="SUMMARY") summaryRows(data,currency) else detailedRows(data)
+        val sheet=sheetXml(rows)
+        saveXlsx(context,sheet,"MyAccounts_"+safe(title)+"_"+stamp()+".xlsx")
+    }
+
+    private fun peopleRows(data:List<CustodyReportData>,currency:String):List<List<Cell>>{
+        val codes=codes(currency);val rows=mutableListOf<List<Cell>>()
+        rows+=listOf(Cell("التقرير العام للعهد",1))
+        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: حسب الاختيار",2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
+        rows+=listOf(Cell("الطرف",2))
+        codes.forEach{cde->rows.lastOrNull()}
+        val header=mutableListOf(Cell("العهدة",2),Cell("الجهة",2),Cell("الحامل",2),Cell("الطرف",2))
+        codes.forEach{cde->{header+=Cell(cde+" — العهدة",3);header+=Cell(cde+" — الذمة",4)}}
+        rows+=header
+        data.forEach{d->d.people.forEach{p->
+            val r=mutableListOf(Cell(d.custody.name),Cell(d.custody.organizationName),Cell(d.custody.holderName),Cell(p.name))
+            codes.forEach{cde->val tx=d.transactions.filter{it.personId==p.id&&it.currencyCode==cde};r+=Cell(num(tx.sumOf{CustodyBalanceRules.personCustodyDelta(it.type,it.amountMinor)}),5);r+=Cell(num(tx.sumOf{CustodyBalanceRules.personDebtDelta(it.type,it.amountMinor)}),6)}
+            rows+=r
+        }}
+        return rows
+    }
+
+    private fun summaryRows(data:List<CustodyReportData>,currency:String):List<List<Cell>>{
+        val rows=mutableListOf<List<Cell>>()
+        rows+=listOf(Cell("ملخص أرصدة العهد",1))
+        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: حسب الاختيار",2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
+        val codes=codes(currency);val h=mutableListOf(Cell("البيان",2));codes.forEach{h+=Cell(it+" نقد",3);h+=Cell(it+" ذمم",4)};rows+=h
+        val labels=listOf("إجمالي الاستلام","إجمالي الصرف","مرتجع من الأشخاص","مرتجع للجهة","ذمة الجهة","ذمم الأطراف","المتبقي النقدي","الفائض","العجز")
+        labels.forEach{label->val r=mutableListOf(Cell(label,2));codes.forEach{cde->val v=totals(data,cde);val value=when(label){"إجمالي الاستلام"->v.received;"إجمالي الصرف"->v.paid;"مرتجع من الأشخاص"->v.returnedFromPerson;"مرتجع للجهة"->v.returnedToOrg;"ذمة الجهة"->v.orgDebt;"ذمم الأطراف"->v.peopleDebt;"المتبقي النقدي"->v.cash;"الفائض"->v.surplus;else->v.deficit};r+=Cell(num(value),if(label=="العجز")6 else if(label=="الفائض"||label=="المتبقي النقدي")5 else 0);r+=Cell(if(label=="ذمة الجهة"||label=="ذمم الأطراف")num(value) else "",if(label=="ذمة الجهة"||label=="ذمم الأطراف")4 else 0)};rows+=r};return rows
+    }
+
+    private fun detailedRows(data:List<CustodyReportData>):List<List<Cell>>{
+        val rows=mutableListOf<List<Cell>>();rows+=listOf(Cell("التقرير التفصيلي للعمليات",1));rows+=listOf(Cell("العملة: الكل",2),Cell("الفترة: حسب الاختيار",2),Cell("إصدار: "+date(System.currentTimeMillis()),2));rows+=listOf(Cell("العهدة",2),Cell("التاريخ",2),Cell("النوع",2),Cell("الطرف",2),Cell("العملة",2),Cell("المبلغ",2),Cell("البيان",2))
+        data.forEach{d->d.transactions.forEach{t->val person=d.people.firstOrNull{it.id==t.personId}?.name?:d.custody.holderName;rows+=listOf(Cell(d.custody.name),Cell(date(t.transactionDate)),Cell(typeName(t.type)),Cell(person),Cell(t.currencyCode),Cell(num(t.amountMinor),if(t.type==CustodyTransactionType.RECEIVED_FROM_ORG||t.type==CustodyTransactionType.RETURNED_FROM_PERSON||t.type==CustodyTransactionType.ORG_LOAN_REPAYMENT||t.type==CustodyTransactionType.PERSON_LOAN_TO_OWNER)5 else 6),Cell(t.description.ifBlank{"—"}))}};return rows
+    }
+
+    private data class Cell(val value:String,val style:Int=0)
+    private data class Tot(val received:Long=0, val paid:Long=0, val returnedFromPerson:Long=0, val returnedToOrg:Long=0, val orgDebt:Long=0, val peopleDebt:Long=0, val cash:Long=0, val surplus:Long=0, val deficit:Long=0)
+    private fun totals(data:List<CustodyReportData>,currency:String):Tot{
+        var r=0L;var p=0L;var rf=0L;var rt=0L;var od=0L;var pd=0L;var cash=0L
+        data.forEach{d->d.transactions.filter{it.currencyCode==currency}.forEach{t->when(t.type){CustodyTransactionType.RECEIVED_FROM_ORG->r+=t.amountMinor;CustodyTransactionType.PAID_TO_PERSON->p+=t.amountMinor;CustodyTransactionType.RETURNED_FROM_PERSON->rf+=t.amountMinor;CustodyTransactionType.RETURNED_TO_ORG->rt+=t.amountMinor};od+=CustodyBalanceRules.ownerOrgDebtDelta(t.type,t.amountMinor);pd+=CustodyBalanceRules.ownerPeopleDebtDelta(t.type,t.amountMinor);cash+=CustodyBalanceRules.ownerCashDelta(t.type,t.amountMinor)}};return Tot(r,p,rf,rt,od,pd,cash,maxOf(cash,0),maxOf(-cash,0))
+    }
+    private fun codes(currency:String)=if(currency=="ALL")listOf("YER","SAR","USD")else listOf(currency)
+    private fun sheetXml(rows:List<List<Cell>>):String{val cols=(1..maxOf(1,rows.maxOfOrNull{it.size}?:1)).joinToString(""){i->"<col min=\""+i+"\" max=\""+i+"\" width=\"20\" customWidth=\"1\"/>"};val data=rows.mapIndexed{ri,row->"<row r=\""+(ri+1)+"\">"+row.mapIndexed{ci,c->cellXml(c,ci+1)}.joinToString("")+"</row>"}.joinToString("");return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\" rightToLeft=\"1\"/></sheetViews><cols>"+cols+"</cols><sheetData>"+data+"</sheetData></worksheet>"}
+    private fun cellXml(c:Cell,col:Int):String="<c r=\""+colLetter(col)+c.value.hashCode()+"\" t=\"inlineStr\" s=\""+c.style+"\"><is><t xml:space=\"preserve\">"+escape(c.value)+"</t></is></c>"
+    private fun saveXlsx(context:Context,sheet:String,name:String):String{val out=java.io.ByteArrayOutputStream();ZipOutputStream(out).use{z->entry(z,"[Content_Types].xml","<?xml version=\"1.0\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/></Types>");entry(z,"_rels/.rels","<?xml version=\"1.0\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>");entry(z,"xl/workbook.xml","<?xml version=\"1.0\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"التقرير\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");entry(z,"xl/_rels/workbook.xml.rels","<?xml version=\"1.0\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/></Relationships>");entry(z,"xl/styles.xml",styles());entry(z,"xl/worksheets/sheet1.xml",sheet)};if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q){val v=ContentValues().apply{put(MediaStore.Downloads.DISPLAY_NAME,name);put(MediaStore.Downloads.MIME_TYPE,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/MyAccounts");put(MediaStore.Downloads.IS_PENDING,1)};val resolver=context.contentResolver;val uri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v)?:error("تعذر إنشاء Excel");resolver.openOutputStream(uri).use{it?.write(out.toByteArray())};resolver.update(uri,ContentValues().apply{put(MediaStore.Downloads.IS_PENDING,0)},null,null);return "تم حفظ التقرير في مجلد التنزيلات/MyAccounts"};val dir=File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),"MyAccounts").apply{if(!exists())mkdirs()};File(dir,name).writeBytes(out.toByteArray());return dir.resolve(name).absolutePath}
+    private fun styles()="<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"5\"><font><sz val=\"11\"/><name val=\"Arial\"/></font><font><b/><sz val=\"14\"/><name val=\"Arial\"/></font><font><b/><sz val=\"11\"/><name val=\"Arial\"/></font><font><color rgb=\"FF00804A\"/><b/><sz val=\"11\"/><name val=\"Arial\"/></font><font><color rgb=\"FFC02323\"/><b/><sz val=\"11\"/><name val=\"Arial\"/></font></fonts><fills count=\"4\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFEAF3EE\"/></patternFill></fill><fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFCEBEC\"/></patternFill></fill></fills><borders count=\"2\"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style=\"thin\"/><right style=\"thin\"/><top style=\"thin\"/><bottom style=\"thin\"/></border></borders><cellXfs count=\"7\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\"/><xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"1\"/><xf numFmtId=\"0\" fontId=\"3\" fillId=\"2\" borderId=\"1\"/><xf numFmtId=\"0\" fontId=\"4\" fillId=\"3\" borderId=\"1\"/><xf numFmtId=\"2\" fontId=\"3\" fillId=\"2\" borderId=\"1\"/><xf numFmtId=\"2\" fontId=\"4\" fillId=\"3\" borderId=\"1\"/></cellXfs></styleSheet>"
+    private fun entry(z:ZipOutputStream,path:String,value:String){z.putNextEntry(ZipEntry(path));z.write(value.toByteArray(Charsets.UTF_8));z.closeEntry()}
+    private fun savePdf(context:Context,doc:PdfDocument,name:String):String{if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q){val v=ContentValues().apply{put(MediaStore.Downloads.DISPLAY_NAME,name);put(MediaStore.Downloads.MIME_TYPE,"application/pdf");put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/MyAccounts");put(MediaStore.Downloads.IS_PENDING,1)};val resolver=context.contentResolver;val uri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v)?:error("تعذر إنشاء PDF");resolver.openOutputStream(uri).use{out->requireNotNull(out);doc.writeTo(out)};resolver.update(uri,ContentValues().apply{put(MediaStore.Downloads.IS_PENDING,0)},null,null);return "تم حفظ التقرير في مجلد التنزيلات/MyAccounts"};val dir=File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),"MyAccounts").apply{if(!exists())mkdirs()};val file=File(dir,name);FileOutputStream(file).use{doc.writeTo(it)};return file.absolutePath}
+    private fun paint(size:Int,color:Int,bold:Boolean)=Paint(Paint.ANTI_ALIAS_FLAG).apply{this.color=color;textSize=size.toFloat();textAlign=Paint.Align.RIGHT;typeface=Typeface.create("sans-serif",if(bold)Typeface.BOLD else Typeface.NORMAL)}
+    private fun linePaint()=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.rgb(170,170,170);strokeWidth=1f}
+    private fun money(v:Long)=BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
+    private fun num(v:Long,style:Int=0)=money(v)
+    private fun date(v:Long)=SimpleDateFormat("dd/MM/yyyy",Locale("ar")).format(Date(v))
+    private fun stamp()=SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(Date())
+    private fun safe(v:String)=v.replace(Regex("[^\\u0600-\\u06FFA-Za-z0-9_-]+"),"_").take(60)
+    private fun escape(v:String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
+    private fun colLetter(n:Int)=('A'.code+n-1).toChar().toString()
+    private fun currencyName(v:String)=when(v){"YER"->"الريال اليمني";"SAR"->"الريال السعودي";"USD"->"الدولار الأمريكي";else->"جميع العملات"}
+    private fun typeName(v:String)=when(v){CustodyTransactionType.RECEIVED_FROM_ORG->"استلام من الجهة";CustodyTransactionType.PAID_TO_PERSON->"صرف للشخص";CustodyTransactionType.RETURNED_FROM_PERSON->"مرتجع من الشخص";CustodyTransactionType.RETURNED_TO_ORG->"مرتجع للجهة";CustodyTransactionType.ORG_LOAN_FROM_OWNER->"ذمة للجهة من الحامل";CustodyTransactionType.ORG_LOAN_REPAYMENT->"سداد ذمة الجهة";CustodyTransactionType.PERSON_LOAN_TO_OWNER->"اقتراض من الشخص";CustodyTransactionType.OWNER_REPAY_PERSON_LOAN->"سداد قرض الشخص";else->v}
 }
