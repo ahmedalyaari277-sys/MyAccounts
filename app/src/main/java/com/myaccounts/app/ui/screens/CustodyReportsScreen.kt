@@ -93,7 +93,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
  message?.let{m->AlertDialog(onDismissRequest={message=null},text={Text(m)},confirmButton={TextButton({message=null}){Text("موافق")}})}
 }
 
-private data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPersonEntity>,val transactions:List<CustodyTransactionEntity>){
+data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPersonEntity>,val transactions:List<CustodyTransactionEntity>){
  fun filter(currency:String,period:String):CustodyReportData{
   val now=System.currentTimeMillis()
   val start=when(period){"TODAY"->dayStart(now);"WEEK"->Calendar.getInstance().apply{timeInMillis=dayStart(now);set(Calendar.DAY_OF_WEEK,firstDayOfWeek)}.timeInMillis;"MONTH"->Calendar.getInstance().apply{timeInMillis=dayStart(now);set(Calendar.DAY_OF_MONTH,1)}.timeInMillis;else->null}
