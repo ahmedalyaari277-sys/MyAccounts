@@ -61,6 +61,7 @@ import com.myaccounts.app.ui.components.EmptyState
 import com.myaccounts.app.ui.components.EmptyStateType
 import com.myaccounts.app.ui.components.InformationCard
 import com.myaccounts.app.ui.components.SearchField
+import com.myaccounts.app.ui.components.currencyDisplayName
 import com.myaccounts.app.ui.theme.EntityName
 import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.util.TransactionAttachmentStorage
@@ -162,7 +163,7 @@ private fun CurrencyBalance(modifier: Modifier, currency: String, balance: Long)
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            Text(currency, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(currencyDisplayName(currency), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(formatBalance(balance), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
         }
     }
