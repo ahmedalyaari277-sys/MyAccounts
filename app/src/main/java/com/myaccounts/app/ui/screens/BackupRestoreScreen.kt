@@ -155,14 +155,13 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
 
     Scaffold(topBar = { AppTopBar(title = if (scope == BackupScope.ALL) "النسخ الاحتياطي والمزامنة" else "نسخ واستعادة ${scope.title}", onBack = onBack) }) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 6.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium)
                 Text("بيانات النطاق المحدد ومرفقاته.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(2.dp))
                 PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createBackupDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
@@ -172,9 +171,7 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = MaterialTheme.typography.titleMedium)
                 Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "مزامنة الآن", onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth())
             }
 
@@ -183,18 +180,16 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
                 OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("البريد الإلكتروني (اختياري)") })
                 Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "مشاركة النسخة الاحتياطية", onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
             }
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("استعادة نسخة احتياطية", style = MaterialTheme.typography.titleMedium)
                 Text("تستبدل الاستعادة بيانات هذا النطاق فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(2.dp))
                 DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
-            if (busy) { Spacer(Modifier.height(2.dp)); CircularProgressIndicator() }
+            if (busy) { Spacer(Modifier.height(1.dp)); CircularProgressIndicator() }
         }
     }
 
@@ -277,9 +272,7 @@ private fun AccountExcelTransferControls() {
     InformationCard(modifier = Modifier.fillMaxWidth()) {
         Text("Excel للحسابات", style = MaterialTheme.typography.titleMedium)
         Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(2.dp))
         PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportAccountsDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(2.dp))
         SecondaryButton(text = "استيراد الحسابات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
         if (busy) { Spacer(Modifier.height(2.dp)); CircularProgressIndicator() }
     }
