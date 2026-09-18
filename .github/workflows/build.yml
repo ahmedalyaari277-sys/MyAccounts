@@ -36,6 +36,7 @@ jobs:
       # Verification trigger: final unified UI batch.
       # Verification trigger: retry after compiler fix.
       # Verification trigger: include final custody party fixes.
+      # Verification trigger: import helper fix.
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
       - name: Upload APK
