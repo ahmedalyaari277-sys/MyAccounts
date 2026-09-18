@@ -126,7 +126,7 @@ data class CustodyReportData(val custody:CustodyEntity,val people:List<CustodyPe
 }
 @Composable private fun CustodySummaryPreview(d:CustodyReportData,currency:String){
  val codes=if(currency=="ALL")listOf("YER","SAR","USD")else listOf(currency)
- SummaryCard(d.custody.name){
+ SummaryCard(title = d.custody.name){
   Text("الجهة: "+d.custody.organizationName+"  •  الحامل: "+d.custody.holderName,style=MaterialTheme.typography.bodySmall)
   codes.forEach{c->val rows=d.transactions.filter{it.currencyCode==c};InformationCard{Text(c,fontWeight=FontWeight.Bold);val cash=rows.sumOf{CustodyBalanceRules.ownerCashDelta(it.type,it.amountMinor)};val org=rows.sumOf{CustodyBalanceRules.ownerOrgDebtDelta(it.type,it.amountMinor)};val people=rows.sumOf{CustodyBalanceRules.ownerPeopleDebtDelta(it.type,it.amountMinor)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){BalanceAmount("نقد "+money(kotlin.math.abs(cash)),if(cash>0)BalanceStatus.Owed else if(cash<0)BalanceStatus.Due else BalanceStatus.Neutral);BalanceAmount("ذمم "+money(kotlin.math.abs(org+people)),if(org+people>0)BalanceStatus.Due else if(org+people<0)BalanceStatus.Owed else BalanceStatus.Neutral)}}}
  }
