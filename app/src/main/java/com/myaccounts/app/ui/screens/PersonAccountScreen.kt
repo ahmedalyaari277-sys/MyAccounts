@@ -49,7 +49,7 @@ fun PersonAccountScreen(personWithAccounts: PersonWithAccounts, onBack: () -> Un
     val person = personWithAccounts.person
     val accounts = personWithAccounts.accounts
     val initialAccount = accounts.firstOrNull()
-    val entityNameColor = if (isSystemInDarkTheme()) EntityNameDark else EntityName
+    val entityNameColor = MaterialTheme.colorScheme.primary
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
         AppTopBar(title = person.name, onBack = onBack, actions = {
             IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, contentDescription = "تعديل") }
