@@ -264,9 +264,8 @@ private fun AccountExcelTransferControls() {
 
     InformationCard(modifier = Modifier.fillMaxWidth()) {
         Text("Excel للحسابات", style = MaterialTheme.typography.titleMedium)
-        Text("هذه الوظائف خاصة بالحسابات فقط. ملف Excel للحسابات يحتوي Sheet واحدًا، ولا يتضمن العُهَد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        PrimaryButton(text = "تصدير الحسابات إلى Excel", onClick = { exportAccountsDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-        SecondaryButton(text = "استيراد الحسابات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+        PrimaryButton(text = "تصدير جميع الحسابات إلى Excel", onClick = { exportAccountsDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+        SecondaryButton(text = "استيراد جميع الحسابات من Excel", onClick = { importLauncher.launch(arrayOf(ExcelDataManager.MIME_TYPE)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
         if (busy) { Spacer(Modifier.height(2.dp)); CircularProgressIndicator() }
     }
 
