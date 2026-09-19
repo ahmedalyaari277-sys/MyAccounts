@@ -40,7 +40,7 @@ object PersonReportExcelExporter {
     private fun row(n:Int,cells:List<String>)="<row r=\"$n\">${cells.joinToString("")}</row>"
     private fun cell(v:String,style:Int=0)="<c t=\"inlineStr\" s=\"$style\"><is><t xml:space=\"preserve\">${escape(v)}</t></is></c>"
     private fun number(v:Long,style:Int)="<c t=\"n\" s=\"$style\"><v>${BigDecimal(v).movePointLeft(2).toPlainString()}</v></c>"
-    private fun currencyName(c:String)=when(c){"YER"->"الريال اليمني";"SAR"->"الريال السعودي";"USD"->"الدولار الأمريكي";else->c}
+    private fun currencyName(c:String)=when(c){"YER"->"ريال يمني";"SAR"->"ريال سعودي";"USD"->"دولار أمريكي";else->c}
     private fun formatDate(v:Long)=SimpleDateFormat("dd/MM/yyyy",Locale("ar")).format(Date(v))
     private fun formatDateRange(s:Long?,e:Long?)=if(s==null&&e==null)"كل الحساب" else "${s?.let(::formatDate)?:"غير محدد"} - ${e?.let{formatDate(addDays(it,-1))}?:"غير محدد"}"
     private fun addDays(v:Long,d:Int)=Calendar.getInstance().apply{timeInMillis=v;add(Calendar.DAY_OF_MONTH,d)}.timeInMillis
