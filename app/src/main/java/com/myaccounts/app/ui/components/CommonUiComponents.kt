@@ -323,30 +323,58 @@ fun CustodyOperationCard(
     modifier: Modifier = Modifier,
     actions: @Composable () -> Unit = {}
 ) {
-    val accent = when (tone) {
-        CustodyOperationTone.ReceiveFromOrganization -> Info
-        CustodyOperationTone.PayToPerson -> Due
-        CustodyOperationTone.ReturnFromPerson -> Owed
-        CustodyOperationTone.ReturnToOrganization -> Neutral
-        CustodyOperationTone.Neutral -> MaterialTheme.colorScheme.outline
+    val amountColor = when (tone) {
+        CustodyOperationTone.PayToPerson, CustodyOperationTone.ReturnToOrganization -> Due
+        CustodyOperationTone.ReceiveFromOrganization, CustodyOperationTone.ReturnFromPerson -> Owed
+        CustodyOperationTone.Neutral -> Neutral
     }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.small,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(operationType, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                StatusChip(text = currencyDisplayName(currency), color = accent)
+        Column(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        amount,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = amountColor
+                    )
+                    StatusChip(
+                        text = status ?: operationType,
+                        color = amountColor
+                    )
+                }
+                if (!date.isNullOrBlank()) {
+                    Text(
+                        date,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
-            if (status != null) StatusChip(status, color = accent)
-            if (!description.isNullOrBlank()) Text(description, style = MaterialTheme.typography.bodyLarge)
-            if (!date.isNullOrBlank()) Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions() }
+            if (!description.isNullOrBlank()) {
+                Text(description, style = MaterialTheme.typography.bodyLarge)
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                actions()
+            }
         }
     }
 }
