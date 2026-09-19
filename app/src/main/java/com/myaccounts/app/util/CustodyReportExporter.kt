@@ -180,6 +180,6 @@ object CustodyReportExporter {
     private fun safe(v:String)=v.replace(Regex("[^\\u0600-\\u06FFA-Za-z0-9_-]+"),"_").take(60)
     private fun escape(v:String)=v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;")
     private fun colLetter(n:Int)=('A'.code+n-1).toChar().toString()
-    private fun currencyName(v:String)=when(v){"YER"->"الريال اليمني";"SAR"->"الريال السعودي";"USD"->"الدولار الأمريكي";else->"جميع العملات"}
+    private fun currencyName(v:String)=when(v){"YER"->"ريال يمني";"SAR"->"ريال سعودي";"USD"->"دولار أمريكي";else->"جميع العملات"}
     private fun typeName(v:String)=when(v){CustodyTransactionType.RECEIVED_FROM_ORG->"استلام من الجهة";CustodyTransactionType.PAID_TO_PERSON->"صرف للشخص";CustodyTransactionType.RETURNED_FROM_PERSON->"مرتجع من الشخص";CustodyTransactionType.RETURNED_TO_ORG->"مرتجع للجهة";CustodyTransactionType.ORG_LOAN_FROM_OWNER->"ذمة للجهة من الحامل";CustodyTransactionType.ORG_LOAN_REPAYMENT->"سداد ذمة الجهة";CustodyTransactionType.PERSON_LOAN_TO_OWNER->"اقتراض من الشخص";CustodyTransactionType.OWNER_REPAY_PERSON_LOAN->"سداد قرض الشخص";else->v}
 }
