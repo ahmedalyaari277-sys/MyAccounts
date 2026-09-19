@@ -74,7 +74,7 @@ fun CustodyHomeScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -
             items(custodies, key = { it.id }) { custody ->
                 Card(modifier = Modifier.fillMaxWidth().clickable { onOpen(custody.id) }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(custody.name, fontWeight = FontWeight.Bold, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName)
+                        Text(custody.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         Text("الجهة: ${custody.organizationName}")
                     }
                 }
@@ -202,7 +202,7 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
                 val balance = transactions.filter { it.personId == person.id && it.currencyCode == currency }.sumOf { personDelta(it.type, it.amountMinor) }
                 Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(person.name, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName)
+                        Text(person.name, color = MaterialTheme.colorScheme.primary)
                         Text(signed(balance), fontWeight = FontWeight.Bold)
                     }
                 }
