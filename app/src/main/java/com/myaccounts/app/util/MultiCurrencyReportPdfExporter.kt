@@ -221,6 +221,6 @@ object MultiCurrencyReportPdfExporter {
     private fun format(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun date(value: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(value))
     private fun range(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::date) ?: "غير محدد"} - ${end?.let { date(it - 1) } ?: "غير محدد"}"
-    private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
+    private fun currencyName(code: String) = when (code) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> code }
     private fun safe(value: String) = value.replace(Regex("[^\\u0600-\\u06FFA-Za-z0-9_-]+"), "_").take(50)
 }
