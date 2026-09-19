@@ -67,9 +67,9 @@ import com.myaccounts.app.ui.theme.Warning
 
 fun currencyDisplayName(code: String): String = when (code) {
     "ALL" -> "جميع العملات"
-    "YER" -> "الريال اليمني"
-    "SAR" -> "الريال السعودي"
-    "USD" -> "الدولار الأمريكي"
+    "YER" -> "ريال يمني"
+    "SAR" -> "ريال سعودي"
+    "USD" -> "دولار أمريكي"
     else -> code
 }
 
