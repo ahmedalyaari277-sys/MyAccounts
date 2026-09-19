@@ -156,13 +156,13 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
     Scaffold(topBar = { AppTopBar(title = if (scope == BackupScope.ALL) "النسخ الاحتياطي والمزامنة" else "نسخ واستعادة ${scope.title}", onBack = onBack) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium)
-                Text("بيانات النطاق المحدد ومرفقاته.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                PrimaryButton(text = "إنشاء نسخة احتياطية", onClick = { createBackupDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                PrimaryButton(text = if (scope == BackupScope.ALL) "إنشاء نسخة احتياطية للكل" else if (scope == BackupScope.ACCOUNTS) "إنشاء نسخة احتياطية للحسابات" else "إنشاء نسخة احتياطية للعُهَد", onClick = { createBackupDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                SecondaryButton(text = "استعادة النسخة الاحتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
             if (scope == BackupScope.ALL) ExcelTransferControls()
@@ -170,7 +170,6 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
 
             InformationCard(modifier = Modifier.fillMaxWidth()) {
                 Text("المزامنة اليدوية", style = MaterialTheme.typography.titleMedium)
-                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SecondaryButton(text = "اختيار مجلد المزامنة", onClick = { syncFolderLauncher.launch(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 SecondaryButton(text = "مزامنة الآن", onClick = { syncNow() }, enabled = !busy && syncFolderUri != null, modifier = Modifier.fillMaxWidth())
             }
@@ -181,12 +180,6 @@ fun BackupRestoreScreen(onBack: () -> Unit, scope: BackupScope = BackupScope.ALL
                 Spacer(Modifier.height(2.dp))
                 SecondaryButton(text = "إرسال النسخة الاحتياطية بالبريد", onClick = { sendBackupByEmail() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
                 SecondaryButton(text = "مشاركة النسخة الاحتياطية", onClick = { shareBackup() }, enabled = !busy && lastBackupUri != null, modifier = Modifier.fillMaxWidth())
-            }
-
-            InformationCard(modifier = Modifier.fillMaxWidth()) {
-                Text("استعادة نسخة احتياطية", style = MaterialTheme.typography.titleMedium)
-                Text("تستبدل الاستعادة بيانات هذا النطاق فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                DangerButton(text = "استعادة نسخة احتياطية", onClick = { security.markExternalActivityPending(); openDocumentLauncher.launch(arrayOf("*/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
 
             if (busy) { Spacer(Modifier.height(1.dp)); CircularProgressIndicator() }
