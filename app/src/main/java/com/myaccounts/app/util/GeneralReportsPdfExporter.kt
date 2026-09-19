@@ -158,7 +158,7 @@ object GeneralReportsPdfExporter {
     private fun balance(v: Long) = when { v > 0 -> "+${amount(v)} (عليه)"; v < 0 -> "-${amount(-v)} (له)"; else -> "0 (متوازن)" }
     private fun first(r: PersonCurrencySummaryRow) = listOfNotNull(r.firstReceivableDate, r.firstPayableDate).minOrNull()?.let(::formatDate) ?: "—"
     private fun last(r: PersonCurrencySummaryRow) = listOfNotNull(r.lastReceivableDate, r.lastPayableDate).maxOrNull()?.let(::formatDate) ?: "—"
-    private fun currencyName(c: String) = when (c) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> c }
+    private fun currencyName(c: String) = when (c) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> c }
     private fun amount(v: Long) = BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun formatDate(v: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(v))
     private fun range(s: Long?, e: Long?) = if (s == null && e == null) "كل الحساب" else "${s?.let(::formatDate) ?: "غير محدد"} - ${e?.let { addDays(it, -1) }?.let(::formatDate) ?: "غير محدد"}"
