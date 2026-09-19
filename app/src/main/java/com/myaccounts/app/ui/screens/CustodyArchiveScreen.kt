@@ -41,7 +41,7 @@ fun CustodyArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit) {
             }
             items(archived, key = { it.id }) { custody ->
                 InformationCard {
-                    Text(custody.name, style = androidx.compose.material3.MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(custody.name, style = androidx.compose.material3.MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if (androidx.compose.foundation.isSystemInDarkTheme()) com.myaccounts.app.ui.theme.EntityNameDark else com.myaccounts.app.ui.theme.EntityName)
                     Text("الجهة: ${custody.organizationName}", style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PrimaryButton(text = "استعادة", onClick = { vm.restore(custody.id); archived = archived.filterNot { it.id == custody.id } }, modifier = Modifier.weight(1f))
