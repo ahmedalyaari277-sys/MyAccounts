@@ -56,9 +56,9 @@ private fun finalMoney(v: Long): String = BigDecimal(v).movePointLeft(2).stripTr
 private fun finalParse(v: String): Long? = runCatching { BigDecimal(v.trim()).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
 private fun finalStatus(v: Long, positive: String, negative: String) = when { v > 0 -> positive; v < 0 -> negative; else -> "متوازن" }
 private fun finalCurrencyName(code: String): String = when (code) {
-    "YER" -> "الريال اليمني"
-    "SAR" -> "الريال السعودي"
-    else -> "الدولار الأمريكي"
+    "YER" -> "ريال يمني"
+    "SAR" -> "ريال سعودي"
+    else -> "دولار أمريكي"
 }
 private fun finalStatusColor(status: String): Color = when (status) {
     "عجز", "مستحق عليه", "عليه للأشخاص" -> Due
