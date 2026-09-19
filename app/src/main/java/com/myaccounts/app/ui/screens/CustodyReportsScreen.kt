@@ -44,7 +44,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
   if(busy)return
   busy=true
   scope.launch(Dispatchers.IO){
-   val r=CustodyReportExporter.export(context,if(custodyId==null)"التقارير العامة للعهد" else "تقرير العهدة",data,currency,reportType,pdf)
+   val r=CustodyReportExporter.export(context,if(custodyId==null)"التقارير العامة للعهد" else "تقرير العهدة",data,currency,reportType,pdf,periodName(period))
    withContext(Dispatchers.Main){message=r.fold({it},{it.message?:"تعذر إنشاء التقرير."});busy=false}
   }
  }
@@ -55,7 +55,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
   val prefix=if(custodyId==null)"MyAccounts_تقارير_العهد" else "MyAccounts_تقرير_عهدة"
   scope.launch(Dispatchers.IO){
    val r=ReportShareUtil.shareGeneratedReport(context,prefix,mime){
-    CustodyReportExporter.export(context,if(custodyId==null)"التقارير العامة للعهد" else "تقرير العهدة",data,currency,reportType,pdf)
+    CustodyReportExporter.export(context,if(custodyId==null)"التقارير العامة للعهد" else "تقرير العهدة",data,currency,reportType,pdf,periodName(period))
    }
    withContext(Dispatchers.Main){message=r.fold({"تم فتح خيارات مشاركة التقرير."},{it.message?:"تعذر مشاركة التقرير."});busy=false}
   }
