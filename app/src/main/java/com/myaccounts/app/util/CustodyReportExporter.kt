@@ -60,7 +60,7 @@ object CustodyReportExporter {
                     y=pdfSummary(c,y,chunk,currency,headPaint,green,red,line)
                 }
                 else->{
-                    y=pdfDetailed(c,y,chunk as List<CustodyReportData>,headPaint,green,red,line)
+                    y=pdfDetailed(c,y,chunk as List<CustodyReportData>,currency,headPaint,green,red,line)
                 }
             }
             c.drawLine(35f,560f,807f,560f,line)
@@ -119,7 +119,7 @@ object CustodyReportExporter {
         return y
     }
 
-    private fun pdfDetailed(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,h:Paint,green:Paint,red:Paint,line:Paint):Float{
+    private fun pdfDetailed(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,currency:String,h:Paint,green:Paint,red:Paint,line:Paint):Float{
         var y=y0
         val codes=if(currency=="ALL") listOf("YER","SAR","USD") else detailedCodes(data)
         val multi=codes.size>1
@@ -201,6 +201,18 @@ object CustodyReportExporter {
             r+=Cell(t.description.ifBlank{"—"},2); rows+=r
         }}; return rows
     }
+    private data class Cell(val value:String,val style:Int=0)
+    private data class Tot(
+        val received:Long=0,
+        val paid:Long=0,
+        val returnedFromPerson:Long=0,
+        val returnedToOrg:Long=0,
+        val orgDebt:Long=0,
+        val peopleDebt:Long=0,
+        val cash:Long=0,
+        val surplus:Long=0,
+        val deficit:Long=0
+    )
     private fun totals(data:List<CustodyReportData>,currency:String):Tot{
         var r=0L;var p=0L;var rf=0L;var rt=0L;var od=0L;var pd=0L;var cash=0L
         data.forEach{d->d.transactions.filter{it.currencyCode==currency}.forEach{t->when(t.type){CustodyTransactionType.RECEIVED_FROM_ORG->r+=t.amountMinor;CustodyTransactionType.PAID_TO_PERSON->p+=t.amountMinor;CustodyTransactionType.RETURNED_FROM_PERSON->rf+=t.amountMinor;CustodyTransactionType.RETURNED_TO_ORG->rt+=t.amountMinor};od+=CustodyBalanceRules.ownerOrgDebtDelta(t.type,t.amountMinor);pd+=CustodyBalanceRules.ownerPeopleDebtDelta(t.type,t.amountMinor);cash+=CustodyBalanceRules.ownerCashDelta(t.type,t.amountMinor)}};return Tot(r,p,rf,rt,od,pd,cash,maxOf(cash,0),maxOf(-cash,0))
