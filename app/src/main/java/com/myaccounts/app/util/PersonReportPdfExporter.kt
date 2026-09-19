@@ -153,7 +153,7 @@ object PersonReportPdfExporter {
     private fun linePaint() = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(150, 150, 150); strokeWidth = 1f }
     private fun balancePaint(value: Long) = paint(9f, true, when { value > 0L -> GREEN; value < 0L -> RED; else -> Color.DKGRAY })
     private fun signedBalance(value: Long) = when { value > 0L -> "+${formatAmount(value)} (عليه)"; value < 0L -> "-${formatAmount(-value)} (له)"; else -> "0 (متوازن)" }
-    private fun currencyName(code: String) = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
+    private fun currencyName(code: String) = when (code) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> code }
     private fun formatAmount(value: Long) = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
     private fun formatDate(value: Long) = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(value))
     private fun formatDateRange(start: Long?, end: Long?) = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(addDays(it, -1)) } ?: "غير محدد"}"
