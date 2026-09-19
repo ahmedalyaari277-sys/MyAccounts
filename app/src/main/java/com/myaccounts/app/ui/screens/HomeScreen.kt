@@ -127,7 +127,7 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
 
 @Composable
 private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Unit, onQuickTransaction: () -> Unit) {
-    val entityNameColor = if (isSystemInDarkTheme()) EntityNameDark else EntityName
+    val entityNameColor = MaterialTheme.colorScheme.primary
     InformationCard(Modifier.clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onQuickTransaction) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية سريعة", tint = MaterialTheme.colorScheme.primary) }
