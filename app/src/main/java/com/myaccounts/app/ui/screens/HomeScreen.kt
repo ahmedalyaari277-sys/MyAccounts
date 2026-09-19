@@ -144,7 +144,7 @@ private fun PersonCard(personWithAccounts: PersonWithAccounts, onClick: () -> Un
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             CurrencyBalance(Modifier.weight(1f), "ريال يمني", personWithAccounts.balance("YER"))
             CurrencyBalance(Modifier.weight(1f), "ريال سعودي", personWithAccounts.balance("SAR"))
-            CurrencyBalance(Modifier.weight(1f), "دولار", personWithAccounts.balance("USD"))
+            CurrencyBalance(Modifier.weight(1f), currencyDisplayName("USD"), personWithAccounts.balance("USD"))
         }
     }
 }
