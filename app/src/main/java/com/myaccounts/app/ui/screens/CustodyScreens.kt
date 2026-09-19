@@ -2,6 +2,7 @@ package com.myaccounts.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.ui.theme.EntityName
+import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.ui.components.currencyDisplayName
 import java.math.BigDecimal
 import java.text.SimpleDateFormat
@@ -71,7 +74,7 @@ fun CustodyHomeScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -
             items(custodies, key = { it.id }) { custody ->
                 Card(modifier = Modifier.fillMaxWidth().clickable { onOpen(custody.id) }, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(custody.name, fontWeight = FontWeight.Bold)
+                        Text(custody.name, fontWeight = FontWeight.Bold, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName)
                         Text("الجهة: ${custody.organizationName}")
                     }
                 }
@@ -199,7 +202,7 @@ fun CustodyDetailScreen(vm: CustodyViewModel, id: Long, onBack: () -> Unit) {
                 val balance = transactions.filter { it.personId == person.id && it.currencyCode == currency }.sumOf { personDelta(it.type, it.amountMinor) }
                 Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(person.name)
+                        Text(person.name, color = if (isSystemInDarkTheme()) EntityNameDark else EntityName)
                         Text(signed(balance), fontWeight = FontWeight.Bold)
                     }
                 }
