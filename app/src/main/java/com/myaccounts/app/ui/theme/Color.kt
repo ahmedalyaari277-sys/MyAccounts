@@ -10,7 +10,7 @@ val PrimarySoft = Color(0xFFF7E4E7)
 
 // Entity names: light mode uses the same dark primary red as the + add-person action;
 // dark mode keeps the existing light primary color for contrast.
-val EntityName = Color(0xFF6E1421)
+val EntityName = Primary
 val EntityNameDark = Color(0xFFF0A5AD)
 
 val Secondary = Color(0xFFC6A15B)
