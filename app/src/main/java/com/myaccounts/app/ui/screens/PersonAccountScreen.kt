@@ -100,9 +100,9 @@ fun PersonAccountScreen(personWithAccounts: PersonWithAccounts, onBack: () -> Un
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("اختر نوع التقرير الذي تريد إصداره:", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { showReportTypeDialog = false; onReportClick("ALL") }, modifier = Modifier.fillMaxWidth()) { Text("جميع العملات", style = MaterialTheme.typography.labelLarge) }
-                TextButton(onClick = { showReportTypeDialog = false; onReportClick("YER") }, modifier = Modifier.fillMaxWidth()) { Text("الريال اليمني", style = MaterialTheme.typography.labelLarge) }
-                TextButton(onClick = { showReportTypeDialog = false; onReportClick("SAR") }, modifier = Modifier.fillMaxWidth()) { Text("الريال السعودي", style = MaterialTheme.typography.labelLarge) }
-                TextButton(onClick = { showReportTypeDialog = false; onReportClick("USD") }, modifier = Modifier.fillMaxWidth()) { Text("الدولار الأمريكي", style = MaterialTheme.typography.labelLarge) }
+                TextButton(onClick = { showReportTypeDialog = false; onReportClick("YER") }, modifier = Modifier.fillMaxWidth()) { Text("ريال يمني", style = MaterialTheme.typography.labelLarge) }
+                TextButton(onClick = { showReportTypeDialog = false; onReportClick("SAR") }, modifier = Modifier.fillMaxWidth()) { Text("ريال سعودي", style = MaterialTheme.typography.labelLarge) }
+                TextButton(onClick = { showReportTypeDialog = false; onReportClick("USD") }, modifier = Modifier.fillMaxWidth()) { Text("دولار أمريكي", style = MaterialTheme.typography.labelLarge) }
             }
         }, confirmButton = { TextButton(onClick = { showReportTypeDialog = false }) { Text("إغلاق", style = MaterialTheme.typography.labelLarge) } })
     }
