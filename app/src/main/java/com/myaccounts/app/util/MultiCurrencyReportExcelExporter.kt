@@ -70,7 +70,7 @@ object MultiCurrencyReportExcelExporter {
         rows += row(n++, listOf(cell("الفترة: ${range(start, end)}", 2), cell("إصدار: ${date(System.currentTimeMillis())}", 2)))
         rows += row(n++, listOf(cell("كل عملة مستقلة ولا يتم جمع العملات معًا.", 2)))
         val header = n
-        rows += row(n++, listOf(cell("الشخص", 4), cell("الريال اليمني", 3), cell("", 3), cell("", 3), cell("", 3), cell("الريال السعودي", 3), cell("", 3), cell("", 3), cell("", 3), cell("الدولار الأمريكي", 3), cell("", 3), cell("", 3), cell("", 3)))
+        rows += row(n++, listOf(cell("الشخص", 4), cell("ريال يمني", 3), cell("", 3), cell("", 3), cell("", 3), cell("ريال سعودي", 3), cell("", 3), cell("", 3), cell("", 3), cell("دولار أمريكي", 3), cell("", 3), cell("", 3), cell("", 3)))
         val sub = mutableListOf(cell("", 4)); currencies.forEach { sub += listOf(cell("عليه", 4), cell("له", 4), cell("الرصيد", 4), cell("عدد العمليات", 4)) }
         rows += row(n++, sub)
         val persons = people.map { it.personId to it.personName }.distinctBy { it.first }.sortedBy { it.second }
@@ -91,7 +91,7 @@ object MultiCurrencyReportExcelExporter {
         rows += row(n++, listOf(cell("التقرير العام — جميع العملات", 1)))
         rows += row(n++, listOf(cell("الفترة: ${range(start, end)}", 2), cell("إصدار: ${date(System.currentTimeMillis())}", 2)))
         val header = n
-        rows += row(n++, listOf(cell("التاريخ", 4), cell("الشخص", 4), cell("البيان", 4), cell("الريال اليمني", 3), cell("", 3), cell("", 3), cell("الريال السعودي", 3), cell("", 3), cell("", 3), cell("الدولار الأمريكي", 3), cell("", 3), cell("", 3)))
+        rows += row(n++, listOf(cell("التاريخ", 4), cell("الشخص", 4), cell("البيان", 4), cell("ريال يمني", 3), cell("", 3), cell("", 3), cell("ريال سعودي", 3), cell("", 3), cell("", 3), cell("دولار أمريكي", 3), cell("", 3), cell("", 3)))
         val sub = mutableListOf(cell("", 4), cell("", 4), cell("", 4)); currencies.forEach { sub += listOf(cell("عليه", 4), cell("له", 4), cell("الرصيد", 4)) }
         rows += row(n++, sub)
         val balances = mutableMapOf<Pair<String, String>, Long>()
@@ -116,7 +116,7 @@ object MultiCurrencyReportExcelExporter {
         rows += row(n++, listOf(cell("تقرير أرصدة الحسابات — جميع العملات", 1)))
         rows += row(n++, listOf(cell("الفترة: ${range(start, end)}", 2), cell("إصدار: ${date(System.currentTimeMillis())}", 2)))
         val header = n
-        rows += row(n++, listOf(cell("الشخص", 4), cell("الريال اليمني", 3), cell("", 3), cell("", 3), cell("", 3), cell("الريال السعودي", 3), cell("", 3), cell("", 3), cell("", 3), cell("الدولار الأمريكي", 3), cell("", 3), cell("", 3), cell("", 3)))
+        rows += row(n++, listOf(cell("الشخص", 4), cell("ريال يمني", 3), cell("", 3), cell("", 3), cell("", 3), cell("ريال سعودي", 3), cell("", 3), cell("", 3), cell("", 3), cell("دولار أمريكي", 3), cell("", 3), cell("", 3), cell("", 3)))
         val sub = mutableListOf(cell("", 4)); currencies.forEach { sub += listOf(cell("إجمالي عليه", 4), cell("إجمالي له", 4), cell("الرصيد", 4), cell("عدد العمليات", 4)) }
         rows += row(n++, sub)
         val persons = data.map { it.personId to it.personName }.distinctBy { it.first }.sortedBy { it.second }
@@ -136,7 +136,7 @@ object MultiCurrencyReportExcelExporter {
         rows += row(n++, listOf(cell("الاسم: ${report.personName}", 2), cell("الهاتف: ${report.phone.ifBlank { "غير مسجل" }}", 2), cell("العنوان: ${report.address.ifBlank { "غير مسجل" }}", 2)))
         rows += row(n++, listOf(cell("الفترة: ${range(start, end)}", 2), cell("إصدار: ${date(System.currentTimeMillis())}", 2)))
         val header = n
-        rows += row(n++, listOf(cell("التاريخ", 4), cell("البيان", 4), cell("الريال اليمني", 3), cell("", 3), cell("", 3), cell("الريال السعودي", 3), cell("", 3), cell("", 3), cell("الدولار الأمريكي", 3), cell("", 3), cell("", 3)))
+        rows += row(n++, listOf(cell("التاريخ", 4), cell("البيان", 4), cell("ريال يمني", 3), cell("", 3), cell("", 3), cell("ريال سعودي", 3), cell("", 3), cell("", 3), cell("دولار أمريكي", 3), cell("", 3), cell("", 3)))
         val sub = mutableListOf(cell("", 4), cell("", 4)); currencies.forEach { sub += listOf(cell("عليه", 4), cell("له", 4), cell("الرصيد", 4)) }
         rows += row(n++, sub)
         val currencyByTransaction = report.reports.flatMap { r -> r.transactions.map { it.transactionId to r.currencyCode } }.toMap()
@@ -179,7 +179,7 @@ object MultiCurrencyReportExcelExporter {
     private fun balanceStyle(value:Long)=when{value>0->7;value<0->8;else->9}
     private fun balanceText(value:Long)=when{value>0->"عليه ${formatAmount(value)}";value<0->"له ${formatAmount(-value)}";else->"متوازن 0"}
     private fun formatAmount(v:Long)=String.format(Locale.US,"%,d",kotlin.math.abs(v)/100)
-    private fun currencyName(c:String)=when(c){"YER"->"الريال اليمني";"SAR"->"الريال السعودي";else->"الدولار الأمريكي"}
+    private fun currencyName(c:String)=when(c){"YER"->"ريال يمني";"SAR"->"ريال سعودي";else->"دولار أمريكي"}
     private fun date(v:Long)=SimpleDateFormat("yyyy-MM-dd",Locale.US).format(Date(v))
     private fun range(start:Long?,end:Long?)=if(start==null||end==null)"كل الفترة" else "${date(start)} إلى ${date(end-1)}"
     private fun safe(v:String)=v.replace(Regex("[^A-Za-z0-9_-]"),"_")
