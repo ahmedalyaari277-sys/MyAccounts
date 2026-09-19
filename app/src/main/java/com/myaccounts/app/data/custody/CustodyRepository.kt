@@ -84,7 +84,6 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
     }
     suspend fun updateCustody(c: CustodyEntity) {
         require(c.name.isNotBlank()) { "اسم العهدة مطلوب" }
-        require(c.holderName.isNotBlank()) { "اسم حامل العهدة مطلوب" }
         require(c.organizationName.isNotBlank()) { "اسم الجهة مطلوب" }
         val cleanName = c.name.trim()
         val cleanHolderName = c.holderName.trim()
