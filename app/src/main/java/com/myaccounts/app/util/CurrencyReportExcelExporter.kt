@@ -244,9 +244,9 @@ object CurrencyReportExcelExporter {
         "<c t=\"n\" s=\"$style\"><v>$value</v></c>"
 
     private fun currencyName(currencyCode: String): String = when (currencyCode) {
-        "YER" -> "الريال اليمني"
-        "SAR" -> "الريال السعودي"
-        "USD" -> "الدولار الأمريكي"
+        "YER" -> "ريال يمني"
+        "SAR" -> "ريال سعودي"
+        "USD" -> "دولار أمريكي"
         else -> currencyCode
     }
 
