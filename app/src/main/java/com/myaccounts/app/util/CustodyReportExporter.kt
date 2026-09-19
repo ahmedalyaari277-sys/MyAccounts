@@ -21,10 +21,10 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 object CustodyReportExporter {
-    fun export(context: Context,title: String,data: List<CustodyReportData>,currency: String,reportType: String,pdf: Boolean): Result<String> =
-        if(pdf) exportPdf(context,title,data,currency,reportType) else exportExcel(context,title,data,currency,reportType)
+    fun export(context: Context,title: String,data: List<CustodyReportData>,currency: String,reportType: String,pdf: Boolean,periodLabel: String = "حسب الاختيار"): Result<String> =
+        if(pdf) exportPdf(context,title,data,currency,reportType,periodLabel) else exportExcel(context,title,data,currency,reportType,periodLabel)
 
-    private fun exportPdf(context: Context,title: String,data: List<CustodyReportData>,currency: String,reportType: String): Result<String> = runCatching {
+    private fun exportPdf(context: Context,title: String,data: List<CustodyReportData>,currency: String,reportType: String,periodLabel: String): Result<String> = runCatching {
         val doc=PdfDocument()
         val pages=if(reportType=="DETAILED") detailedPages(data,currency) else listOf(data)
         val chunks=if(pages.isEmpty()) listOf(emptyList()) else pages
@@ -40,9 +40,18 @@ object CustodyReportExporter {
             val line=linePaint()
             c.drawText(title,807f,y,titlePaint); y+=22
             c.drawText("العملة: "+currencyName(currency),807f,y,textPaint)
-            c.drawText("الفترة: حسب الاختيار في الشاشة",500f,y,textPaint)
+            c.drawText("الفترة: "+periodLabel,500f,y,textPaint)
             c.drawText("إصدار: "+date(System.currentTimeMillis()),260f,y,textPaint); y+=16
             c.drawLine(35f,y,807f,y,line); y+=20
+            if (chunk.size == 1) {
+                val custody = chunk.first().custody
+                c.drawText("العهدة: "+custody.name,807f,y,textPaint)
+                c.drawText("الجهة: "+custody.organizationName,560f,y,textPaint)
+                c.drawText("الحامل: "+custody.holderName,300f,y,textPaint)
+                y += 18
+                c.drawLine(35f,y,807f,y,line)
+                y += 18
+            }
             when(reportType){
                 "PEOPLE"->{ 
                     y=pdfPeople(c,y,chunk,currency,headPaint,green,red,line)
@@ -121,8 +130,8 @@ object CustodyReportExporter {
         };return y
     }
 
-    private fun exportExcel(context:Context,title:String,data:List<CustodyReportData>,currency:String,reportType:String):Result<String> = runCatching{
-        val rows=if(reportType=="PEOPLE") peopleRows(data,currency) else if(reportType=="SUMMARY") summaryRows(data,currency) else detailedRows(data)
+    private fun exportExcel(context:Context,title:String,data:List<CustodyReportData>,currency:String,reportType:String,periodLabel:String):Result<String> = runCatching{
+        val rows=if(reportType=="PEOPLE") peopleRows(data,currency,periodLabel) else if(reportType=="SUMMARY") summaryRows(data,currency,periodLabel) else detailedRows(data,currency,periodLabel)
         val sheet=sheetXml(rows)
         saveXlsx(context,sheet,"MyAccounts_"+safe(title)+"_"+stamp()+".xlsx")
     }
