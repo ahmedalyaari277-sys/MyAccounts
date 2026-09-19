@@ -120,16 +120,39 @@ object CustodyReportExporter {
     }
 
     private fun pdfDetailed(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,h:Paint,green:Paint,red:Paint,line:Paint):Float{
-        var y=y0;c.drawText("العهدة",790f,y,h);c.drawText("التاريخ",680f,y,h);c.drawText("النوع",570f,y,h);c.drawText("الطرف",430f,y,h);c.drawText("العملة",300f,y,h);c.drawText("المبلغ",220f,y,h);c.drawText("البيان",90f,y,h);y+=15;c.drawLine(35f,y,807f,y,line);y+=18
+        var y=y0
+        val codes=if(data.flatMap{it.transactions}.map{it.currencyCode}.distinct().size>1) listOf("YER","SAR","USD") else detailedCodes(data)
+        val multi=codes.size>1
+        if(multi){
+            c.drawText("العهدة",790f,y,h); c.drawText("التاريخ",685f,y,h); c.drawText("النوع",585f,y,h); c.drawText("الطرف",470f,y,h)
+            c.drawText("YER",365f,y,h); c.drawText("SAR",285f,y,h); c.drawText("USD",205f,y,h); c.drawText("البيان",95f,y,h)
+        }else{
+            c.drawText("العهدة",790f,y,h); c.drawText("التاريخ",665f,y,h); c.drawText("النوع",555f,y,h); c.drawText("الطرف",425f,y,h)
+            c.drawText(codes.firstOrNull()?:"المبلغ",280f,y,h); c.drawText("البيان",120f,y,h)
+        }
+        y+=15f; c.drawLine(35f,y,807f,y,line); y+=18f
         data.flatMap{d->d.transactions.map{d to it}}.forEach{(d,t)->
             val person=d.people.firstOrNull{it.id==t.personId}?.name?:d.custody.holderName
-            c.drawText(d.custody.name.take(15),790f,y,paint(7,Color.DKGRAY,false));c.drawText(date(t.transactionDate),680f,y,paint(7,Color.DKGRAY,false));c.drawText(typeName(t.type).take(18),570f,y,paint(7,Color.DKGRAY,false));c.drawText(person.take(16),430f,y,paint(7,Color.DKGRAY,false));c.drawText(t.currencyCode,300f,y,paint(7,Color.DKGRAY,false))
             val positive=t.type==CustodyTransactionType.RECEIVED_FROM_ORG||t.type==CustodyTransactionType.RETURNED_FROM_PERSON||t.type==CustodyTransactionType.ORG_LOAN_REPAYMENT||t.type==CustodyTransactionType.PERSON_LOAN_TO_OWNER
-            c.drawText(money(t.amountMinor),220f,y,if(positive)green else red);c.drawText(t.description.ifBlank{"—"}.take(22),90f,y,paint(7,Color.DKGRAY,false));c.drawLine(35f,y+5,807f,y+5,line);y+=18
+            c.drawText(d.custody.name.take(14),790f,y,paint(7,Color.DKGRAY,false))
+            if(multi){
+                c.drawText(date(t.transactionDate),685f,y,paint(7,Color.DKGRAY,false)); c.drawText(typeName(t.type).take(16),585f,y,paint(7,Color.DKGRAY,false)); c.drawText(person.take(14),470f,y,paint(7,Color.DKGRAY,false))
+                val xs=mapOf("YER" to 365f,"SAR" to 285f,"USD" to 205f)
+                listOf("YER","SAR","USD").forEach{code->val x=xs[code]!!;if(t.currencyCode==code)c.drawText(money(t.amountMinor),x,y,if(positive)green else red)else c.drawText("—",x,y,paint(7,Color.GRAY,false))}
+                c.drawText(t.description.ifBlank{"—"}.take(18),95f,y,paint(7,Color.DKGRAY,false))
+            }else{
+                c.drawText(date(t.transactionDate),665f,y,paint(7,Color.DKGRAY,false)); c.drawText(typeName(t.type).take(16),555f,y,paint(7,Color.DKGRAY,false)); c.drawText(person.take(14),425f,y,paint(7,Color.DKGRAY,false))
+                c.drawText(money(t.amountMinor),280f,y,if(positive)green else red); c.drawText(t.description.ifBlank{"—"}.take(24),120f,y,paint(7,Color.DKGRAY,false))
+            }
+            c.drawLine(35f,y+5,807f,y+5,line); y+=18f
             if(y>535f)return y
-        };return y
+        }
+        return y
     }
-
+    private fun detailedCodes(data:List<CustodyReportData>):List<String>{
+        val found=data.flatMap{it.transactions}.map{it.currencyCode}.distinct()
+        return if(found.size==1) found else listOf("YER","SAR","USD")
+    }
     private fun exportExcel(context:Context,title:String,data:List<CustodyReportData>,currency:String,reportType:String,periodLabel:String):Result<String> = runCatching{
         val rows=if(reportType=="PEOPLE") peopleRows(data,currency,periodLabel) else if(reportType=="SUMMARY") summaryRows(data,currency,periodLabel) else detailedRows(data,currency,periodLabel)
         val sheet=sheetXml(rows)
