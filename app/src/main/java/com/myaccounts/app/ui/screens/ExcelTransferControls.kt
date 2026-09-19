@@ -74,9 +74,8 @@ fun ExcelTransferControls() {
     InformationCard(modifier = Modifier.fillMaxWidth()) {
         Text("استيراد وتصدير Excel", style = MaterialTheme.typography.titleMedium)
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("الملف العام يشمل بيانات الحسابات والعُهَد معًا، في Sheetين فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            PrimaryButton(text = "تصدير كامل التطبيق إلى Excel", onClick = { exportGlobalDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-            SecondaryButton(text = "استيراد كامل التطبيق من Excel", onClick = { importLauncher.launch(arrayOf(GlobalExcelDataManager.MIME_TYPE, "application/zip")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(text = "تصدير الكل إلى Excel", onClick = { exportGlobalDirectly() }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(text = "استيراد الكل من Excel", onClick = { importLauncher.launch(arrayOf(GlobalExcelDataManager.MIME_TYPE, "application/zip")) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             if (busy) CircularProgressIndicator()
         }
     }
