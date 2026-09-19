@@ -246,7 +246,7 @@ private fun PersonCurrencySummaryCard(report: PersonCurrencyReport) {
 private fun amount(value: Long): String = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun balance(value: Long): String = when { value > 0L -> "عليه ${amount(value)}"; value < 0L -> "له ${amount(-value)}"; else -> "متوازن 0" }
 private fun balanceStatus(value: Long): BalanceStatus = when { value > 0L -> BalanceStatus.Due; value < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
-private fun currencyName(code: String): String = when (code) { "ALL" -> "جميع العملات"; "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
+private fun currencyName(code: String): String = when (code) { "ALL" -> "جميع العملات"; "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> code }
 private fun formatDate(value: Long): String = SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(value))
 private fun formatDateTime(value: Long): String = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("ar")).format(Date(value))
 private fun range(start: Long?, end: Long?): String = if (start == null && end == null) "كل الحساب" else "${start?.let(::formatDate) ?: "غير محدد"} - ${end?.let { formatDate(it - 1) } ?: "غير محدد"}"
