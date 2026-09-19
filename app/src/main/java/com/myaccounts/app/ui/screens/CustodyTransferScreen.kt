@@ -132,22 +132,19 @@ fun CustodyTransferScreen(vm: CustodyViewModel, onBack: () -> Unit) {
     }
 
     Scaffold(topBar = { AppTopBar(title = "النسخ الاحتياطي والمزامنة", onBack = onBack) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item { InformationCard {
                 Text("Excel للعُهَد", style = MaterialTheme.typography.titleMedium)
-                Text("تصدير واستيراد بيانات العُهَد دون المساس بدفتر الحسابات.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 PrimaryButton("تصدير جميع العُهَد إلى Excel", { exportCustodyDirectly() }, Modifier.fillMaxWidth(), enabled = !busy)
                 SecondaryButton("استيراد العُهَد من Excel", { importLauncher.launch(arrayOf(CustodyTwoSheetExcelDataManager.MIME_TYPE)) }, Modifier.fillMaxWidth(), enabled = !busy)
             } }
             item { InformationCard {
                 Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium)
-                Text("بيانات العُهَد ومرفقاتها.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                PrimaryButton("إنشاء نسخة احتياطية", { createCustodyBackupDirectly() }, Modifier.fillMaxWidth(), enabled = !busy)
+                PrimaryButton("إنشاء نسخة احتياطية للعُهَد", { createCustodyBackupDirectly() }, Modifier.fillMaxWidth(), enabled = !busy)
                 SecondaryButton("استعادة نسخة احتياطية", { restoreLauncher.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, Modifier.fillMaxWidth(), enabled = !busy)
             } }
             item { InformationCard {
                 Text("المزامنة اليدوية", style = MaterialTheme.typography.titleMedium)
-                Text(if (syncFolderUri == null) "اختر مجلدًا للمزامنة." else "تم اختيار مجلد للمزامنة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SecondaryButton("اختيار مجلد المزامنة", { syncFolderLauncher.launch(null) }, Modifier.fillMaxWidth(), enabled = !busy)
                 SecondaryButton("مزامنة الآن", { syncNow() }, Modifier.fillMaxWidth(), enabled = !busy && syncFolderUri != null)
             } }
