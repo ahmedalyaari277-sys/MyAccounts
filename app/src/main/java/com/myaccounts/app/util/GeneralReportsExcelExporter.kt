@@ -39,7 +39,7 @@ object GeneralReportsExcelExporter {
     private fun cell(v:String,style:Int=0)="<c t=\"inlineStr\" s=\"$style\"><is><t xml:space=\"preserve\">${escape(v)}</t></is></c>"
     private fun number(v:Long,style:Int)="<c t=\"n\" s=\"$style\"><v>${BigDecimal(v).movePointLeft(2).toPlainString()}</v></c>"
     private fun integer(v:Long,style:Int)="<c t=\"n\" s=\"$style\"><v>$v</v></c>"
-    private fun currencyName(c:String)=when(c){"YER"->"الريال اليمني";"SAR"->"الريال السعودي";"USD"->"الدولار الأمريكي";else->c}
+    private fun currencyName(c:String)=when(c){"YER"->"ريال يمني";"SAR"->"ريال سعودي";"USD"->"دولار أمريكي";else->c}
     private fun date(v:Long)=SimpleDateFormat("dd/MM/yyyy",Locale("ar")).format(Date(v))
     private fun range(s:Long?,e:Long?)=if(s==null&&e==null)"كل الحساب" else "${s?.let(::date)?:"غير محدد"} - ${e?.let{date(it-1)}?:"غير محدد"}"
     private fun firstDate(r:PersonCurrencySummaryRow)=listOfNotNull(r.firstReceivableDate,r.firstPayableDate).minOrNull()?.let(::date)?:"—"
