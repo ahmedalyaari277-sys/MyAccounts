@@ -116,7 +116,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(custody.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = entityNameColor)
-                            Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodySmall)
+                            Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodySmall, color = entityNameColor)
                             Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
                             if (custody.purpose.isNotBlank()) Text("الغرض: ${custody.purpose}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
