@@ -121,7 +121,7 @@ object CustodyReportExporter {
 
     private fun pdfDetailed(c:android.graphics.Canvas,y0:Float,data:List<CustodyReportData>,h:Paint,green:Paint,red:Paint,line:Paint):Float{
         var y=y0
-        val codes=if(data.flatMap{it.transactions}.map{it.currencyCode}.distinct().size>1) listOf("YER","SAR","USD") else detailedCodes(data)
+        val codes=if(currency=="ALL") listOf("YER","SAR","USD") else detailedCodes(data)
         val multi=codes.size>1
         if(multi){
             c.drawText("العهدة",790f,y,h); c.drawText("التاريخ",685f,y,h); c.drawText("النوع",585f,y,h); c.drawText("الطرف",470f,y,h)
