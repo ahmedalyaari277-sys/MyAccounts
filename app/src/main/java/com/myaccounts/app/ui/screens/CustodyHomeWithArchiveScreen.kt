@@ -111,7 +111,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
             if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
-                val entityNameColor = if (isSystemInDarkTheme()) EntityNameDark else EntityName
+                val entityNameColor = MaterialTheme.colorScheme.primary
                 InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
