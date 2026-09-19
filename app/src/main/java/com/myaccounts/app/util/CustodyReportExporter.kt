@@ -159,39 +159,48 @@ object CustodyReportExporter {
         saveXlsx(context,sheet,"MyAccounts_"+safe(title)+"_"+stamp()+".xlsx")
     }
 
-    private fun peopleRows(data:List<CustodyReportData>,currency:String):List<List<Cell>>{
+    private fun peopleRows(data:List<CustodyReportData>,currency:String,periodLabel:String):List<List<Cell>>{
         val codes=codes(currency);val rows=mutableListOf<List<Cell>>()
-        rows+=listOf(Cell("التقرير العام للعهد",1))
-        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: حسب الاختيار",2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
-        rows+=listOf(Cell("الطرف",2))
-        codes.forEach{cde->rows.lastOrNull()}
+        rows+=listOf(Cell("تقرير أصحاب العُهَد",1))
+        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: "+periodLabel,2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
+        if(data.size==1){val d=data.first();rows+=listOf(Cell("العهدة: "+d.custody.name,2),Cell("الجهة: "+d.custody.organizationName,2),Cell("الحامل: "+d.custody.holderName,2))}
         val header=mutableListOf(Cell("العهدة",2),Cell("الجهة",2),Cell("الحامل",2),Cell("الطرف",2))
-        codes.forEach{cde->{header+=Cell(cde+" — العهدة",3);header+=Cell(cde+" — الذمة",4)}}
-        rows+=header
+        codes.forEach{cde->{header+=Cell(cde+" — العهدة",3);header+=Cell(cde+" — الذمة",4)}};rows+=header
         data.forEach{d->d.people.forEach{p->
-            val r=mutableListOf(Cell(d.custody.name),Cell(d.custody.organizationName),Cell(d.custody.holderName),Cell(p.name))
+            val r=mutableListOf(Cell(d.custody.name,2),Cell(d.custody.organizationName,2),Cell(d.custody.holderName,2),Cell(p.name,2))
             codes.forEach{cde->val tx=d.transactions.filter{it.personId==p.id&&it.currencyCode==cde};r+=Cell(num(tx.sumOf{CustodyBalanceRules.personCustodyDelta(it.type,it.amountMinor)}),5);r+=Cell(num(tx.sumOf{CustodyBalanceRules.personDebtDelta(it.type,it.amountMinor)}),6)}
             rows+=r
-        }}
-        return rows
+        }};return rows
     }
-
-    private fun summaryRows(data:List<CustodyReportData>,currency:String):List<List<Cell>>{
-        val rows=mutableListOf<List<Cell>>()
-        rows+=listOf(Cell("ملخص أرصدة العهد",1))
-        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: حسب الاختيار",2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
-        val codes=codes(currency);val h=mutableListOf(Cell("البيان",2));codes.forEach{h+=Cell(it+" نقد",3);h+=Cell(it+" ذمم",4)};rows+=h
-        val labels=listOf("إجمالي الاستلام","إجمالي الصرف","مرتجع من الأشخاص","مرتجع للجهة","ذمة الجهة","ذمم الأطراف","المتبقي النقدي","الفائض","العجز")
-        labels.forEach{label->val r=mutableListOf(Cell(label,2));codes.forEach{cde->val v=totals(data,cde);val value=when(label){"إجمالي الاستلام"->v.received;"إجمالي الصرف"->v.paid;"مرتجع من الأشخاص"->v.returnedFromPerson;"مرتجع للجهة"->v.returnedToOrg;"ذمة الجهة"->v.orgDebt;"ذمم الأطراف"->v.peopleDebt;"المتبقي النقدي"->v.cash;"الفائض"->v.surplus;else->v.deficit};r+=Cell(num(value),if(label=="العجز")6 else if(label=="الفائض"||label=="المتبقي النقدي")5 else 0);r+=Cell(if(label=="ذمة الجهة"||label=="ذمم الأطراف")num(value) else "",if(label=="ذمة الجهة"||label=="ذمم الأطراف")4 else 0)};rows+=r};return rows
+    private fun summaryRows(data:List<CustodyReportData>,currency:String,periodLabel:String):List<List<Cell>>{
+        val rows=mutableListOf<List<Cell>>();val codes=codes(currency)
+        rows+=listOf(Cell("ملخص أرصدة العُهَد",1))
+        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: "+periodLabel,2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
+        if(data.size==1){val d=data.first();rows+=listOf(Cell("العهدة: "+d.custody.name,2),Cell("الجهة: "+d.custody.organizationName,2),Cell("الحامل: "+d.custody.holderName,2))}
+        val h=mutableListOf(Cell("العهدة",2),Cell("الجهة",2),Cell("الحامل",2),Cell("البيان",2));codes.forEach{cde->{h+=Cell(cde+" — نقد",3);h+=Cell(cde+" — ذمم",4)}};rows+=h
+        data.forEach{d->listOf("إجمالي الاستلام","إجمالي الصرف","مرتجع من الأشخاص","مرتجع للجهة","ذمة الجهة","ذمم الأطراف","المتبقي النقدي","الفائض","العجز").forEach{label->
+            val r=mutableListOf(Cell(d.custody.name,2),Cell(d.custody.organizationName,2),Cell(d.custody.holderName,2),Cell(label,2))
+            codes.forEach{cde->val v=totals(listOf(d),cde);val value=when(label){"إجمالي الاستلام"->v.received;"إجمالي الصرف"->v.paid;"مرتجع من الأشخاص"->v.returnedFromPerson;"مرتجع للجهة"->v.returnedToOrg;"ذمة الجهة"->v.orgDebt;"ذمم الأطراف"->v.peopleDebt;"المتبقي النقدي"->v.cash;"الفائض"->v.surplus;else->v.deficit};r+=Cell(num(value),if(label=="العجز")6 else if(label=="الفائض"||label=="المتبقي النقدي")5 else 2);r+=Cell(if(label=="ذمة الجهة"||label=="ذمم الأطراف")num(value) else "—",if(label=="ذمة الجهة"||label=="ذمم الأطراف")4 else 2)};rows+=r
+        }};return rows
     }
-
-    private fun detailedRows(data:List<CustodyReportData>):List<List<Cell>>{
-        val rows=mutableListOf<List<Cell>>();rows+=listOf(Cell("التقرير التفصيلي للعمليات",1));rows+=listOf(Cell("العملة: الكل",2),Cell("الفترة: حسب الاختيار",2),Cell("إصدار: "+date(System.currentTimeMillis()),2));rows+=listOf(Cell("العهدة",2),Cell("التاريخ",2),Cell("النوع",2),Cell("الطرف",2),Cell("العملة",2),Cell("المبلغ",2),Cell("البيان",2))
-        data.forEach{d->d.transactions.forEach{t->val person=d.people.firstOrNull{it.id==t.personId}?.name?:d.custody.holderName;rows+=listOf(Cell(d.custody.name),Cell(date(t.transactionDate)),Cell(typeName(t.type)),Cell(person),Cell(t.currencyCode),Cell(num(t.amountMinor),if(t.type==CustodyTransactionType.RECEIVED_FROM_ORG||t.type==CustodyTransactionType.RETURNED_FROM_PERSON||t.type==CustodyTransactionType.ORG_LOAN_REPAYMENT||t.type==CustodyTransactionType.PERSON_LOAN_TO_OWNER)5 else 6),Cell(t.description.ifBlank{"—"}))}};return rows
+    private fun detailedRows(data:List<CustodyReportData>,currency:String,periodLabel:String):List<List<Cell>>{
+        val rows=mutableListOf<List<Cell>>(); val codes=codes(currency)
+        rows+=listOf(Cell("التقرير التفصيلي للعمليات",1))
+        rows+=listOf(Cell("العملة: "+currencyName(currency),2),Cell("الفترة: "+periodLabel,2),Cell("إصدار: "+date(System.currentTimeMillis()),2))
+        if(data.size==1){val d=data.first();rows+=listOf(Cell("العهدة: "+d.custody.name,2),Cell("الجهة: "+d.custody.organizationName,2),Cell("الحامل: "+d.custody.holderName,2))}
+        val multi=codes.size>1
+        val header=mutableListOf(Cell("العهدة",2),Cell("الجهة",2),Cell("الحامل",2),Cell("التاريخ",2),Cell("النوع",2),Cell("الطرف",2))
+        if(multi) codes.forEach{header+=Cell(it,3)} else header+=Cell(codes.firstOrNull()?:"المبلغ",3)
+        header+=Cell("البيان",2); rows+=header
+        data.forEach{d->d.transactions.forEach{t->
+            val person=d.people.firstOrNull{it.id==t.personId}?.name?:d.custody.holderName
+            val positive=t.type==CustodyTransactionType.RECEIVED_FROM_ORG||t.type==CustodyTransactionType.RETURNED_FROM_PERSON||t.type==CustodyTransactionType.ORG_LOAN_REPAYMENT||t.type==CustodyTransactionType.PERSON_LOAN_TO_OWNER
+            val r=mutableListOf(Cell(d.custody.name,2),Cell(d.custody.organizationName,2),Cell(d.custody.holderName,2),Cell(date(t.transactionDate),2),Cell(typeName(t.type),2),Cell(person,2))
+            if(multi) codes.forEach{code->r+=Cell(if(t.currencyCode==code) num(t.amountMinor) else "—",if(t.currencyCode==code) if(positive)5 else 6 else 2)}
+            else r+=Cell(num(t.amountMinor),if(positive)5 else 6)
+            r+=Cell(t.description.ifBlank{"—"},2); rows+=r
+        }}; return rows
     }
-
-    private data class Cell(val value:String,val style:Int=0)
-    private data class Tot(val received:Long=0, val paid:Long=0, val returnedFromPerson:Long=0, val returnedToOrg:Long=0, val orgDebt:Long=0, val peopleDebt:Long=0, val cash:Long=0, val surplus:Long=0, val deficit:Long=0)
     private fun totals(data:List<CustodyReportData>,currency:String):Tot{
         var r=0L;var p=0L;var rf=0L;var rt=0L;var od=0L;var pd=0L;var cash=0L
         data.forEach{d->d.transactions.filter{it.currencyCode==currency}.forEach{t->when(t.type){CustodyTransactionType.RECEIVED_FROM_ORG->r+=t.amountMinor;CustodyTransactionType.PAID_TO_PERSON->p+=t.amountMinor;CustodyTransactionType.RETURNED_FROM_PERSON->rf+=t.amountMinor;CustodyTransactionType.RETURNED_TO_ORG->rt+=t.amountMinor};od+=CustodyBalanceRules.ownerOrgDebtDelta(t.type,t.amountMinor);pd+=CustodyBalanceRules.ownerPeopleDebtDelta(t.type,t.amountMinor);cash+=CustodyBalanceRules.ownerCashDelta(t.type,t.amountMinor)}};return Tot(r,p,rf,rt,od,pd,cash,maxOf(cash,0),maxOf(-cash,0))
