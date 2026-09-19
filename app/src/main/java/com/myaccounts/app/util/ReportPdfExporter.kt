@@ -308,9 +308,9 @@ object ReportPdfExporter {
         currencyCode: String
     ): String {
         return when (currencyCode) {
-            "YER" -> "الريال اليمني"
-            "SAR" -> "الريال السعودي"
-            "USD" -> "الدولار الأمريكي"
+            "YER" -> "ريال يمني"
+            "SAR" -> "ريال سعودي"
+            "USD" -> "دولار أمريكي"
             else -> currencyCode
         }
     }
