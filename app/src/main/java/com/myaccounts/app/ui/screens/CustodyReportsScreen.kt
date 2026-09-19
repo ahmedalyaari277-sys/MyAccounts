@@ -64,7 +64,7 @@ fun CustodyReportsScreen(vm:CustodyViewModel,onBack:()->Unit,custodyId:Long?=nul
   LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal=16.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
    item{
     InformationCard{
-     CompactFilterRow(label="العملة",value=currencyDisplayName(currency),options=listOf("ALL" to "جميع العملات","YER" to "الريال اليمني","SAR" to "الريال السعودي","USD" to "الدولار الأمريكي"),onSelected={currency=it},enabled=!busy)
+     CompactFilterRow(label="العملة",value=currencyDisplayName(currency),options=listOf("ALL" to "جميع العملات","YER" to "ريال يمني","SAR" to "ريال سعودي","USD" to "دولار أمريكي"),onSelected={currency=it},enabled=!busy)
      CompactFilterRow(label="الفترة",value=periodName(period),options=listOf("ALL" to "كل الحساب","TODAY" to "اليوم","WEEK" to "الأسبوع","MONTH" to "الشهر"),onSelected={period=it},enabled=!busy)
      CompactFilterRow(label="نوع التقرير",value=when(reportType){"PEOPLE"->"أصحاب العُهَد";"DETAILED"->"العمليات";else->"الأرصدة"},options=listOf("PEOPLE" to "أصحاب العُهَد","DETAILED" to "العمليات","SUMMARY" to "الأرصدة"),onSelected={reportType=it},enabled=!busy)
      if(custodyId!=null) selected.firstOrNull()?.let{c->Text(c.name,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold);Text("الجهة: "+c.organizationName+"  •  الحامل: "+c.holderName,style=MaterialTheme.typography.bodySmall)}
