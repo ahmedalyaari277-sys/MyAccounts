@@ -141,7 +141,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
         ) {
             item {
                 InformationCard {
-                    CompactFilterRow(label = "العملة", value = currencyName(state.selectedCurrencyCode), options = listOf("ALL" to "جميع العملات", "YER" to "الريال اليمني", "SAR" to "الريال السعودي", "USD" to "الدولار الأمريكي"), onSelected = { viewModel.selectCurrency(it) }, enabled = !busy && !state.isLoading)
+                    CompactFilterRow(label = "العملة", value = currencyName(state.selectedCurrencyCode), options = listOf("ALL" to "جميع العملات", "YER" to "ريال يمني", "SAR" to "ريال سعودي", "USD" to "دولار أمريكي"), onSelected = { viewModel.selectCurrency(it) }, enabled = !busy && !state.isLoading)
                     CompactFilterRow(label = "الفترة", value = when (period) { Period.ALL -> "كل الحساب"; Period.TODAY -> "اليوم"; Period.WEEK -> "الأسبوع"; Period.MONTH -> "الشهر"; Period.CUSTOM -> "مخصصة" }, options = listOf("ALL" to "كل الحساب", "TODAY" to "اليوم", "WEEK" to "الأسبوع", "MONTH" to "الشهر", "CUSTOM" to "مخصصة"), onSelected = { selectPeriod(Period.valueOf(it)) }, enabled = !busy && !state.isLoading)
                     CompactFilterRow(label = "نوع التقرير", value = when (reportType) { ReportType.PEOPLE -> "الأشخاص"; ReportType.DETAILED -> "العمليات"; ReportType.SUMMARY -> "الأرصدة" }, options = listOf("PEOPLE" to "الأشخاص", "DETAILED" to "العمليات", "SUMMARY" to "الأرصدة"), onSelected = { reportType = ReportType.valueOf(it) }, enabled = !busy && !state.isLoading)
                     if (period == Period.CUSTOM) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -248,7 +248,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
 private fun balanceStatus(value: Long): BalanceStatus = when { value > 0L -> BalanceStatus.Due; value < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
 private fun amount(value: Long): String = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun balance(value: Long): String = when { value > 0L -> "عليه ${amount(value)}"; value < 0L -> "له ${amount(-value)}"; else -> "متوازن 0" }
-private fun currencyName(code: String): String = when (code) { "YER" -> "الريال اليمني"; "SAR" -> "الريال السعودي"; "USD" -> "الدولار الأمريكي"; else -> code }
+private fun currencyName(code: String): String = when (code) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> code }
 private fun formatDate(value: Long?): String = value?.let { SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(it)) } ?: "—"
 private fun addDays(value: Long, days: Int): Long = Calendar.getInstance().apply { timeInMillis = value; add(Calendar.DAY_OF_MONTH, days) }.timeInMillis
 private fun addMonths(value: Long, months: Int): Long = Calendar.getInstance().apply { timeInMillis = value; add(Calendar.MONTH, months) }.timeInMillis
