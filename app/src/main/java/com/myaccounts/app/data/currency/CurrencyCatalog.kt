@@ -16,7 +16,7 @@ object CurrencyCatalog {
     private const val KEY_DEFINITIONS = "definitions"
     private const val KEY_DEFAULT = "default_currency"
     private const val SEPARATOR = "|"
-    private val builtIns = listOf(Definition("YER", "الريال اليمني"), Definition("SAR", "الريال السعودي"), Definition("USD", "الدولار الأمريكي"))
+    private val builtIns = listOf(Definition("YER", "ريال يمني"), Definition("SAR", "ريال سعودي"), Definition("USD", "دولار أمريكي"))
     private var initialized = false
     private lateinit var preferences: android.content.SharedPreferences
     private lateinit var applicationContext: Context
