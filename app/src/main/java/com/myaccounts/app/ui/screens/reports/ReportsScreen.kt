@@ -248,7 +248,7 @@ fun ReportsScreen(viewModel: ReportsViewModel, onBack: () -> Unit, onPersonClick
 private fun balanceStatus(value: Long): BalanceStatus = when { value > 0L -> BalanceStatus.Due; value < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
 private fun amount(value: Long): String = BigDecimal(value).movePointLeft(2).stripTrailingZeros().toPlainString()
 private fun balance(value: Long): String = when { value > 0L -> "عليه ${amount(value)}"; value < 0L -> "له ${amount(-value)}"; else -> "متوازن 0" }
-private fun currencyName(code: String): String = when (code) { "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> code }
+private fun currencyName(code: String): String = when (code) { "ALL" -> "جميع العملات"; "YER" -> "ريال يمني"; "SAR" -> "ريال سعودي"; "USD" -> "دولار أمريكي"; else -> code }
 private fun formatDate(value: Long?): String = value?.let { SimpleDateFormat("dd/MM/yyyy", Locale("ar")).format(Date(it)) } ?: "—"
 private fun addDays(value: Long, days: Int): Long = Calendar.getInstance().apply { timeInMillis = value; add(Calendar.DAY_OF_MONTH, days) }.timeInMillis
 private fun addMonths(value: Long, months: Int): Long = Calendar.getInstance().apply { timeInMillis = value; add(Calendar.MONTH, months) }.timeInMillis
