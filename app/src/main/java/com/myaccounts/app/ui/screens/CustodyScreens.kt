@@ -48,15 +48,42 @@ private fun typeName(type: String): String = when (type) {
 @Composable
 fun AppGatewayScreen(onAccounts: () -> Unit, onCustodies: () -> Unit, onSettings: () -> Unit) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("MyAccounts") }, actions = { TextButton(onClick = onSettings) { Text("الإعدادات") } }) }
+        topBar = {
+            AppTopBar(
+                title = "حساباتي",
+                actions = {
+                    TextButton(onClick = onSettings) {
+                        Text("الإعدادات", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
         ) {
-            Button(onClick = onAccounts, modifier = Modifier.fillMaxWidth()) { Text("دفتر الحسابات") }
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = onCustodies, modifier = Modifier.fillMaxWidth()) { Text("العُهَد") }
+            SummaryCard(title = "مساحة العمل") {
+                Text(
+                    "اختر القسم الذي تريد العمل فيه",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                PrimaryButton(
+                    text = "دفتر الحسابات",
+                    onClick = onAccounts,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SecondaryButton(
+                    text = "العُهَد",
+                    onClick = onCustodies,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
