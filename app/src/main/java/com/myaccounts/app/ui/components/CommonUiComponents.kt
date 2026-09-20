@@ -82,6 +82,7 @@ fun AppTopBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
+        modifier = Modifier.heightIn(min = 64.dp),
         title = {
             if (title == "حساباتي") {
                 Text(
@@ -117,7 +118,8 @@ fun AppTopBar(
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            scrolledContainerColor = MaterialTheme.colorScheme.surface
         )
     )
 }
@@ -129,7 +131,7 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    Button(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium) {
+    Button(onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp, pressedElevation = 0.dp)) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -141,7 +143,7 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium) {
+    OutlinedButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -255,7 +257,7 @@ fun SummaryCard(
         shape = MaterialTheme.shapes.large,
         border = BorderStroke(1.dp, Secondary.copy(alpha = 0.45f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (title != null) Text(title, style = MaterialTheme.typography.titleLarge)
@@ -510,9 +512,9 @@ fun CompactFilterRow(
     enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(0.8f))
-        Box(modifier = Modifier.weight(1.5f)) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(0.65f))
+        Box(modifier = Modifier.weight(1.7f)) {
             OutlinedButton(onClick = { expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(value, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
