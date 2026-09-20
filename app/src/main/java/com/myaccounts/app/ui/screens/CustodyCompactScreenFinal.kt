@@ -40,6 +40,7 @@ import com.myaccounts.app.data.custody.CustodyFinancialSummary
 import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyTransactionEntity
 import com.myaccounts.app.data.custody.CustodyTransactionType
+import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.theme.Due
 import com.myaccounts.app.ui.theme.EntityName
 import com.myaccounts.app.ui.theme.EntityNameDark
