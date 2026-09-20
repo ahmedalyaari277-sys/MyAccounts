@@ -32,6 +32,7 @@ import com.myaccounts.app.data.custody.CustodyPersonEntity
 import com.myaccounts.app.data.custody.CustodyTransactionEntity
 import com.myaccounts.app.data.custody.CustodyTransactionType
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
+import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.CustodyOperationCard
 import com.myaccounts.app.ui.components.CustodyOperationTone
 import com.myaccounts.app.ui.components.currencyDisplayName
@@ -70,9 +71,9 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("عمليات ${person.name}", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }
+            AppTopBar(
+                title = "عمليات ${person.name}",
+                onBack = onBack
             )
         },
         floatingActionButton = { FloatingActionButton(onClick = { if (!current.isClosed) add = true }) { Icon(Icons.Default.Add, "إضافة عملية") } }
