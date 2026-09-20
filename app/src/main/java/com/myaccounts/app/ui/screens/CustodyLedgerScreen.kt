@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.custody.*
+import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.CalculatorButton
 import com.myaccounts.app.ui.components.CustodyOperationCard
 import com.myaccounts.app.ui.components.CustodyOperationTone
@@ -89,7 +90,7 @@ fun CustodyLedgerScreen(vm: CustodyViewModel, custodyId: Long, personId: Long?, 
     val custodyBalance = if (owner) accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == selectedCurrency }?.balanceMinor ?: 0L else CustodyFinancialSummary.personCustodyBalance(transactions, personId!!, selectedCurrency)
     val orgDebt = if (owner) CustodyFinancialSummary.ownerOrganizationDebt(transactions, selectedCurrency) else 0L
     val peopleDebt = if (owner) CustodyFinancialSummary.ownerPeopleDebt(transactions, selectedCurrency) else CustodyFinancialSummary.personDebt(transactions, personId!!, selectedCurrency)
-    Scaffold(topBar = { TopAppBar(title = { Text("عمليات $title", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "رجوع") } }, actions = {
+    Scaffold(topBar = { AppTopBar(title = "عمليات $title", onBack = onBack, actions = {
         if (owner) { IconButton(onClick = { showOwnerMenu = true }, modifier = Modifier.semantics { contentDescription = "خيارات حامل العهدة" }) { Icon(Icons.Default.MoreVert, "المزيد") }; DropdownMenu(expanded = showOwnerMenu, onDismissRequest = { showOwnerMenu = false }) { if (!current.isClosed) { DropdownMenuItem(text = { Text("تعديل بيانات حامل العهدة") }, onClick = { showOwnerMenu = false; showEditOwner = true }); DropdownMenuItem(text = { Text("تعديل بيانات العهدة والجهة") }, onClick = { showOwnerMenu = false; showEditCustody = true }) } } }
     }) }, floatingActionButton = { FloatingActionButton(onClick = { if (!current.isClosed) showAdd = true }, modifier = Modifier.semantics { contentDescription = "إضافة عملية" }) { Icon(Icons.Default.Add, null) } }) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp, vertical = 12.dp)) {
