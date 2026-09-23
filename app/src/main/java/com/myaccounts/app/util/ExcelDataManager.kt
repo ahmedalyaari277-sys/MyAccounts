@@ -125,7 +125,50 @@ object ExcelDataManager {
     private fun parseSharedStrings(bytes: ByteArray): List<String> { val result = mutableListOf<String>(); val parser = Xml.newPullParser(); parser.setInput(ByteArrayInputStream(bytes), "UTF-8"); var current = StringBuilder(); var inText = false; var event = parser.eventType; while (event != XmlPullParser.END_DOCUMENT) { when (event) { XmlPullParser.START_TAG -> if (parser.name == "t") { inText = true; current = StringBuilder() }; XmlPullParser.TEXT -> if (inText) current.append(parser.text); XmlPullParser.END_TAG -> if (parser.name == "t" && inText) { inText = false; result += current.toString() } }; event = parser.next() }; return result }
     private fun parseSheet(bytes: ByteArray, sharedStrings: List<String>): List<ImportRow> { val rows = mutableListOf<ImportRow>(); val parser = Xml.newPullParser(); parser.setInput(ByteArrayInputStream(bytes), "UTF-8"); var currentCells = mutableMapOf<Int, String>(); var currentTypes = mutableMapOf<Int, String>(); var rowNumber = 0; var cellColumn = -1; var cellType = ""; var cellValue = StringBuilder(); var inValue = false; var event = parser.eventType; while (event != XmlPullParser.END_DOCUMENT) { when (event) { XmlPullParser.START_TAG -> when (parser.name) { "row" -> { currentCells = mutableMapOf(); currentTypes = mutableMapOf(); rowNumber = parser.getAttributeValue(null, "r")?.toIntOrNull() ?: (rowNumber + 1) }; "c" -> { val ref = parser.getAttributeValue(null, "r") ?: ""; cellColumn = columnIndex(ref); cellType = parser.getAttributeValue(null, "t") ?: "" }; "v", "t" -> { inValue = true; cellValue = StringBuilder() } }; XmlPullParser.TEXT -> if (inValue) cellValue.append(parser.text); XmlPullParser.END_TAG -> when (parser.name) { "v", "t" -> { if (cellColumn >= 0) { currentCells[cellColumn] = cellValue.toString(); currentTypes[cellColumn] = cellType }; inValue = false }; "c" -> cellColumn = -1; "row" -> if (rowNumber > 1) { val values = (0..10).map { column -> val raw = currentCells[column] ?: ""; if (currentTypes[column] == "s") sharedStrings.getOrNull(raw.toIntOrNull() ?: -1) ?: raw else raw }; rows += parseImportRow(rowNumber, values) } } }; event = parser.next() }; check(rows.isNotEmpty()) { "ملف Excel لا يحتوي على بيانات قابلة للاستيراد." }; return rows }
     private fun parseImportRow(rowNumber: Int, values: List<String>): ImportRow { val transactionId = values[1].trim(); return ImportRow(rowNumber, values[0].trim(), transactionId, values[2].trim(), values[3].trim(), values[4].trim(), values[5].trim(), normalizeCurrency(values[6]), parseTransactionType(values[7]), parseAmount(values[8]), values[9].trim(), parseDate(values[10].trim())) }
-    private fun parseAmount(value: String): Long? = runCatching { if (value.isBlank()) return null; BigDecimal(value.trim().replace(',', '.')).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact() }.getOrNull()
+    private fun parseAmount(value: String): Long? {
+            val normalized = value
+                .trim()
+                .replace("٬", "")
+                .replace("٫", ".")
+                .replace(" ", "")
+    
+            if (normalized.isBlank()) return null
+    
+            val canonical = when {
+                normalized.contains('.') && normalized.contains(',') -> {
+                    val lastDot = normalized.lastIndexOf('.')
+                    val lastComma = normalized.lastIndexOf(',')
+                    if (lastComma > lastDot) {
+                        normalized.replace(".", "").replace(',', '.')
+                    } else {
+                        normalized.replace(",", "")
+                    }
+                }
+                else -> normalized.replace(',', '.')
+            }
+    
+            return runCatching {
+                val valueDecimal = BigDecimal(canonical)
+                val rounded = valueDecimal.setScale(2, RoundingMode.HALF_UP)
+    
+                // Excel may serialize a value rounded to two decimals as a binary
+                // floating-point artifact such as 2.5299999999999998.
+                // Accept only negligible floating-point noise; do not silently
+                // accept a genuine third decimal digit.
+                val floatingPointNoise = valueDecimal
+                    .subtract(rounded)
+                    .abs()
+    
+                if (floatingPointNoise > BigDecimal("0.00000001")) {
+                    return null
+                }
+    
+                rounded
+                    .movePointRight(2)
+                    .longValueExact()
+            }.getOrNull()
+        }
+
     private fun parseDate(value: String): Long? { if (value.isBlank()) return null; value.toDoubleOrNull()?.let { serial -> if (serial > 1 && serial < 100000) { val calendar = Calendar.getInstance(Locale.US); calendar.timeInMillis = 0; calendar.set(1899, Calendar.DECEMBER, 30, 0, 0, 0); calendar.set(Calendar.MILLISECOND, 0); return calendar.timeInMillis + (serial * 86_400_000.0).toLong() } }; listOf("yyyy-MM-dd", "dd-MM-yyyy", "dd-MM-yyyy HH:mm", "yyyy-MM-dd HH:mm").forEach { pattern -> runCatching { val format = SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }; return format.parse(value)?.time } }; return null }
     private fun parseTransactionType(value: String): TransactionType? = when (value.trim().uppercase(Locale.ROOT)) { "RECEIVABLE", "عليه" -> TransactionType.RECEIVABLE; "PAYABLE", "له" -> TransactionType.PAYABLE; else -> null }
     private fun normalizeCurrency(value: String): String = when (value.trim().uppercase(Locale.ROOT)) { "YER", "ريال يمني", "الريال اليمني" -> "YER"; "SAR", "ريال سعودي", "الريال السعودي" -> "SAR"; "USD", "دولار", "الدولار", "الدولار الأمريكي" -> "USD"; else -> value.trim().uppercase(Locale.ROOT) }
