@@ -7,17 +7,22 @@ import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.custody.*
 import com.myaccounts.app.util.CustodyAttachmentStorage
 import com.myaccounts.app.util.CustodyOrganizationManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val repo = com.myaccounts.app.data.custody.CustodyRepository(com.myaccounts.app.data.local.AppDatabase.getInstance(app), app)
     private val dao = com.myaccounts.app.data.local.AppDatabase.getInstance(app).custodyDao()
     private val db = com.myaccounts.app.data.local.AppDatabase.getInstance(app)
-    val custodies = repo.observeCustodies().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    private val custodySearchQuery = MutableStateFlow("")
+    val custodies = custodySearchQuery.flatMapLatest { repo.observeCustodies(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
     private val personFlows = mutableMapOf<Long, StateFlow<List<CustodyPersonEntity>>>()
     private val accountFlows = mutableMapOf<Long, StateFlow<List<CustodyAccountEntity>>>()
@@ -32,6 +37,8 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
             }
         }
     }
+
+    fun setSearchQuery(query: String) { custodySearchQuery.value = query }
 
     fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) { repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), custodies.value.firstOrNull { it.id == id }) }
     fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) { repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
