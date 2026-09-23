@@ -64,106 +64,80 @@ fun SettingsScreen(
     androidx.compose.material3.Scaffold(
         topBar = { AppTopBar(title = "الإعدادات", onBack = onBack) }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            item {
-                SummaryCard(title = "إعدادات التطبيق") {
-                    Text("تحكم في المظهر والعملات وتنسيق الأرقام وحماية الدخول دون تغيير وظائف الحسابات.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            item {
-                InformationCard {
-                    Text("المظهر", style = MaterialTheme.typography.titleMedium)
-                    Text(when (appearanceMode) { AppearanceMode.LIGHT -> "الوضع الفاتح"; AppearanceMode.DARK -> "الوضع الداكن"; AppearanceMode.SYSTEM -> "حسب إعدادات النظام" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                InformationCard(Modifier.weight(1f)) {
+                    Text("المظهر", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         AppearanceOption("فاتح", appearanceMode == AppearanceMode.LIGHT, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.LIGHT) }
                         AppearanceOption("داكن", appearanceMode == AppearanceMode.DARK, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.DARK) }
-                        AppearanceOption("حسب النظام", appearanceMode == AppearanceMode.SYSTEM, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
+                        AppearanceOption("النظام", appearanceMode == AppearanceMode.SYSTEM, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
                     }
                 }
-            }
-            item {
-                InformationCard {
-                    Text("العملات", style = MaterialTheme.typography.titleMedium)
-                    Text("العملات المفعلة متاحة للحسابات والتعاملات والتقارير والعُهَد.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CurrencyCatalog.definitions.forEach { currency ->
-                            Row(
-                                modifier = Modifier
-                                    .clickable {
-                                        defaultCurrency = currency.code
-                                        CurrencyCatalog.setDefault(currency.code)
-                                    }
-                                    .padding(horizontal = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = defaultCurrency == currency.code,
-                                    onClick = {
-                                        defaultCurrency = currency.code
-                                        CurrencyCatalog.setDefault(currency.code)
-                                    }
-                                )
-                                Column {
-                                    Text(currencyDisplayName(currency.code), style = MaterialTheme.typography.bodyMedium)
-                                    Text(currency.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
-                    Text("العملة الافتراضية للحسابات الجديدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SecondaryButton("إضافة عملة", { showAddCurrency = true }, Modifier.fillMaxWidth())
-                }
-            }
-            item {
-                InformationCard {
+                InformationCard(Modifier.weight(1f)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("تنسيق الأرقام", style = MaterialTheme.typography.titleMedium)
-                            Text(if (fixedDecimals) "عرض منزلتين عشريتين دائمًا" else "عرض الرقم بدون أصفار عشرية زائدة", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        Text("منزلتان عشريتان", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                         Switch(checked = fixedDecimals, onCheckedChange = { fixedDecimals = it; context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).edit().putBoolean(KEY_FIXED_DECIMALS, it).apply() })
                     }
                 }
             }
-            item {
-                InformationCard {
-                    Text("النسخ الاحتياطي والتصدير", style = MaterialTheme.typography.titleMedium)
-                    Text("النسخ والاستعادة ونقل البيانات والتصدير متاحة من شاشة النسخ الاحتياطي والاستعادة.", style = MaterialTheme.typography.bodyMedium)
-                    Text("تبقى ملفات Excel وPDF والمرفقات ضمن وظائفها الحالية دون تغيير.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    SecondaryButton("فتح النسخ الاحتياطي والاستعادة", onBackupRestoreClick, Modifier.fillMaxWidth())
+            InformationCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("العملة الافتراضية", style = MaterialTheme.typography.titleSmall)
+                        Text(currencyDisplayName(defaultCurrency), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    SecondaryButton("إضافة عملة", { showAddCurrency = true }, Modifier)
+                }
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CurrencyCatalog.definitions.forEach { currency ->
+                        Row(
+                            modifier = Modifier.clickable {
+                                defaultCurrency = currency.code
+                                CurrencyCatalog.setDefault(currency.code)
+                            }.padding(horizontal = 1.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = defaultCurrency == currency.code,
+                                onClick = {
+                                    defaultCurrency = currency.code
+                                    CurrencyCatalog.setDefault(currency.code)
+                                }
+                            )
+                            Text(currencyDisplayName(currency.code), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
-            item {
-                InformationCard {
-                    Text("حماية التطبيق عند الدخول", style = MaterialTheme.typography.titleMedium)
-                    Text(if (protectionEnabled) "البصمة أولًا، ورمز الدخول كخيار احتياطي" else "التطبيق يفتح مباشرة دون طلب حماية", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(4.dp))
-                    Switch(checked = protectionEnabled, onCheckedChange = { enabled -> if (enabled) { if (security.hasPin() && security.hasRecoveryEmail()) { security.setProtectionEnabled(true); protectionEnabled = true } else showSetup = true } else showDisableConfirmation = true })
+            InformationCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("النسخ الاحتياطي والتصدير", style = MaterialTheme.typography.titleSmall)
+                        Text("النسخ والاستعادة والتصدير", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    SecondaryButton("فتح", onBackupRestoreClick, Modifier)
                 }
             }
-            item {
-                InformationCard {
-                    Text("حول التطبيق", style = MaterialTheme.typography.titleMedium)
-                    Text("عرض معلومات التطبيق والعملات المفعلة والمزايا.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PrimaryButton("تفاصيل التطبيق", onDetailsClick, Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                InformationCard(Modifier.weight(1f)) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("حماية الدخول", style = MaterialTheme.typography.titleSmall)
+                        Text(if (protectionEnabled) "مفعلة" else "غير مفعلة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Switch(checked = protectionEnabled, onCheckedChange = { enabled -> if (enabled) { if (security.hasPin() && security.hasRecoveryEmail()) { security.setProtectionEnabled(true); protectionEnabled = true } else showSetup = true } else showDisableConfirmation = true })
+                    }
+                }
+                InformationCard(Modifier.weight(1f)) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("حول التطبيق", style = MaterialTheme.typography.titleSmall)
+                        PrimaryButton("التفاصيل", onDetailsClick, Modifier.fillMaxWidth())
+                    }
                 }
             }
-        }
-    }
+        }    }
 
     if (showAddCurrency) AddCurrencyDialog(onDismiss = { showAddCurrency = false }, onAdded = { code, name -> if (CurrencyCatalog.add(code, name)) defaultCurrency = code.trim().uppercase(); showAddCurrency = false })
     if (showSetup) SecuritySetupDialog(security, { showSetup = false }) { security.setProtectionEnabled(true); protectionEnabled = true; showSetup = false }
