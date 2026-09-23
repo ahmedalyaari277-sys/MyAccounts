@@ -1233,49 +1233,7 @@ object CustodyExcelDataManager {
         )
     }
 
-    private fun parseAmount(value: String): Long? {
-            val normalized = value
-                .trim()
-                .replace("٬", "")
-                .replace("٫", ".")
-                .replace(" ", "")
-    
-            if (normalized.isBlank()) return null
-    
-            val canonical = when {
-                normalized.contains('.') && normalized.contains(',') -> {
-                    val lastDot = normalized.lastIndexOf('.')
-                    val lastComma = normalized.lastIndexOf(',')
-                    if (lastComma > lastDot) {
-                        normalized.replace(".", "").replace(',', '.')
-                    } else {
-                        normalized.replace(",", "")
-                    }
-                }
-                else -> normalized.replace(',', '.')
-            }
-    
-            return runCatching {
-                val valueDecimal = BigDecimal(canonical)
-                val rounded = valueDecimal.setScale(2, RoundingMode.HALF_UP)
-    
-                // Excel may serialize a value rounded to two decimals as a binary
-                // floating-point artifact such as 2.5299999999999998.
-                // Accept only negligible floating-point noise; do not silently
-                // accept a genuine third decimal digit.
-                val floatingPointNoise = valueDecimal
-                    .subtract(rounded)
-                    .abs()
-    
-                if (floatingPointNoise > BigDecimal("0.00000001")) {
-                    return null
-                }
-    
-                rounded
-                    .movePointRight(2)
-                    .longValueExact()
-            }.getOrNull()
-        }
+    private fun parseAmount(value: String): Long? = ExcelAmountParser.parse(value)
 
     private fun parseDate(
         value: String
