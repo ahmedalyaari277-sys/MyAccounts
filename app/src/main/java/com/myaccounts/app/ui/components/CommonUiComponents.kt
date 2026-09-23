@@ -144,7 +144,7 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    OutlinedButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
+    OutlinedButton(onClick = onClick, modifier = modifier.heightIn(min = 44.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
