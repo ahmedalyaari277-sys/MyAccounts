@@ -64,6 +64,7 @@ import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.EmptyState
 import com.myaccounts.app.ui.components.EmptyStateType
 import com.myaccounts.app.ui.components.InformationCard
+import com.myaccounts.app.ui.components.SearchField
 import com.myaccounts.app.ui.theme.EntityName
 import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.ui.viewmodel.CustodyViewModel
@@ -86,6 +87,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST_TRANSACTION -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
 
     Scaffold(topBar = {
@@ -107,7 +109,14 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     }, floatingActionButton = {
         FloatingActionButton(onClick = { adding = true }, modifier = Modifier.padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, "إضافة عهدة") }
     }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            SearchField(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it; vm.setSearchQuery(it) },
+                placeholder = "بحث في العُهَد: الاسم، المبلغ، التاريخ، التفاصيل أو أي بيانات",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
             items(displayedCustodies, key = { it.id }) { custody ->
                 val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
