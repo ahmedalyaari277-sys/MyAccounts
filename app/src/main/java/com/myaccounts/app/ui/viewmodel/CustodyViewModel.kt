@@ -38,7 +38,9 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
         }
     }
 
-    fun setSearchQuery(query: String) { custodySearchQuery.value = query }
+    fun setSearchQuery(query: String) { custodySearchQuery.value = normalizeSearchQuery(query) }
+
+    private fun normalizeSearchQuery(value: String): String = value.trim().map { ch -> when (ch) { in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar(); in '۰'..'۹' -> ('0'.code + ch.code - '۰'.code).toChar(); '٫' -> '.'; '٬' -> null; else -> ch } }.filterNotNull().joinToString("").replace(',', '.')
 
     fun custody(id: Long): StateFlow<CustodyEntity?> = custodyFlows.getOrPut(id) { repo.observeCustody(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), custodies.value.firstOrNull { it.id == id }) }
     fun persons(id: Long): StateFlow<List<CustodyPersonEntity>> = personFlows.getOrPut(id) { repo.observePersons(id).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()) }
