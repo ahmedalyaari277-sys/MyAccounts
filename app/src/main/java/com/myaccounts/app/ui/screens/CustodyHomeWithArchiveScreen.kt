@@ -155,6 +155,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
             }
         }
     }
+    }
     if (adding) CustodyCreateDialog(onDismiss = { adding = false }) { vm.create(it); adding = false }
 }
 
