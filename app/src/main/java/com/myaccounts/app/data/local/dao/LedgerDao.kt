@@ -35,6 +35,8 @@ interface LedgerDao {
                     OR printf('%.2f', t.amountMinor / 100.0) LIKE '%' || :query || '%'
                     OR strftime('%d-%m-%Y', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
                     OR strftime('%Y-%m-%d', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                    OR strftime('%d/%m/%Y', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                    OR strftime('%Y/%m/%d', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
                 )
             )
         )
