@@ -21,6 +21,7 @@ import com.myaccounts.app.util.BackupScope
 @Composable
 fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, appearanceMode: AppearanceMode, onAppearanceModeChange: (AppearanceMode) -> Unit) {
     val persons by viewModel.personsWithAccounts.collectAsState()
+    val searchPeople by viewModel.people.collectAsState()
     val archived by viewModel.archivedPersonsWithAccounts.collectAsState()
     val restore by viewModel.restorePersonResult.collectAsState()
     val context = LocalContext.current
@@ -31,7 +32,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
     val custody: CustodyViewModel = viewModel(factory = CustodyViewModelFactory(app))
     NavHost(navController = navController, startDestination = Routes.GATEWAY) {
         composable(Routes.GATEWAY) { AppGatewayScreen(onAccounts = { navController.navigate(Routes.HOME) }, onCustodies = { navController.navigate(Routes.CUSTODIES) }, onSettings = { navController.navigate(Routes.SETTINGS) }) }
-        composable(Routes.HOME) { HomeScreen(personsList = persons, onAddPerson = { n, p, a, no -> viewModel.addPerson(n, p, a, no) }, onPersonClick = { navController.navigate(Routes.personAccount(it)) }, onQuickTransactionSave = { t, a -> transactions.addTransaction(t, a) }, onReportsClick = { navController.navigate(Routes.REPORTS) }, onArchiveClick = { navController.navigate(Routes.ARCHIVE) }, onBackupRestoreClick = { navController.navigate(Routes.backupRestore(BackupScope.ACCOUNTS.key)) }) }
+        composable(Routes.HOME) { HomeScreen(personsList = persons, searchMatchedPersonIds = searchPeople.map { it.id }.toSet(), onSearchQueryChange = viewModel::setSearchQuery, onAddPerson = { n, p, a, no -> viewModel.addPerson(n, p, a, no) }, onPersonClick = { navController.navigate(Routes.personAccount(it)) }, onQuickTransactionSave = { t, a -> transactions.addTransaction(t, a) }, onReportsClick = { navController.navigate(Routes.REPORTS) }, onArchiveClick = { navController.navigate(Routes.ARCHIVE) }, onBackupRestoreClick = { navController.navigate(Routes.backupRestore(BackupScope.ACCOUNTS.key)) }) }
         composable(Routes.PERSON_ACCOUNT, arguments = listOf(navArgument("personId") { type = NavType.LongType })) { e -> val id = e.arguments?.getLong("personId"); persons.firstOrNull { it.person.id == id }?.let { p -> PersonAccountScreen(p, { navController.popBackStack() }, { n, ph, a, no -> viewModel.updatePerson(id!!, n, ph, a, no) }, { viewModel.deletePerson(id!!); navController.popBackStack() }, { cur -> navController.navigate(Routes.personReport(id!!, cur)) }, transactions) } }
         composable(Routes.TRANSACTIONS, arguments = listOf(navArgument("accountId") { type = NavType.LongType }, navArgument("currencyCode") { type = NavType.StringType })) { e -> val id = e.arguments?.getLong("accountId"); val c = e.arguments?.getString("currencyCode"); if (id != null && c != null) TransactionScreen(id, c, { navController.popBackStack() }, transactions) }
         composable(Routes.REPORTS) { ReportsScreen(reports, { navController.popBackStack() }, { id -> navController.navigate(Routes.personReport(id, "ALL")) }) }
