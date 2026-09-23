@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
     var add by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
+    var transferring by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     val rows = transactions.filter { it.personId == personId && it.currencyCode == currency }.sortedByDescending { it.transactionDate }
 
     Scaffold(
@@ -100,6 +102,7 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
                             status = "صرف للجهة",
                             tone = CustodyOperationTone.PayToPerson,
                             actions = {
+                                IconButton(enabled = !current.isClosed, onClick = { transferring = tx }, modifier = Modifier.semantics { contentDescription = "نقل العملية" }) { Icon(Icons.Default.SwapHoriz, "نقل العملية") }
                                 IconButton(enabled = !current.isClosed, onClick = { editing = tx }) { Icon(Icons.Default.Edit, "تعديل") }
                                 IconButton(enabled = !current.isClosed, onClick = { deleting = tx }) { Icon(Icons.Default.Delete, "حذف") }
                             }
@@ -112,6 +115,18 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
 
     if (add) OrganizationTransactionDialog(vm, custodyId, personId, currency, null, { add = false }, { add = false })
     editing?.let { tx -> OrganizationTransactionDialog(vm, custodyId, personId, tx.currencyCode, tx, { editing = null }, { editing = null }) }
+    transferring?.let { tx ->
+        CustodyOrganizationTransferDialog(
+            transaction = tx,
+            currentPersonId = personId,
+            people = people,
+            onDismiss = { transferring = null },
+            onTransfer = { newPersonId, reason ->
+                vm.transferTransactionAndWait(tx.id, newPersonId, reason)
+            }
+        )
+    }
+
     deleting?.let { tx ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -182,6 +197,78 @@ private fun OrganizationTransactionDialog(
                         }
                     }, modifier = Modifier.weight(1f)) { Text(if (saving) "جارٍ الحفظ…" else "حفظ") }
                     OutlinedButton(enabled = !saving, onClick = { keyboard?.hide(); onDismiss() }, modifier = Modifier.weight(1f)) { Text("إلغاء") }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun CustodyOrganizationTransferDialog(
+    transaction: CustodyTransactionEntity,
+    currentPersonId: Long,
+    people: List<CustodyPersonEntity>,
+    onDismiss: () -> Unit,
+    onTransfer: suspend (Long, String) -> Unit
+) {
+    var selectedPersonId by remember { mutableStateOf<Long?>(null) }
+    var reason by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val targets = people.filter { it.id != currentPersonId && !it.isArchived }
+
+    Dialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Card(Modifier.fillMaxWidth(.94f).fillMaxHeight(.8f).imePadding()) {
+            Column(Modifier.fillMaxSize()) {
+                Text("نقل العملية", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Text("صرف — " + orgMoney(transaction.amountMinor) + " " + currencyDisplayName(transaction.currencyCode), fontWeight = FontWeight.Bold)
+                    Text("اختر الطرف الجديد:", style = MaterialTheme.typography.bodySmall)
+                    targets.forEach { target ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable(enabled = !saving) { selectedPersonId = target.id },
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = selectedPersonId == target.id, onClick = { selectedPersonId = target.id }, enabled = !saving)
+                            Text(target.name)
+                        }
+                    }
+                    OutlinedTextField(
+                        reason,
+                        { reason = it; error = null },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("سبب النقل") },
+                        minLines = 2,
+                        enabled = !saving
+                    )
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        enabled = selectedPersonId != null && !saving,
+                        onClick = {
+                            val target = selectedPersonId ?: return@Button
+                            saving = true
+                            scope.launch {
+                                runCatching { onTransfer(target, reason.trim()) }
+                                    .onSuccess { saving = false; onDismiss() }
+                                    .onFailure { saving = false; error = it.message ?: "تعذر نقل العملية" }
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(if (saving) "جارٍ النقل…" else "نقل") }
+                    OutlinedButton(enabled = !saving, onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("إلغاء") }
                 }
             }
         }
