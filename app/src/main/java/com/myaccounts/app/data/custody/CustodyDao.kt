@@ -9,7 +9,54 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CustodyDao {
-    @Query("SELECT c.* FROM custodies c LEFT JOIN (SELECT custodyId, MAX(transactionDate) AS lastTransactionDate FROM custody_transactions WHERE isArchived = 0 GROUP BY custodyId) t ON c.id = t.custodyId WHERE c.isArchived = 0 ORDER BY COALESCE(t.lastTransactionDate, c.createdAt) DESC, c.id DESC") fun observeCustodies(): Flow<List<CustodyEntity>>
+    @Query("""
+        SELECT c.* FROM custodies c
+        LEFT JOIN (
+            SELECT custodyId, MAX(transactionDate) AS lastTransactionDate
+            FROM custody_transactions WHERE isArchived = 0 GROUP BY custodyId
+        ) latest ON c.id = latest.custodyId
+        WHERE c.isArchived = 0
+          AND (
+            :query = ''
+            OR c.name LIKE '%' || :query || '%'
+            OR c.holderName LIKE '%' || :query || '%'
+            OR c.phone LIKE '%' || :query || '%'
+            OR c.address LIKE '%' || :query || '%'
+            OR c.notes LIKE '%' || :query || '%'
+            OR c.purpose LIKE '%' || :query || '%'
+            OR c.organizationName LIKE '%' || :query || '%'
+            OR c.organizationPhone LIKE '%' || :query || '%'
+            OR c.organizationAddress LIKE '%' || :query || '%'
+            OR c.organizationNotes LIKE '%' || :query || '%'
+            OR EXISTS (
+                SELECT 1 FROM custody_persons p
+                WHERE p.custodyId = c.id AND p.isArchived = 0
+                  AND (
+                    p.name LIKE '%' || :query || '%'
+                    OR p.phone LIKE '%' || :query || '%'
+                    OR p.address LIKE '%' || :query || '%'
+                    OR p.notes LIKE '%' || :query || '%'
+                  )
+            )
+            OR EXISTS (
+                SELECT 1 FROM custody_transactions ct
+                WHERE ct.custodyId = c.id AND ct.isArchived = 0
+                  AND (
+                    ct.type LIKE '%' || :query || '%'
+                    OR ct.currencyCode LIKE '%' || :query || '%'
+                    OR ct.categoryName LIKE '%' || :query || '%'
+                    OR ct.description LIKE '%' || :query || '%'
+                    OR ct.externalId LIKE '%' || :query || '%'
+                    OR CAST(ct.amountMinor AS TEXT) LIKE '%' || :query || '%'
+                    OR printf('%.2f', ct.amountMinor / 100.0) LIKE '%' || :query || '%'
+                    OR strftime('%d-%m-%Y', ct.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                    OR strftime('%Y-%m-%d', ct.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                  )
+            )
+          )
+        ORDER BY COALESCE(latest.lastTransactionDate, c.createdAt) DESC, c.id DESC
+    """)
+    fun observeCustodies(query: String): Flow<List<CustodyEntity>>
     @Query("SELECT * FROM custodies WHERE id = :id LIMIT 1") fun observeCustody(id: Long): Flow<CustodyEntity?>
     @Query("SELECT * FROM custody_persons WHERE custodyId = :custodyId AND isArchived = 0 ORDER BY CASE WHEN partyType = 'ENTITY' THEN 0 ELSE 1 END, id ASC") fun observePersons(custodyId: Long): Flow<List<CustodyPersonEntity>>
     @Query("SELECT * FROM custody_accounts WHERE custodyId = :custodyId ORDER BY holderType ASC, personId ASC, currencyCode ASC") fun observeAccounts(custodyId: Long): Flow<List<CustodyAccountEntity>>
