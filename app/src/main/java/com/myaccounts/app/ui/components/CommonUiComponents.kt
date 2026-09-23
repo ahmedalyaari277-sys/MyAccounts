@@ -528,3 +528,5 @@ fun CompactFilterRow(
         }
     }
 }
+
+// Final APK build verification trigger
