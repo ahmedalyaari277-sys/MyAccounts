@@ -58,47 +58,51 @@ fun SettingsScreen(
     var showDisableConfirmation by remember { mutableStateOf(false) }
     var showAddCurrency by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    var fixedDecimals by remember { mutableStateOf(context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).getBoolean(KEY_FIXED_DECIMALS, false)) }
+    val prefs = remember { context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0) }
+    var fixedDecimals by remember { mutableStateOf(prefs.getBoolean(KEY_FIXED_DECIMALS, false)) }
     var defaultCurrency by remember { mutableStateOf(CurrencyCatalog.defaultCode()) }
 
-    androidx.compose.material3.Scaffold(
-        topBar = { AppTopBar(title = "الإعدادات", onBack = onBack) }
-    ) { padding ->
+    androidx.compose.material3.Scaffold(topBar = { AppTopBar(title = "الإعدادات", onBack = onBack) }) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                InformationCard(Modifier.weight(1f)) {
-                    Text("المظهر", style = MaterialTheme.typography.titleSmall)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        AppearanceOption("فاتح", appearanceMode == AppearanceMode.LIGHT, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.LIGHT) }
-                        AppearanceOption("داكن", appearanceMode == AppearanceMode.DARK, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.DARK) }
-                        AppearanceOption("النظام", appearanceMode == AppearanceMode.SYSTEM, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
-                    }
+            InformationCard {
+                Text("المظهر وطريقة عرض الأرقام", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AppearanceOption("فاتح", appearanceMode == AppearanceMode.LIGHT, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.LIGHT) }
+                    AppearanceOption("داكن", appearanceMode == AppearanceMode.DARK, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.DARK) }
+                    AppearanceOption("النظام", appearanceMode == AppearanceMode.SYSTEM, Modifier.weight(1f)) { onAppearanceModeChange(AppearanceMode.SYSTEM) }
                 }
-                InformationCard(Modifier.weight(1f)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("منزلتان عشريتان", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                        Switch(checked = fixedDecimals, onCheckedChange = { fixedDecimals = it; context.getSharedPreferences(NUMBER_FORMAT_PREFS, 0).edit().putBoolean(KEY_FIXED_DECIMALS, it).apply() })
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("منزلتان عشريتان", style = MaterialTheme.typography.bodyMedium)
+                        Text("عرض المبالغ بمنزلتين عند تفعيل الخيار", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    Switch(checked = fixedDecimals, onCheckedChange = {
+                        fixedDecimals = it
+                        prefs.edit().putBoolean(KEY_FIXED_DECIMALS, it).apply()
+                    })
                 }
             }
+
             InformationCard {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("العملة الافتراضية", style = MaterialTheme.typography.titleSmall)
-                        Text(currencyDisplayName(defaultCurrency), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("العملة الافتراضية", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("تُستخدم كعملة البداية عند إدخال العمليات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     SecondaryButton("إضافة عملة", { showAddCurrency = true }, Modifier)
                 }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     CurrencyCatalog.definitions.forEach { currency ->
                         Row(
-                            modifier = Modifier.clickable {
+                            Modifier.clickable {
                                 defaultCurrency = currency.code
                                 CurrencyCatalog.setDefault(currency.code)
-                            }.padding(horizontal = 1.dp),
+                            }.padding(horizontal = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
@@ -108,40 +112,67 @@ fun SettingsScreen(
                                     CurrencyCatalog.setDefault(currency.code)
                                 }
                             )
-                            Text(currencyDisplayName(currency.code), style = MaterialTheme.typography.bodySmall)
+                            Text(currencyDisplayName(currency.code), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
             }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InformationCard(Modifier.weight(1f)) {
+                    Text("النسخ الاحتياطي", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("النسخ والاستعادة وملفات Excel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    SecondaryButton("فتح", onBackupRestoreClick, Modifier.fillMaxWidth())
+                }
+                InformationCard(Modifier.weight(1f)) {
+                    Text("حول التطبيق", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("معلومات الإصدار والتفاصيل", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    PrimaryButton("التفاصيل", onDetailsClick, Modifier.fillMaxWidth())
+                }
+            }
+
             InformationCard {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("النسخ الاحتياطي والتصدير", style = MaterialTheme.typography.titleSmall)
-                        Text("النسخ والاستعادة والتصدير", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("حماية الدخول", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(if (protectionEnabled) "الحماية مفعلة" else "الحماية غير مفعلة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    SecondaryButton("فتح", onBackupRestoreClick, Modifier)
+                    Switch(
+                        checked = protectionEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                if (security.hasPin() && security.hasRecoveryEmail()) {
+                                    security.setProtectionEnabled(true)
+                                    protectionEnabled = true
+                                } else showSetup = true
+                            } else showDisableConfirmation = true
+                        }
+                    )
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                InformationCard(Modifier.weight(1f)) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Text("حماية الدخول", style = MaterialTheme.typography.titleSmall)
-                        Text(if (protectionEnabled) "مفعلة" else "غير مفعلة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Switch(checked = protectionEnabled, onCheckedChange = { enabled -> if (enabled) { if (security.hasPin() && security.hasRecoveryEmail()) { security.setProtectionEnabled(true); protectionEnabled = true } else showSetup = true } else showDisableConfirmation = true })
-                    }
-                }
-                InformationCard(Modifier.weight(1f)) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Text("حول التطبيق", style = MaterialTheme.typography.titleSmall)
-                        PrimaryButton("التفاصيل", onDetailsClick, Modifier.fillMaxWidth())
-                    }
-                }
-            }
-        }    }
+        }
+    }
 
-    if (showAddCurrency) AddCurrencyDialog(onDismiss = { showAddCurrency = false }, onAdded = { code, name -> if (CurrencyCatalog.add(code, name)) defaultCurrency = code.trim().uppercase(); showAddCurrency = false })
-    if (showSetup) SecuritySetupDialog(security, { showSetup = false }) { security.setProtectionEnabled(true); protectionEnabled = true; showSetup = false }
-    if (showDisableConfirmation) DisableProtectionDialog(security, { showDisableConfirmation = false }) { security.setProtectionEnabled(false); protectionEnabled = false; showDisableConfirmation = false }
+    if (showAddCurrency) AddCurrencyDialog(onDismiss = { showAddCurrency = false }, onAdded = { code, name ->
+        if (CurrencyCatalog.add(code, name)) {
+            defaultCurrency = code.trim().uppercase()
+            showAddCurrency = false
+        }
+    })
+    if (showSetup) SecuritySetupDialog(security, { showSetup = false }) {
+        security.setProtectionEnabled(true)
+        protectionEnabled = true
+        showSetup = false
+    }
+    if (showDisableConfirmation) DisableProtectionDialog(security, { showDisableConfirmation = false }) {
+        security.setProtectionEnabled(false)
+        protectionEnabled = false
+        showDisableConfirmation = false
+    }
 }
 
 @Composable
