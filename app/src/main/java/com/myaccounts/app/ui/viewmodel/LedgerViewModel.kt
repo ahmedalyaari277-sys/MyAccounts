@@ -37,7 +37,9 @@ class LedgerViewModel(
         viewModelScope.launch { repository.observeArchivedPersonsWithAccounts().collect { _archivedPersonsWithAccounts.value = it } }
     }
 
-    fun setSearchQuery(query: String) { searchQuery.value = query }
+    fun setSearchQuery(query: String) { searchQuery.value = normalizeSearchQuery(query) }
+
+    private fun normalizeSearchQuery(value: String): String = value.trim().map { ch -> when (ch) { in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar(); in '۰'..'۹' -> ('0'.code + ch.code - '۰'.code).toChar(); '٫' -> '.'; '٬' -> null; else -> ch } }.filterNotNull().joinToString("").replace(',', '.')
 
     fun addPerson(name: String, phone: String = "", address: String = "", notes: String = "") {
         if (name.isBlank()) return
