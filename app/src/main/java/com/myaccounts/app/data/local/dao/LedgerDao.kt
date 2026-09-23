@@ -15,7 +15,29 @@ interface LedgerDao {
     @Query("""
         SELECT * FROM people
         WHERE isActive = 1
-        AND (name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' OR address LIKE '%' || :query || '%' OR notes LIKE '%' || :query || '%')
+        AND (
+            :query = ''
+            OR name LIKE '%' || :query || '%'
+            OR phone LIKE '%' || :query || '%'
+            OR address LIKE '%' || :query || '%'
+            OR notes LIKE '%' || :query || '%'
+            OR EXISTS (
+                SELECT 1
+                FROM currency_accounts ca
+                INNER JOIN transactions t ON t.accountId = ca.id
+                WHERE ca.personId = people.id
+                  AND (
+                    t.type LIKE '%' || :query || '%'
+                    OR t.description LIKE '%' || :query || '%'
+                    OR t.externalId LIKE '%' || :query || '%'
+                    OR ca.currencyCode LIKE '%' || :query || '%'
+                    OR CAST(t.amountMinor AS TEXT) LIKE '%' || :query || '%'
+                    OR printf('%.2f', t.amountMinor / 100.0) LIKE '%' || :query || '%'
+                    OR strftime('%d-%m-%Y', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                    OR strftime('%Y-%m-%d', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                )
+            )
+        )
         ORDER BY name COLLATE NOCASE ASC
     """)
     fun observePeople(query: String): Flow<List<PersonEntity>>
