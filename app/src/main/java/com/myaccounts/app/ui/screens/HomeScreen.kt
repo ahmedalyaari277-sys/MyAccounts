@@ -71,14 +71,16 @@ private enum class PersonSortOrder { LATEST_TRANSACTION, ALPHABETICAL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, String, String, String) -> Unit, onPersonClick: (Long) -> Unit, onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) }, onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null, onReportsClick: () -> Unit = {}, onArchiveClick: () -> Unit = {}, onBackupRestoreClick: () -> Unit = {}) {
+fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, String, String, String) -> Unit, onPersonClick: (Long) -> Unit, onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) }, onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null, onReportsClick: () -> Unit = {}, onArchiveClick: () -> Unit = {}, onBackupRestoreClick: () -> Unit = {}, searchMatchedPersonIds: Set<Long> = emptySet(), onSearchQueryChange: (String) -> Unit = {}) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
     var quickTransactionPersonId by remember { mutableStateOf<Long?>(null) }
     var sortOrder by remember { mutableStateOf(PersonSortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
-    val filteredList = personsList.filter { item -> item.person.name.contains(searchQuery, ignoreCase = true) || item.person.phone.contains(searchQuery) || item.person.address.contains(searchQuery, ignoreCase = true) || item.person.notes.contains(searchQuery, ignoreCase = true) }
+    val filteredList = personsList.filter { item ->
+        searchQuery.isBlank() || item.person.id in searchMatchedPersonIds
+    }
     val displayedList = when (sortOrder) { PersonSortOrder.LATEST_TRANSACTION -> filteredList; PersonSortOrder.ALPHABETICAL -> filteredList.sortedBy { it.person.name.lowercase() } }
     val quickPerson = personsList.firstOrNull { it.person.id == quickTransactionPersonId }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
@@ -102,7 +104,7 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
     }) { paddingValues ->
         Box(Modifier.fillMaxSize().padding(paddingValues)) {
             Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 88.dp)) {
-                SearchField(query = searchQuery, onQueryChange = { searchQuery = it }, placeholder = "بحث بالاسم أو الهاتف أو العنوان أو الملاحظات")
+                SearchField(query = searchQuery, onQueryChange = { searchQuery = it; onSearchQueryChange(it) }, placeholder = "بحث في الحسابات: الاسم، المبلغ، التاريخ، التفاصيل أو أي بيانات")
                 Spacer(Modifier.height(8.dp))
                 if (displayedList.isEmpty()) {
                     EmptyState(type = EmptyStateType.People, title = if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث", description = if (searchQuery.isBlank()) "اضغط (+) لإضافة أول شخص" else "جرّب تعديل عبارة البحث")
