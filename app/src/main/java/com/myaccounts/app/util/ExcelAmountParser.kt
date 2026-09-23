@@ -2,7 +2,6 @@ package com.myaccounts.app.util
 
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.util.Locale
 
 /**
  * Parses the raw value stored by Excel, not its visual cell formatting.
