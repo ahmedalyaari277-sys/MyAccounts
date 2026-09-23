@@ -51,6 +51,8 @@ interface CustodyDao {
                     OR printf('%.2f', ct.amountMinor / 100.0) LIKE '%' || :query || '%'
                     OR strftime('%d-%m-%Y', ct.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
                     OR strftime('%Y-%m-%d', ct.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                    OR strftime('%d/%m/%Y', ct.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+                    OR strftime('%Y/%m/%d', ct.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
                   )
             )
           )
