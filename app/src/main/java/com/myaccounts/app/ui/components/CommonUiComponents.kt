@@ -132,7 +132,7 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    Button(onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp, pressedElevation = 0.dp)) {
+    Button(onClick = onClick, modifier = modifier.heightIn(min = 44.dp), enabled = enabled, shape = MaterialTheme.shapes.medium, elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp, pressedElevation = 0.dp)) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
