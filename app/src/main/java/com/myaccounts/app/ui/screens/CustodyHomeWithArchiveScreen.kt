@@ -48,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,6 +89,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
     var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    DisposableEffect(Unit) { onDispose { vm.setSearchQuery("") } }
     val displayedCustodies = when (sortOrder) { CustodySortOrder.LATEST_TRANSACTION -> custodies; CustodySortOrder.ALPHABETICAL -> custodies.sortedBy { it.name.trim().lowercase() } }
 
     Scaffold(topBar = {
@@ -116,6 +118,7 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                 placeholder = "بحث في العُهَد: الاسم، المبلغ، التاريخ، التفاصيل أو أي بيانات",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
+            if (searchQuery.isNotBlank()) Text("نتائج البحث: ${displayedCustodies.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
             items(displayedCustodies, key = { it.id }) { custody ->
