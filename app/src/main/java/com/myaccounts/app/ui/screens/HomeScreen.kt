@@ -40,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +79,7 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
     var sortOrder by remember { mutableStateOf(PersonSortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) { onDispose { onSearchQueryChange("") } }
     val filteredList = personsList.filter { item ->
         searchQuery.isBlank() || item.person.id in searchMatchedPersonIds
     }
@@ -106,6 +108,7 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
             Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 88.dp)) {
                 SearchField(query = searchQuery, onQueryChange = { searchQuery = it; onSearchQueryChange(it) }, placeholder = "بحث في الحسابات: الاسم، المبلغ، التاريخ، التفاصيل أو أي بيانات")
                 Spacer(Modifier.height(8.dp))
+                if (searchQuery.isNotBlank()) Text("نتائج البحث: ${displayedList.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
                 if (displayedList.isEmpty()) {
                     EmptyState(type = EmptyStateType.People, title = if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث", description = if (searchQuery.isBlank()) "اضغط (+) لإضافة أول شخص" else "جرّب تعديل عبارة البحث")
                 } else {
