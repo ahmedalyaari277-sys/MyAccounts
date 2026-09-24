@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
@@ -61,7 +62,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit, transactionViewModel: TransactionViewModel, accounts: List<CurrencyAccountEntity> = emptyList(), embedded: Boolean = false, modifier: Modifier = Modifier, personName: String = "") {
+fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit, transactionViewModel: TransactionViewModel, accounts: List<CurrencyAccountEntity> = emptyList(), embedded: Boolean = false, modifier: Modifier = Modifier, personName: String = "", targetTransactionId: Long? = null) {
     var selectedAccountId by remember(accountId) { mutableStateOf(accountId) }
     var selectedCurrencyCode by remember(currencyCode) { mutableStateOf(currencyCode) }
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
@@ -70,6 +71,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
     var showAddTransaction by remember { mutableStateOf(false) }
     var addAccounts by remember(accountId) { mutableStateOf(accounts) }
     var addPersonName by remember(accountId, personName) { mutableStateOf(personName) }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(selectedAccountId) { transactionViewModel.selectAccount(selectedAccountId) }
     LaunchedEffect(showAddTransaction, accountId) {
@@ -86,6 +88,8 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
     val balance by transactionViewModel.balance.collectAsState()
     val balanceStatus = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
     val balanceStatusText = when (balanceStatus) { BalanceStatus.Due -> "عليه"; BalanceStatus.Owed -> "له"; BalanceStatus.Neutral -> "متوازن" }
+    LaunchedEffect(transactions, targetTransactionId) { targetTransactionId?.let { id -> val index = transactions.indexOfFirst { it.id == id }; if (index >= 0) listState.animateScrollToItem(index) } }
+
     val balanceStatusColor = when (balanceStatus) { BalanceStatus.Due -> Due; BalanceStatus.Owed -> Owed; BalanceStatus.Neutral -> Neutral }
 
     val transactionContent: @Composable () -> Unit = {
@@ -95,7 +99,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
                     accounts.forEach { account -> CurrencyChip(currency = CurrencyCatalog.name(account.currencyCode), selected = selectedCurrencyCode == account.currencyCode, onClick = { selectedCurrencyCode = account.currencyCode; selectedAccountId = account.id }, modifier = Modifier.weight(1f)) }
                 }
             }
-            Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Card(modifier = Modifier.fillMaxWidth(), border = if (highlighted) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null, shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("الرصيد الحالي", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     BalanceAmount(amount = formatSignedAmount(balance), status = balanceStatus, modifier = Modifier.fillMaxWidth())
@@ -103,8 +107,8 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
                 }
             }
             if (transactions.isEmpty()) EmptyState(type = EmptyStateType.Transactions, title = "لا توجد عمليات حتى الآن", description = "أضف أول عملية لهذا الحساب باستخدام زر إضافة عملية.", modifier = Modifier.fillMaxWidth().weight(1f))
-            else LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)) {
-                items(transactions, key = { it.id }) { transaction -> Phase5TransactionCard(transaction, transactionViewModel, { transactionToEdit = transaction }, { transactionToDelete = transaction }, { transactionForAttachments = transaction }) }
+            else LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)) {
+                items(transactions, key = { it.id }) { transaction -> Phase5TransactionCard(transaction, transactionViewModel, { transactionToEdit = transaction }, { transactionToDelete = transaction }, { transactionForAttachments = transaction, highlighted = transaction.id == targetTransactionId) }
             }
             if (embedded) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { FloatingActionButton(onClick = { showAddTransaction = true }, modifier = Modifier.size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }
         }
@@ -132,7 +136,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
 }
 
 @Composable
-private fun Phase5TransactionCard(transaction: TransactionEntity, transactionViewModel: TransactionViewModel, onEdit: () -> Unit, onDelete: () -> Unit, onAttachments: () -> Unit) {
+private fun Phase5TransactionCard(transaction: TransactionEntity, transactionViewModel: TransactionViewModel, onEdit: () -> Unit, onDelete: () -> Unit, onAttachments: () -> Unit, highlighted: Boolean = false) {
     val attachmentCount by transactionViewModel.observeAttachmentCount(transaction.id).collectAsState(initial = 0)
     val date = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(transaction.transactionDate))
     val amount = BigDecimal(transaction.amountMinor).movePointLeft(2).stripTrailingZeros().toPlainString()
