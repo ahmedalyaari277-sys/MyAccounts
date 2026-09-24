@@ -17,6 +17,7 @@ import com.myaccounts.app.ui.screens.reports.*
 import com.myaccounts.app.ui.theme.AppearanceMode
 import com.myaccounts.app.ui.viewmodel.*
 import com.myaccounts.app.util.BackupScope
+import com.myaccounts.app.data.custody.CustodySearchResult
 
 @Composable
 fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, appearanceMode: AppearanceMode, onAppearanceModeChange: (AppearanceMode) -> Unit) {
@@ -53,7 +54,7 @@ fun AppNavHost(navController: NavHostController, viewModel: LedgerViewModel, app
         composable(Routes.CUSTODY_SPECIFIC_REPORT, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyReportsScreen(custody, { navController.popBackStack() }, id) } }
         composable(Routes.CUSTODY_TRANSFER) { CustodyTransferScreen(custody) { navController.popBackStack() } }
         composable(Routes.CUSTODY, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyCompactScreenFinal(custody, id, { navController.popBackStack() }, { personId -> navController.navigate(Routes.custodyPerson(id, personId)) }, { navController.navigate(Routes.custodyOwner(id)) }, { navController.navigate(Routes.custodyReport(id)) }) } }
-        composable(Routes.CUSTODY_OWNER, arguments = listOf(navArgument("custodyId") { type = NavType.LongType })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyLedgerScreen(custody, id, null, { navController.popBackStack() }, .92f) } }
-        composable(Routes.CUSTODY_PERSON, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("personId") { type = NavType.LongType })) { e -> val cid = e.arguments?.getLong("custodyId"); val pid = e.arguments?.getLong("personId"); if (cid != null && pid != null) CustodyPersonOperationsScreen(custody, cid, pid, { navController.popBackStack() }) }
+        composable(Routes.CUSTODY_OWNER, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("transactionId") { type = NavType.LongType; defaultValue = -1L })) { e -> e.arguments?.getLong("custodyId")?.let { id -> CustodyLedgerScreen(custody, id, null, { navController.popBackStack() }, .92f, e.arguments?.getLong("transactionId")?.takeIf { it > 0L }) } }
+        composable(Routes.CUSTODY_PERSON, arguments = listOf(navArgument("custodyId") { type = NavType.LongType }, navArgument("personId") { type = NavType.LongType }, navArgument("transactionId") { type = NavType.LongType; defaultValue = -1L })) { e -> val cid = e.arguments?.getLong("custodyId"); val pid = e.arguments?.getLong("personId"); val tx = e.arguments?.getLong("transactionId")?.takeIf { it > 0L }; if (cid != null && pid != null) CustodyPersonOperationsScreen(custody, cid, pid, { navController.popBackStack() }, tx) }
     }
 }
