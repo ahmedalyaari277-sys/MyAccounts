@@ -61,6 +61,7 @@ class CustodyRepository(private val db: com.myaccounts.app.data.local.AppDatabas
         CustodyTransactionType.PERSON_LOAN_TO_OWNER, CustodyTransactionType.OWNER_REPAY_PERSON_LOAN
     )
     fun observeCustodies(query: String = ""): Flow<List<CustodyEntity>> = dao.observeCustodies(query)
+    fun search(query: String): Flow<List<CustodySearchResult>> = dao.search(query)
     fun observeCustody(id: Long): Flow<CustodyEntity?> = dao.observeCustody(id)
     fun observePersons(id: Long): Flow<List<CustodyPersonEntity>> = dao.observePersons(id)
     fun observeAccounts(id: Long): Flow<List<CustodyAccountEntity>> = dao.observeAccounts(id)
