@@ -108,7 +108,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
             }
             if (transactions.isEmpty()) EmptyState(type = EmptyStateType.Transactions, title = "لا توجد عمليات حتى الآن", description = "أضف أول عملية لهذا الحساب باستخدام زر إضافة عملية.", modifier = Modifier.fillMaxWidth().weight(1f))
             else LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)) {
-                items(transactions, key = { it.id }) { transaction -> Phase5TransactionCard(transaction, transactionViewModel, { transactionToEdit = transaction }, { transactionToDelete = transaction }, { transactionForAttachments = transaction, highlighted = transaction.id == targetTransactionId) }
+                items(transactions, key = { it.id }) { transaction -> Phase5TransactionCard(transaction, transactionViewModel, { transactionToEdit = transaction }, { transactionToDelete = transaction }, { transactionForAttachments = transaction }, transaction.id == targetTransactionId) }
             }
             if (embedded) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { FloatingActionButton(onClick = { showAddTransaction = true }, modifier = Modifier.size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة عملية") } }
         }
