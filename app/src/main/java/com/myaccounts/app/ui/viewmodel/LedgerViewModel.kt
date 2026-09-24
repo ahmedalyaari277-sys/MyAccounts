@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.data.local.dao.LedgerSearchResult
 import com.myaccounts.app.data.repository.LedgerRepositoryContract
 import com.myaccounts.app.data.repository.RestorePersonResult
 import com.myaccounts.app.util.TransactionAttachmentStorage
@@ -24,6 +25,7 @@ class LedgerViewModel(
     private val searchQuery = MutableStateFlow("")
     private val _people = MutableStateFlow<List<PersonEntity>>(emptyList())
     val people: StateFlow<List<PersonEntity>> = _people.asStateFlow()
+    val searchResults: StateFlow<List<LedgerSearchResult>> = searchQuery.flatMapLatest { repository.search(it) }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyList())
     private val _personsWithAccounts = MutableStateFlow<List<PersonWithAccounts>>(emptyList())
     val personsWithAccounts: StateFlow<List<PersonWithAccounts>> = _personsWithAccounts.asStateFlow()
     private val _archivedPersonsWithAccounts = MutableStateFlow<List<PersonWithAccounts>>(emptyList())
