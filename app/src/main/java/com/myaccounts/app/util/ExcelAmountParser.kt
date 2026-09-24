@@ -55,11 +55,12 @@ object ExcelAmountParser {
 
         return runCatching {
             val decimal = BigDecimal(canonical)
-            if (decimal.signum() < 0) return@runCatching null
-            // More than two significant decimal places is invalid. Trailing
-            // zeroes beyond two are harmless (e.g. 123.4500).
-            if (decimal.scale() > 2) decimal.setScale(2, RoundingMode.UNNECESSARY)
-            decimal.movePointRight(2).longValueExact()
+            val normalized = decimal.abs()
+            val rounded = normalized.setScale(2, RoundingMode.HALF_UP)
+            // Excel formulas may leave a tiny binary/floating residue even after ROUND,
+            // e.g. 123.4500000001. Treat only a negligible residue as the same 2-decimal value.
+            require(normalized.subtract(rounded).abs() <= BigDecimal("0.000001"))
+            rounded.movePointRight(2).longValueExact()
         }.getOrNull()
     }
 }
