@@ -130,7 +130,6 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
                         items(displayedList, key = { it.person.id }) { item -> PersonCard(item, onClick = { onPersonClick(item.person.id) }, onQuickTransaction = { if (onQuickTransactionSave != null) quickTransactionPersonId = item.person.id else onQuickTransactionClick(item.person.id, "") }) }
                     }
                 }
-                }
             }
             FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة شخص") }
         }
