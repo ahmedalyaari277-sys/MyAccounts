@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myaccounts.app.data.custody.CustodyEntity
+import com.myaccounts.app.data.custody.CustodySearchResult
 import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.EmptyState
@@ -82,8 +83,9 @@ private fun Modifier.custodyKeepFocusedFieldVisible(): Modifier {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onArchive: () -> Unit, onReports: () -> Unit, onBackupRestore: () -> Unit, onTransfer: () -> Unit) {
+fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onArchive: () -> Unit, onReports: () -> Unit, onBackupRestore: () -> Unit, onTransfer: () -> Unit, onSearchResultClick: (CustodySearchResult) -> Unit = {}) {
     val custodies by vm.custodies.collectAsState()
+    val searchResults by vm.searchResults.collectAsState()
     var adding by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(CustodySortOrder.LATEST_TRANSACTION) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -118,37 +120,42 @@ fun CustodyHomeWithArchiveScreen(vm: CustodyViewModel, onBack: () -> Unit, onOpe
                 placeholder = "بحث في العُهَد: الاسم، المبلغ، التاريخ، التفاصيل أو أي بيانات",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
-            if (searchQuery.isNotBlank()) Text("نتائج البحث: ${displayedCustodies.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
-            items(displayedCustodies, key = { it.id }) { custody ->
-                val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
-                val entityNameColor = MaterialTheme.colorScheme.primary
-                InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(custody.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = entityNameColor)
-                            Text("حامل العهدة: ${custody.holderName.ifBlank { custody.name }}", style = MaterialTheme.typography.bodySmall, color = entityNameColor)
-                            Text("الجهة: ${custody.organizationName}", style = MaterialTheme.typography.bodySmall)
-                            if (custody.purpose.isNotBlank()) Text("الغرض: ${custody.purpose}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (searchQuery.isNotBlank()) {
+                Text("نتائج البحث: " + searchResults.size, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                if (searchResults.isEmpty()) {
+                    EmptyState(type = EmptyStateType.Custody, title = "لا توجد نتائج للبحث", description = "جرّب اسم العهدة أو الطرف أو المبلغ أو التاريخ أو التفاصيل.")
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(searchResults, key = { it.kind + "-" + (it.transactionId ?: it.personId ?: it.custodyId) }) { result ->
+                            CustodySearchResultCard(result) { onSearchResultClick(result) }
                         }
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            custodyHomeCurrencies.forEach { code ->
-                                val balance = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == code }?.balanceMinor ?: 0L
-                                val status = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
-                                val color = when (status) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = MaterialTheme.shapes.small,
-                                    tonalElevation = 1.dp,
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                                        verticalArrangement = Arrangement.spacedBy(1.dp)
-                                    ) {
-                                        Text(code, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text(when { balance > 0 -> "عليه ${balance / 100.0}"; balance < 0 -> "له ${(-balance) / 100.0}"; else -> "متوازن 0" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
+                    }
+                }
+            } else {
+                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (custodies.isEmpty()) item { EmptyState(type = EmptyStateType.Custody, title = "لا توجد عُهَد", description = "أضف أول عهدة للبدء في متابعة أصحاب العُهَد والعمليات المالية.") }
+                    items(displayedCustodies, key = { it.id }) { custody ->
+                        val accounts by vm.accounts(custody.id).collectAsState(initial = emptyList())
+                        val entityNameColor = MaterialTheme.colorScheme.primary
+                        InformationCard(Modifier.fillMaxWidth().clickable { onOpen(custody.id) }) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                    Text(custody.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = entityNameColor)
+                                    Text("حامل العهدة: " + custody.holderName.ifBlank { custody.name }, style = MaterialTheme.typography.bodySmall, color = entityNameColor)
+                                    Text("الجهة: " + custody.organizationName, style = MaterialTheme.typography.bodySmall)
+                                    if (custody.purpose.isNotBlank()) Text("الغرض: " + custody.purpose, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    custodyHomeCurrencies.forEach { code ->
+                                        val balance = accounts.firstOrNull { it.holderType == "OWNER" && it.personId == null && it.currencyCode == code }?.balanceMinor ?: 0L
+                                        val status = when { balance > 0L -> BalanceStatus.Due; balance < 0L -> BalanceStatus.Owed; else -> BalanceStatus.Neutral }
+                                        val color = when (status) { BalanceStatus.Due -> com.myaccounts.app.ui.theme.Due; BalanceStatus.Owed -> com.myaccounts.app.ui.theme.Owed; BalanceStatus.Neutral -> com.myaccounts.app.ui.theme.Neutral }
+                                        Surface(Modifier.weight(1f), shape = MaterialTheme.shapes.small, tonalElevation = 1.dp, color = MaterialTheme.colorScheme.surfaceVariant) {
+                                            Column(Modifier.padding(horizontal = 6.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                                Text(code, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(when { balance > 0 -> "عليه " + balance / 100.0; balance < 0 -> "له " + (-balance) / 100.0; else -> "متوازن 0" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -203,6 +210,18 @@ private fun CustodyCreateDialog(onDismiss: () -> Unit, onSave: (CustodyEntity) -
                     Button(enabled = custodyName.isNotBlank() && holderName.isNotBlank() && organization.isNotBlank(), onClick = { onSave(CustodyEntity(name = custodyName.trim(), holderName = holderName.trim(), phone = holderPhone.trim(), address = holderAddress.trim(), notes = holderNotes.trim(), purpose = purpose.trim(), organizationName = organization.trim(), organizationPhone = organizationPhone.trim(), organizationAddress = organizationAddress.trim(), organizationNotes = organizationNotes.trim())) }) { Text("حفظ") }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun CustodySearchResultCard(result: CustodySearchResult, onClick: () -> Unit) {
+    InformationCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(if (result.kind == "CUSTODY") result.title else result.title.ifBlank { "عملية بدون تفاصيل" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(if (result.kind == "CUSTODY") "عهدة — " + result.subtitle else if (result.kind == "PERSON") "طرف — " + result.subtitle else "عملية — " + result.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (result.kind == "TRANSACTION") Text((result.amountMinor?.div(100.0)?.toString() ?: "") + " " + result.currencyCode.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
