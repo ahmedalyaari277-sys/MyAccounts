@@ -16,7 +16,7 @@ class ExcelAmountParserTest {
         assertEquals(123456L, ExcelAmountParser.parse("123,456.00"))
         assertEquals(123456L, ExcelAmountParser.parse("123.456,00"))
     }
-    @Test fun rejectsRealThirdDecimalAndInvalidValues() {
+    @Test fun acceptsExcelFloatingResidueAndNegativeDisplayValues() {\n        assertEquals(12345L, ExcelAmountParser.parse("123.4500000001"))\n        assertEquals(12345L, ExcelAmountParser.parse("-123.45"))\n    }\n\n    @Test fun rejectsRealThirdDecimalAndInvalidValues() {
         assertNull(ExcelAmountParser.parse("123.456"))
         assertNull(ExcelAmountParser.parse("abc"))
         assertNull(ExcelAmountParser.parse(""))
