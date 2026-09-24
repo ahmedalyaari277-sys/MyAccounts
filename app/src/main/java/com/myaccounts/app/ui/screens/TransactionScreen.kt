@@ -99,7 +99,7 @@ fun TransactionScreen(accountId: Long, currencyCode: String, onBack: () -> Unit,
                     accounts.forEach { account -> CurrencyChip(currency = CurrencyCatalog.name(account.currencyCode), selected = selectedCurrencyCode == account.currencyCode, onClick = { selectedCurrencyCode = account.currencyCode; selectedAccountId = account.id }, modifier = Modifier.weight(1f)) }
                 }
             }
-            Card(modifier = Modifier.fillMaxWidth(), border = if (highlighted) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null, shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("الرصيد الحالي", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     BalanceAmount(amount = formatSignedAmount(balance), status = balanceStatus, modifier = Modifier.fillMaxWidth())
