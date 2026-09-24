@@ -22,6 +22,7 @@ class CustodyViewModel(app: Application): AndroidViewModel(app) {
     private val dao = com.myaccounts.app.data.local.AppDatabase.getInstance(app).custodyDao()
     private val db = com.myaccounts.app.data.local.AppDatabase.getInstance(app)
     private val custodySearchQuery = MutableStateFlow("")
+    val searchResults: StateFlow<List<CustodySearchResult>> = custodySearchQuery.flatMapLatest { query -> repo.search(query) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val custodies = custodySearchQuery.flatMapLatest { repo.observeCustodies(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val custodyFlows = mutableMapOf<Long, StateFlow<CustodyEntity?>>()
     private val personFlows = mutableMapOf<Long, StateFlow<List<CustodyPersonEntity>>>()
