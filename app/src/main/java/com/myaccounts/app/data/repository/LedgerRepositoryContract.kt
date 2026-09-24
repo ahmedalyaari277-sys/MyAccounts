@@ -3,6 +3,7 @@ package com.myaccounts.app.data.repository
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.data.local.dao.LedgerSearchResult
 import kotlinx.coroutines.flow.Flow
 
 enum class RestorePersonResult {
@@ -13,6 +14,7 @@ enum class RestorePersonResult {
 
 interface LedgerRepositoryContract {
     fun observePeople(query: String): Flow<List<PersonEntity>>
+    fun search(query: String): Flow<List<LedgerSearchResult>>
     fun observePerson(personId: Long): Flow<PersonEntity?>
     fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>>
     fun observeArchivedPersonsWithAccounts(): Flow<List<PersonWithAccounts>>
