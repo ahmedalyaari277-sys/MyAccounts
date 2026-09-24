@@ -5,3 +5,6 @@ Current APK workflow trigger.
 
 
 <!-- Final user-fixes verification build -->
+
+
+<!-- Verification build: Excel import, hierarchical search, settings organization -->
