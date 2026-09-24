@@ -16,6 +16,7 @@ class LedgerRepository(
     private val database: AppDatabase
 ) : LedgerRepositoryContract {
     override fun observePeople(query: String): Flow<List<PersonEntity>> = dao.observePeople(query)
+    override fun search(query: String): Flow<List<LedgerSearchResult>> = dao.search(query)
     override fun observePerson(personId: Long): Flow<PersonEntity?> = dao.observePerson(personId)
     override fun observePersonsWithAccounts(): Flow<List<PersonWithAccounts>> = dao.observePersonsWithAccounts()
     override fun observeArchivedPersonsWithAccounts(): Flow<List<PersonWithAccounts>> = dao.observeArchivedPersonsWithAccounts()
