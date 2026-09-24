@@ -56,6 +56,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.myaccounts.app.data.local.TransactionEntity
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
+import com.myaccounts.app.data.local.dao.LedgerSearchResult
 import com.myaccounts.app.ui.components.AppTopBar
 import com.myaccounts.app.ui.components.BalanceStatus
 import com.myaccounts.app.ui.components.EmptyState
@@ -67,12 +68,15 @@ import com.myaccounts.app.ui.theme.EntityName
 import com.myaccounts.app.ui.theme.EntityNameDark
 import com.myaccounts.app.util.TransactionAttachmentStorage
 import java.math.BigDecimal
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private enum class PersonSortOrder { LATEST_TRANSACTION, ALPHABETICAL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, String, String, String) -> Unit, onPersonClick: (Long) -> Unit, onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) }, onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null, onReportsClick: () -> Unit = {}, onArchiveClick: () -> Unit = {}, onBackupRestoreClick: () -> Unit = {}, searchMatchedPersonIds: Set<Long> = emptySet(), onSearchQueryChange: (String) -> Unit = {}) {
+fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, String, String, String) -> Unit, onPersonClick: (Long) -> Unit, onQuickTransactionClick: (Long, String) -> Unit = { personId, _ -> onPersonClick(personId) }, onQuickTransactionSave: ((TransactionEntity, List<TransactionAttachmentStorage.SelectedAttachment>) -> Unit)? = null, onReportsClick: () -> Unit = {}, onArchiveClick: () -> Unit = {}, onBackupRestoreClick: () -> Unit = {}, searchMatchedPersonIds: Set<Long> = emptySet(), searchResults: List<LedgerSearchResult> = emptyList(), onSearchQueryChange: (String) -> Unit = {}, onSearchResultClick: (LedgerSearchResult) -> Unit = {}) {
     var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
     var quickTransactionPersonId by remember { mutableStateOf<Long?>(null) }
@@ -108,13 +112,24 @@ fun HomeScreen(personsList: List<PersonWithAccounts>, onAddPerson: (String, Stri
             Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 88.dp)) {
                 SearchField(query = searchQuery, onQueryChange = { searchQuery = it; onSearchQueryChange(it) }, placeholder = "بحث في الحسابات: الاسم، المبلغ، التاريخ، التفاصيل أو أي بيانات")
                 Spacer(Modifier.height(8.dp))
-                if (searchQuery.isNotBlank()) Text("نتائج البحث: ${displayedList.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
-                if (displayedList.isEmpty()) {
-                    EmptyState(type = EmptyStateType.People, title = if (searchQuery.isBlank()) "لا توجد حسابات مسجلة" else "لا توجد نتائج للبحث", description = if (searchQuery.isBlank()) "اضغط (+) لإضافة أول شخص" else "جرّب تعديل عبارة البحث")
+                if (searchQuery.isNotBlank()) {
+                    Text("نتائج البحث: " + searchResults.size, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                    if (searchResults.isEmpty()) {
+                        EmptyState(type = EmptyStateType.People, title = "لا توجد نتائج للبحث", description = "جرّب الاسم أو الهاتف أو التفاصيل أو المبلغ أو التاريخ.")
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(searchResults, key = { it.kind + "-" + (it.transactionId ?: it.personId) }) { result ->
+                                LedgerSearchResultCard(result, onClick = { onSearchResultClick(result) })
+                            }
+                        }
+                    }
+                } else if (displayedList.isEmpty()) {
+                    EmptyState(type = EmptyStateType.People, title = "لا توجد حسابات مسجلة", description = "اضغط (+) لإضافة أول شخص")
                 } else {
                     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(displayedList, key = { it.person.id }) { item -> PersonCard(item, onClick = { onPersonClick(item.person.id) }, onQuickTransaction = { if (onQuickTransactionSave != null) quickTransactionPersonId = item.person.id else onQuickTransactionClick(item.person.id, "") }) }
                     }
+                }
                 }
             }
             FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).size(56.dp), containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = MaterialTheme.shapes.large) { Icon(Icons.Default.Add, contentDescription = "إضافة شخص") }
@@ -197,4 +212,24 @@ private fun AddPersonDialog(onDismiss: () -> Unit, onSave: (String, String, Stri
             OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("الملاحظات") }, minLines = 2, shape = MaterialTheme.shapes.small)
         }
     }, confirmButton = { Button(onClick = { if (name.isBlank()) nameError = true else onSave(name.trim(), phone.trim(), address.trim(), notes.trim()) }) { Text("حفظ", style = MaterialTheme.typography.labelLarge) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء", style = MaterialTheme.typography.labelLarge) } })
+}
+
+
+@Composable
+private fun LedgerSearchResultCard(result: LedgerSearchResult, onClick: () -> Unit) {
+    InformationCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(if (result.kind == "PERSON") result.title else result.title.ifBlank { "عملية بدون تفاصيل" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(if (result.kind == "PERSON") "شخص" else "عملية — " + result.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (result.kind == "TRANSACTION") {
+                    val amount = result.amountMinor?.let { BigDecimal(it).movePointLeft(2).stripTrailingZeros().toPlainString() }.orEmpty()
+                    val date = result.transactionDate?.let { SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(it)) }.orEmpty()
+                    Text(amount + " " + result.currencyCode.orEmpty() + "  •  " + date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
 }
