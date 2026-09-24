@@ -10,13 +10,14 @@ fun CustodyPersonOperationsScreen(
     vm: CustodyViewModel,
     custodyId: Long,
     personId: Long,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    targetTransactionId: Long? = null
 ) {
     val people by vm.persons(custodyId).collectAsState()
     val person = people.firstOrNull { it.id == personId }
     if (person?.partyType == "ENTITY") {
         CustodyOrganizationOperationsScreen(vm = vm, custodyId = custodyId, personId = personId, onBack = onBack)
     } else {
-        CustodyPersonLedgerScreen(vm = vm, custodyId = custodyId, personId = personId, onBack = onBack)
+        CustodyPersonLedgerScreen(vm = vm, custodyId = custodyId, personId = personId, onBack = onBack, targetTransactionId = targetTransactionId)
     }
 }
