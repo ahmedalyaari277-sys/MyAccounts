@@ -140,6 +140,39 @@ interface LedgerDao {
     """)
     fun getActiveExcelRows(): List<ExcelExportRow>
 
+    @Query("""
+        SELECT 'PERSON' AS kind, p.id AS personId, NULL AS accountId, NULL AS transactionId,
+               NULL AS currencyCode, p.name AS title, p.phone AS subtitle,
+               NULL AS amountMinor, NULL AS transactionDate
+        FROM people p
+        WHERE p.isActive = 1
+          AND (
+            p.name LIKE '%' || :query || '%' OR p.phone LIKE '%' || :query || '%'
+            OR p.address LIKE '%' || :query || '%' OR p.notes LIKE '%' || :query || '%'
+          )
+        UNION ALL
+        SELECT 'TRANSACTION' AS kind, p.id AS personId, ca.id AS accountId, t.id AS transactionId,
+               ca.currencyCode AS currencyCode, t.description AS title, p.name AS subtitle,
+               t.amountMinor AS amountMinor, t.transactionDate AS transactionDate
+        FROM people p
+        INNER JOIN currency_accounts ca ON ca.personId = p.id
+        INNER JOIN transactions t ON t.accountId = ca.id
+        WHERE p.isActive = 1
+          AND (
+            p.name LIKE '%' || :query || '%' OR t.description LIKE '%' || :query || '%'
+            OR t.externalId LIKE '%' || :query || '%' OR ca.currencyCode LIKE '%' || :query || '%'
+            OR CAST(t.amountMinor AS TEXT) LIKE '%' || :query || '%'
+            OR printf('%.2f', t.amountMinor / 100.0) LIKE '%' || :query || '%'
+            OR strftime('%d-%m-%Y', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+            OR strftime('%Y-%m-%d', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+            OR strftime('%d/%m/%Y', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+            OR strftime('%Y/%m/%d', t.transactionDate / 1000, 'unixepoch', 'localtime') LIKE '%' || :query || '%'
+            OR t.type LIKE '%' || :query || '%'
+          )
+        ORDER BY kind ASC, transactionDate DESC
+    """)
+    fun search(query: String): Flow<List<LedgerSearchResult>>
+
     @Transaction
     suspend fun insertPersonWithCurrencyAccounts(person: PersonEntity, currencyCodes: List<String>): Long {
         val personId = insertPerson(person)
