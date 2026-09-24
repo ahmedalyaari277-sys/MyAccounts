@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -60,18 +61,19 @@ private fun Modifier.orgKeepFocusedVisible(): Modifier {
 }
 
 @Composable
-fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, personId: Long, onBack: () -> Unit) {
+fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, personId: Long, onBack: () -> Unit, targetTransactionId: Long? = null) {
     val context = LocalContext.current
     val custody by vm.custody(custodyId).collectAsState()
     val people by vm.persons(custodyId).collectAsState()
     val transactions by vm.transactions(custodyId).collectAsState()
     val person = people.firstOrNull { it.id == personId && it.partyType == "ENTITY" } ?: return
     val current = custody ?: return
-    var currency by remember { mutableStateOf("YER") }
+    var currency by remember { mutableStateOf("YER") }; val listState = rememberLazyListState()
     var add by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var deleting by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
     var transferring by remember { mutableStateOf<CustodyTransactionEntity?>(null) }
+    LaunchedEffect(transactions, targetTransactionId) { targetTransactionId?.let { id -> val tx = transactions.firstOrNull { it.id == id }; if (tx != null) { currency = tx.currencyCode; val index = transactions.filter { it.personId == personId && it.currencyCode == tx.currencyCode }.sortedByDescending { it.transactionDate }.indexOfFirst { it.id == id }; if (index >= 0) listState.animateScrollToItem(index) } } }
     val rows = transactions.filter { it.personId == personId && it.currencyCode == currency }.sortedByDescending { it.transactionDate }
 
     Scaffold(
@@ -94,9 +96,10 @@ fun CustodyOrganizationOperationsScreen(vm: CustodyViewModel, custodyId: Long, p
             if (rows.isEmpty()) {
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(24.dp)) { Text("لا توجد عمليات صرف لهذه العملة", fontWeight = FontWeight.Bold); Text("استخدم زر + لإضافة عملية صرف للجهة.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             } else {
-                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(rows, key = { it.id }) { tx ->
                         CustodyOperationCard(
+                            modifier = if (targetTransactionId == tx.id) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small) else Modifier,
                             operationType = "صرف",
                             amount = orgMoney(tx.amountMinor),
                             currency = tx.currencyCode,
