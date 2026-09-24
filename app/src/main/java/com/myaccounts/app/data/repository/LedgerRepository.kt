@@ -6,6 +6,7 @@ import com.myaccounts.app.data.local.AppDatabase
 import com.myaccounts.app.data.local.CurrencyAccountEntity
 import com.myaccounts.app.data.local.PersonEntity
 import com.myaccounts.app.data.local.dao.LedgerDao
+import com.myaccounts.app.data.local.dao.LedgerSearchResult
 import com.myaccounts.app.data.local.dao.PersonWithAccounts
 import com.myaccounts.app.data.local.dao.TransactionDao
 import kotlinx.coroutines.flow.Flow
