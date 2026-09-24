@@ -16,7 +16,7 @@ fun CustodyPersonOperationsScreen(
     val people by vm.persons(custodyId).collectAsState()
     val person = people.firstOrNull { it.id == personId }
     if (person?.partyType == "ENTITY") {
-        CustodyOrganizationOperationsScreen(vm = vm, custodyId = custodyId, personId = personId, onBack = onBack)
+        CustodyOrganizationOperationsScreen(vm = vm, custodyId = custodyId, personId = personId, onBack = onBack, targetTransactionId = targetTransactionId)
     } else {
         CustodyPersonLedgerScreen(vm = vm, custodyId = custodyId, personId = personId, onBack = onBack, targetTransactionId = targetTransactionId)
     }
